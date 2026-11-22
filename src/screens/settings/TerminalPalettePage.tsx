@@ -17,6 +17,7 @@ import KeyboardAwareScrollView from '../../components/common/keyboard/KeyboardAw
 import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { useHeaderPlacement, useScrollToBarEdges } from '../../components/common/verticalBar/VerticalBarArea';
 import { useSettingsStore } from '../../settings/store';
+import { patchThemeSettings } from '../../settingsSync/settingsSync';
 import { terminalPaletteLabel, terminalPaletteNames } from '../../theme/terminalPalettes';
 import { useAppearance } from '../../theme/useAppearance';
 import { SettingsSection } from './SectionBoundary';
@@ -28,7 +29,6 @@ export default function TerminalPalettePage({ dark }: { dark: boolean }) {
   const key = dark ? 'terminalGhosttyTheme' : 'terminalGhosttyLightTheme';
   const current = useSettingsStore((state) => state.settings[key]);
   const imported = useSettingsStore((state) => state.settings.importedTerminalPalettes);
-  const setSetting = useSettingsStore((state) => state.setSetting);
   const styles = useSettingsStyles();
   const appearance = useAppearance();
   const [filter, setFilter] = useState('');
@@ -50,9 +50,13 @@ export default function TerminalPalettePage({ dark }: { dark: boolean }) {
   // A stable row renderer, new only when the selection changes (React Compiler is off).
   const renderItem = useCallback(
     ({ item }: { item: string }) => (
-      <ChoiceRow label={terminalPaletteLabel(item)} selected={item === current} onPress={() => setSetting(key, item)} />
+      <ChoiceRow
+        label={terminalPaletteLabel(item)}
+        selected={item === current}
+        onPress={() => patchThemeSettings({ [key]: item })}
+      />
     ),
-    [current, key, setSetting],
+    [current, key],
   );
 
   const header = (

@@ -217,6 +217,7 @@ import { GhostexPalette } from '../theme/palette';
 import { useStatusBarStyle } from '../theme/statusBar';
 import { useAppearance } from '../theme/useAppearance';
 import { HeaderBackdrop } from '../theme/HeaderBackdrop';
+import { ScreenArtBackdrop, useHasScreenArtBackdrop } from '../theme/ScreenArtBackdrop';
 import { clearDialBackoff } from '../remote/dialBackoff';
 import {
   closePutsSessionToSleep,
@@ -1653,12 +1654,13 @@ export default function SessionsScreen({ navigation }: Props) {
     return { entries, pinned: 0, moreMenu: 'always', reserveKeyboard: true };
   }, [sidebarAppearance.foreground, needsYou, navigation, wallOffered, sessionListView, chooseListView]);
   useRailButtons(railButtons, sidebarAppearance.background, inRail && isFocused);
+  const hasScreenArt = useHasScreenArtBackdrop(sidebarAppearance.light);
 
   return (
     <SafeAreaView
       style={[
         styles.container,
-        { backgroundColor: sidebarAppearance.background },
+        { backgroundColor: sidebarAppearance.background, overflow: 'hidden' },
         // In the side bar's poses the title row starts below the system's top margin.
         inRail ? { paddingTop: contentTop } : null,
       ]}
@@ -1666,6 +1668,7 @@ export default function SessionsScreen({ navigation }: Props) {
       // keeps it here as before, so its navigation bar area shows the screen's background, not the bar's.
       edges={inRail ? [] : Platform.OS === 'ios' ? ['top'] : ['top', 'bottom']}
     >
+      <ScreenArtBackdrop baseColor={sidebarAppearance.background} area="sidebar" lightOverride={sidebarAppearance.light} />
       <View
         style={[
           styles.headerRow,
@@ -1675,7 +1678,7 @@ export default function SessionsScreen({ navigation }: Props) {
             : null,
         ]}
       >
-        <HeaderBackdrop baseColor={sidebarAppearance.background} />
+        {hasScreenArt ? null : <HeaderBackdrop baseColor={sidebarAppearance.background} />}
         {/*
           Manual refresh is pull-to-refresh on the list below, so the title has
           the header row's leading space to itself. Long-pressing it opens the

@@ -1,6 +1,7 @@
 /**
  * Optional dimmed static artwork or static Live tint gradient rendered behind the phone's header/top bar
- * (Q4467: palette + subtle tint + optional dimmed artwork backdrop, 100% JS/TS OTA-safe).
+ * (100% JS/TS OTA-safe). Supports all 32 desktop artworks via on-demand cache (`artworks.ts`) for both
+ * dark (`windowArt`) and light (`windowArtLight`) appearances.
  *
  * Place as the first child inside a header container with `overflow: 'hidden'` and `position: 'relative'`.
  */
@@ -11,7 +12,8 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useSettingsStore } from '../settings/store';
-import { BUNDLED_ART_IMAGES, isBundledArtId, liveGradientForStyle } from './themeLooks';
+import { isKnownArtworkId, useArtworkSource } from './artworks';
+import { liveGradientForStyle } from './themeLooks';
 import { useAppearance } from './useAppearance';
 
 export type HeaderBackdropProps = {
@@ -38,30 +40,31 @@ export function HeaderBackdrop({
   const stored = useSettingsStore(
     useShallow(({ settings }) => ({
       show: settings.showHeaderArtworkBackdrop,
-      art: settings.windowArt,
+      art: appearance.light ? settings.windowArtLight : settings.windowArt,
       dim: settings.windowArtDim,
       live: settings.windowLiveStyle,
     })),
   );
   const gradId = useId().replace(/[^a-zA-Z0-9_-]/gu, '');
   const enabled = enabledProp ?? stored.show;
+  const artId = artIdProp ?? stored.art;
+  const activeArtId = enabled && isKnownArtworkId(artId) ? artId : null;
+  const artSource = useArtworkSource(activeArtId);
+
   if (!enabled) return null;
 
   const base = baseColor ?? appearance.background;
-  const artId = artIdProp ?? stored.art;
   const dim = Math.max(0, Math.min(100, dimPercentProp ?? stored.dim));
   const liveStyle = liveStyleProp ?? stored.live;
 
-  if (isBundledArtId(artId) && !appearance.light) {
-    // 45% dim -> ~0.42 image opacity under a bottom-fading scrim, matching the approved Q4467 mockup.
-    // All 6 bundled artworks are dark-mode looks, so light mode stays clean solid.
+  if (activeArtId !== null && artSource !== null) {
     const imageOpacity = Math.max(0.14, Math.min(0.62, ((100 - dim) / 100) * 0.76));
-    const topScrimOpacity = 0.42;
+    const topScrimOpacity = appearance.light ? 0.5 : 0.42;
     const bottomScrimOpacity = 0.92;
     return (
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <Image
-          source={BUNDLED_ART_IMAGES[artId]}
+          source={artSource}
           resizeMode="cover"
           style={[StyleSheet.absoluteFill, { opacity: imageOpacity }]}
         />

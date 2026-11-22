@@ -39,7 +39,8 @@ import {
   type SidebarThemeSetting,
   type ThemeColourSettings,
 } from './sidebarAppearance';
-import { ALL_THEME_LOOKS, isBundledArtId, liveGradientForStyle, themeLookMatches } from './themeLooks';
+import { artworkById, isKnownArtworkId, sanitizeWindowArt } from './artworks';
+import { ALL_THEME_LOOKS, liveGradientForStyle, themeLookMatches } from './themeLooks';
 import {
   resolveRoleOverBase,
   rolesForAppearance,
@@ -52,14 +53,14 @@ const READ_TIMEOUT_MS = 10_000;
 const SSH_LIST_TIMEOUT_MS = 14_000;
 const SSH_GET_TIMEOUT_MS = 6_000;
 
-/** Desktop Stage 1 (`d5ac33b34` `defaults.rs`) default dark `themeRoles` when `themeRoles` is omitted in sparse settings. */
-const DESKTOP_STAGE1_DEFAULT_DARK_ROLES: ThemeRoleMap = {
-  accent: '#d8664f',
-  focusRing: '#d8664f',
+/** Desktop built-in default dark `themeRoles` (`defaults.rs` at 5ce4a5f7d / 67eb86437: Polar Night). */
+const DESKTOP_DEFAULT_DARK_ROLES: ThemeRoleMap = {
+  accent: '#5581a9',
+  focusRing: '#5581a9',
   border: '8%',
   divider: '6%',
-  text: '#ece4d6',
-  mutedText: '#9b968d',
+  text: '#e6e4de',
+  mutedText: '#8c95a3',
   userMessage: 'base+12%',
   chatBox: 'base+6%/80%',
   surface: 'base+8%/80%',
@@ -67,12 +68,27 @@ const DESKTOP_STAGE1_DEFAULT_DARK_ROLES: ThemeRoleMap = {
   menu: 'base+6%/95%',
   selection: '9%',
   hover: '5%',
-  success: '#9cbf8c',
-  warning: '#d9b46a',
-  danger: '#e06c75',
+  success: '#a3c48e',
+  warning: '#dcbd7a',
+  danger: '#d9827c',
 };
 
-const DESKTOP_STAGE1_DEFAULT_DARK_TINT = '#46506a';
+const DESKTOP_DEFAULT_LIGHT_ROLES: ThemeRoleMap = {
+  text: '#5c6a72',
+  mutedText: '#939f91',
+  accent: '#8da101',
+  focusRing: '#8da101',
+  link: '#3a94c5',
+  success: '#8da101',
+  warning: '#dfa000',
+  danger: '#f85552',
+  userMessage: '#efebd4',
+  codeBlock: '#f4f0d9',
+  selection: '#eaedc8',
+};
+
+const DESKTOP_DEFAULT_DARK_TINT = '#404e78';
+const DESKTOP_DEFAULT_LIGHT_TINT = '#fcf3da';
 
 /** Core theme keys queried one-by-one only if `ghostex settings list --json` is unsupported on an older CLI. */
 const FALLBACK_THEME_KEYS: readonly string[] = [
@@ -88,6 +104,7 @@ const FALLBACK_THEME_KEYS: readonly string[] = [
   'themeContrast',
   'themeRoles',
   'windowArt',
+  'windowArtLight',
   'windowArtDim',
   'windowGlass',
   'windowGlassSource',
@@ -179,22 +196,27 @@ export function parseComputerThemeSettings(
   const sidebarTheme: SidebarThemeSetting =
     oneOf(raw.sidebarTheme, SIDEBAR_THEME_OPTIONS) ?? defaults.sidebarTheme;
 
-  // Desktop Stage 1 defaults: darkThemePreset = "custom", tint = "#46506a", darkness = 96.
+  // Desktop defaults (5ce4a5f7d / 67eb86437): darkThemePreset = "custom" (#404e78, depth 96),
+  // lightThemePreset = "custom" (#fcf3da, depth 97), windowArt = "polar-night", windowArtLight = "gm-light".
   const rawDarkPreset = oneOf<DarkThemePreset>(raw.darkThemePreset, DARK_THEME_PRESETS);
   const rawLightPreset = oneOf<LightThemePreset>(raw.lightThemePreset, LIGHT_THEME_PRESETS);
   const darkThemePreset: DarkThemePreset = rawDarkPreset ?? 'custom';
-  const lightThemePreset: LightThemePreset = rawLightPreset ?? 'gray';
+  const lightThemePreset: LightThemePreset = rawLightPreset ?? 'custom';
 
   const darkTint = normalizeHexColor(
     raw.customSidebarTitlebarBackgroundTintColor,
-    darkThemePreset === 'custom' ? DESKTOP_STAGE1_DEFAULT_DARK_TINT : DEFAULT_THEME_TINT,
+    darkThemePreset === 'custom' ? DESKTOP_DEFAULT_DARK_TINT : DEFAULT_THEME_TINT,
   );
-  const lightTint = normalizeHexColor(raw.customSidebarTitlebarLightBackgroundTintColor, DEFAULT_THEME_TINT);
+  const lightTint = normalizeHexColor(
+    raw.customSidebarTitlebarLightBackgroundTintColor,
+    lightThemePreset === 'custom' ? DESKTOP_DEFAULT_LIGHT_TINT : DEFAULT_THEME_TINT,
+  );
   const darkDepth = clampDarkThemeDepth(
     parseNumber(raw.customSidebarTitlebarBackgroundDarknessPercent) ?? DEFAULT_THEME_DEPTH,
   );
   const lightDepth = clampLightThemeDepth(
-    parseNumber(raw.customSidebarTitlebarLightBackgroundLightnessPercent) ?? DEFAULT_THEME_DEPTH,
+    parseNumber(raw.customSidebarTitlebarLightBackgroundLightnessPercent) ??
+      (lightThemePreset === 'custom' ? 97 : DEFAULT_THEME_DEPTH),
   );
 
   // Respect legacy `themeContrast` (-2..2) when `themeSidebarContrast` / `themeWorkAreaContrast` are absent.
@@ -211,20 +233,24 @@ export function parseComputerThemeSettings(
     parseNumber(raw.themeWorkAreaContrast) ?? legacyContrastPoints,
   );
 
-  // Desktop `theme_roles.rs` falls back to catalog default `themeRoles` (Inkstone dark roles) when `themeRoles` is absent.
+  // Desktop `theme_roles.rs` falls back to catalog default `themeRoles` when `themeRoles` is absent.
   const themeRoles = Object.prototype.hasOwnProperty.call(raw, 'themeRoles')
     ? sanitizeThemeRoles(raw.themeRoles)
-    : { dark: { ...DESKTOP_STAGE1_DEFAULT_DARK_ROLES } };
+    : { dark: { ...DESKTOP_DEFAULT_DARK_ROLES }, light: { ...DESKTOP_DEFAULT_LIGHT_ROLES } };
 
-  const rawWindowArt = nonEmptyString(raw.windowArt)?.toLowerCase() ?? 'none';
-  const windowArt = isBundledArtId(rawWindowArt) ? rawWindowArt : 'none';
+  const windowArt = Object.prototype.hasOwnProperty.call(raw, 'windowArt')
+    ? sanitizeWindowArt(raw.windowArt, 'none')
+    : 'polar-night';
+  const windowArtLight = Object.prototype.hasOwnProperty.call(raw, 'windowArtLight')
+    ? sanitizeWindowArt(raw.windowArtLight, 'none')
+    : 'gm-light';
   const windowArtDim = Math.max(0, Math.min(100, Math.round(parseNumber(raw.windowArtDim) ?? 45)));
 
-  // Desktop Stage 1 defaults: windowGlassSource = "live", windowGlassLiveStyleDark = "ink" unless windowGlass === "opaque".
+  // Desktop Live fallback only when no still artwork is active.
   const rawWindowGlass = nonEmptyString(raw.windowGlass)?.toLowerCase();
   const glassOpaque = rawWindowGlass === 'opaque';
   const rawGlassSource = nonEmptyString(raw.windowGlassSource)?.toLowerCase() ?? (glassOpaque ? 'none' : 'live');
-  const rawLiveStyle = nonEmptyString(raw.windowGlassLiveStyleDark)?.toLowerCase() ?? 'ink';
+  const rawLiveStyle = nonEmptyString(raw.windowGlassLiveStyleDark)?.toLowerCase() ?? 'aurora';
   const windowLiveStyle =
     windowArt === 'none' && !glassOpaque && rawGlassSource === 'live' && rawLiveStyle !== 'none'
       ? rawLiveStyle
@@ -252,6 +278,7 @@ export function parseComputerThemeSettings(
     themeWorkAreaContrast,
     themeRoles,
     windowArt,
+    windowArtLight,
     windowArtDim,
     windowLiveStyle,
     sessionChatTheme,
@@ -288,6 +315,7 @@ export function parseComputerThemeSettings(
     themeSidebarContrast,
     themeWorkAreaContrast,
     windowArt,
+    windowArtLight,
     windowLiveStyle,
     themeRoles,
   };
@@ -309,7 +337,7 @@ export function parseComputerThemeSettings(
   if (themeName === undefined) {
     const activeSquareId = previewLight ? lightThemePreset : darkThemePreset;
     if (activeSquareId === 'custom') {
-      themeName = darkTint.toLowerCase() === DESKTOP_STAGE1_DEFAULT_DARK_TINT && !previewLight ? 'Inkstone' : 'Custom';
+      themeName = darkTint.toLowerCase() === DESKTOP_DEFAULT_DARK_TINT && !previewLight ? 'Polar Night' : 'Custom';
     } else if (activeSquareId === 'gray' && themeSidebarContrast === 0 && themeWorkAreaContrast === 0) {
       themeName = 'Default';
     } else {
@@ -320,9 +348,10 @@ export function parseComputerThemeSettings(
 
   const modeLabel = sidebarTheme === 'plain-light' ? 'Light' : sidebarTheme === 'dark-2' ? 'Dark' : 'System';
   const chips: string[] = [modeLabel, `Tint ${areas.sidebar}`, `Accent ${accent}`];
-  if (!previewLight && isBundledArtId(windowArt)) {
-    const artLook = ALL_THEME_LOOKS.find((look) => look.artId === windowArt);
-    chips.push(`Art: ${artLook?.name ?? windowArt}`);
+  const previewArtId = previewLight ? windowArtLight : windowArt;
+  if (isKnownArtworkId(previewArtId)) {
+    const art = artworkById(previewArtId);
+    chips.push(`Art: ${art?.name ?? previewArtId}`);
   } else if (!previewLight) {
     const live = liveGradientForStyle(windowLiveStyle, areas.sidebar, accent);
     if (live !== null) chips.push(`Live: ${live.label}`);

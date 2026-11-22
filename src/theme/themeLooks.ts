@@ -1,40 +1,20 @@
 /**
- * Built-in Theme looks for Settings > Themes: Default, the 6 Art looks (with bundled lightweight .webp
- * images, 100% OTA-safe), and the 6 Agent-made looks (whose desktop Live shaders map to clean static
- * tint gradients on phone).
+ * Built-in Theme looks for Settings > Themes, in exact desktop order (`packages/settings-catalog/src/data/theme_gallery.rs`
+ * at 67eb86437):
+ *   Default, Moonwater, Polar, Glasshouse, Red Earth, Deep Current, Night Garden, Nocturne Canyon,
+ *   Firefly Forest, Ember Forge, Synthwave '84, Inkstone, Orchid Dusk.
  *
- * Mirrors desktop Stage 1 (`packages/settings-catalog/src/data/theme_gallery.rs` at d5ac33b34).
+ * Every built-in look after Default defaults to its still artwork (`windowArt`, downloaded on demand from
+ * `ghostex-components` via `artworks.ts` so the OTA stays small). Polar sits third with crisp ice-blue
+ * accents (`#7cb8f7` and `#7cb8f724` selection).
  */
-
-import type { ImageSourcePropType } from 'react-native';
 
 import type { GhostexSettings } from '../settings/store';
 import { DEFAULT_THEME_DEPTH, DEFAULT_THEME_TINT, THEME_CONTRAST_FULL_POINTS } from './sidebarAppearance';
 import { DEFAULT_TERMINAL_PALETTE } from './terminalPalettes';
 import type { ThemeRoleMap, ThemeRolesByAppearance } from './themeRoles';
 
-export type BundledArtId =
-  | 'moonwater'
-  | 'glasshouse'
-  | 'red-earth'
-  | 'deep-current'
-  | 'night-garden'
-  | 'nocturne-canyon';
-
-export const BUNDLED_ART_IMAGES: Readonly<Record<BundledArtId, ImageSourcePropType>> = {
-  moonwater: require('../../assets/theme-art/moonwater.webp'),
-  glasshouse: require('../../assets/theme-art/glasshouse.webp'),
-  'red-earth': require('../../assets/theme-art/red-earth.webp'),
-  'deep-current': require('../../assets/theme-art/deep-current.webp'),
-  'night-garden': require('../../assets/theme-art/night-garden.webp'),
-  'nocturne-canyon': require('../../assets/theme-art/nocturne-canyon.webp'),
-};
-
-export function isBundledArtId(value: unknown): value is BundledArtId {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(BUNDLED_ART_IMAGES, value);
-}
-
-/** Static 3-stop gradient palette representing a desktop Live shader style cleanly with zero GPU drain. */
+/** Static 3-stop gradient palette representing a legacy desktop Live shader style cleanly with zero GPU drain. */
 export type LiveGradientSpec = {
   readonly id: string;
   readonly label: string;
@@ -47,7 +27,7 @@ export const LIVE_STYLE_GRADIENTS: Readonly<Record<string, LiveGradientSpec>> = 
   drift: { id: 'drift', label: 'Drift', stops: ['#161f19', '#1d2920', '#151b17'], accent: '#a9c46c' },
   nebula: { id: 'nebula', label: 'Nebula', stops: ['#1e1815', '#29201b', '#1a1513'], accent: '#d9824a' },
   mesh: { id: 'mesh', label: 'Mesh', stops: ['#1a1623', '#241e31', '#17141f'], accent: '#d77cc8' },
-  aurora: { id: 'aurora', label: 'Aurora', stops: ['#131924', '#1a2333', '#121720'], accent: '#7cbf9f' },
+  aurora: { id: 'aurora', label: 'Aurora', stops: ['#131924', '#1a2333', '#121720'], accent: '#7cb8f7' },
   silk: { id: 'silk', label: 'Silk', stops: ['#1f171c', '#2a2027', '#1a1418'], accent: '#d69bb5' },
 };
 
@@ -73,8 +53,8 @@ export type ThemeLook = {
   readonly label: string;
   readonly kind: ThemeLookKind;
   readonly badge: string;
-  readonly artId: BundledArtId | null;
-  readonly liveStyle: string | null;
+  /** Default still artwork id (`windowArt`) for this theme, or null for Default. */
+  readonly artId: string | null;
   /** Preview swatch colours for the gallery tile and live badge. */
   readonly preview: {
     readonly sidebar: string;
@@ -84,7 +64,7 @@ export type ThemeLook = {
   };
   /** Settings patch applied when tapping this look. */
   readonly patch: Partial<GhostexSettings>;
-  /** Exact dark tint for matching whether this look is active. */
+  /** Exact dark tint and accent for matching whether this look is active. */
   readonly matchTint: string | null;
   readonly matchAccent: string | null;
 };
@@ -104,7 +84,7 @@ const ART_SHARED_ROLES: ThemeRoleMap = {
   danger: '#e06c75',
 };
 
-const AGENT_LOOK_SHARED_ROLES: ThemeRoleMap = {
+const STILL_ART_LOOK_SHARED_ROLES: ThemeRoleMap = {
   border: '8%',
   divider: '6%',
   userMessage: 'base+12%',
@@ -117,7 +97,7 @@ const AGENT_LOOK_SHARED_ROLES: ThemeRoleMap = {
 };
 
 function artLook(config: {
-  id: BundledArtId;
+  id: string;
   name: string;
   label: string;
   tint: string;
@@ -141,7 +121,6 @@ function artLook(config: {
     kind: 'art',
     badge: `${config.name} · Art`,
     artId: config.id,
-    liveStyle: null,
     preview: {
       sidebar: config.tint,
       work: config.work,
@@ -166,15 +145,21 @@ function artLook(config: {
   };
 }
 
-function agentLook(config: {
+/**
+ * Polar Night and the five classic agent-made looks, updated in desktop commit 67eb86437 to default
+ * to their own still artwork (`windowArt: config.id`, `windowArtDim: 45`).
+ */
+function stillArtLook(config: {
   id: string;
   name: string;
   label: string;
+  kind: 'art' | 'look';
   tint: string;
   darkness: number;
-  liveStyle: string;
+  gradient: readonly [string, string, string];
   accent: string;
   focusRing?: string;
+  selection?: string;
   text: string;
   mutedText: string;
   success: string;
@@ -182,11 +167,11 @@ function agentLook(config: {
   danger: string;
   terminalPalette: string;
 }): ThemeLook {
-  const grad = LIVE_STYLE_GRADIENTS[config.liveStyle]!;
   const darkRoles: ThemeRoleMap = {
-    ...AGENT_LOOK_SHARED_ROLES,
+    ...STILL_ART_LOOK_SHARED_ROLES,
     accent: config.accent,
     focusRing: config.focusRing ?? config.accent,
+    ...(config.selection !== undefined ? { selection: config.selection } : {}),
     text: config.text,
     mutedText: config.mutedText,
     success: config.success,
@@ -197,15 +182,14 @@ function agentLook(config: {
     id: config.id,
     name: config.name,
     label: config.label,
-    kind: 'look',
-    badge: `${config.name} · Live`,
-    artId: null,
-    liveStyle: config.liveStyle,
+    kind: config.kind,
+    badge: `${config.name} · Art`,
+    artId: config.id,
     preview: {
-      sidebar: grad.stops[0],
-      work: grad.stops[1],
+      sidebar: config.gradient[0],
+      work: config.gradient[1],
       accent: config.accent,
-      gradient: grad.stops,
+      gradient: config.gradient,
     },
     matchTint: config.tint,
     matchAccent: config.accent,
@@ -218,8 +202,9 @@ function agentLook(config: {
       themeWorkAreaContrast: 0,
       terminalGhosttyTheme: config.terminalPalette,
       terminalBackgroundMode: 'theme',
-      windowArt: 'none',
-      windowLiveStyle: config.liveStyle,
+      windowArt: config.id,
+      windowArtDim: 45,
+      windowLiveStyle: 'none',
       themeRoles: { dark: darkRoles },
     },
   };
@@ -232,7 +217,6 @@ export const DEFAULT_THEME_LOOK: ThemeLook = {
   kind: 'default',
   badge: 'Default · Subtle',
   artId: null,
-  liveStyle: null,
   preview: {
     sidebar: '#141518',
     work: '#17181c',
@@ -257,12 +241,17 @@ export const DEFAULT_THEME_LOOK: ThemeLook = {
     sessionChatTheme: 'app',
     terminalColorScheme: 'app',
     windowArt: 'none',
+    windowArtLight: 'none',
     windowArtDim: 45,
     windowLiveStyle: 'none',
     themeRoles: {},
   },
 };
 
+/**
+ * Primary Art themes in desktop order (`theme_gallery.rs` at 67eb86437):
+ * Moonwater, Polar (with crisp ice-blue accents), Glasshouse, Red Earth, Deep Current, Night Garden, Nocturne Canyon.
+ */
 export const ART_THEME_LOOKS: readonly ThemeLook[] = [
   artLook({
     id: 'moonwater',
@@ -273,6 +262,24 @@ export const ART_THEME_LOOKS: readonly ThemeLook[] = [
     accent: '#b9d6e7',
     text: '#e5eaf0',
     mutedText: '#a0adbd',
+    terminalPalette: 'Ghostex Nord',
+  }),
+  stillArtLook({
+    id: 'polar-night',
+    name: 'Polar Night',
+    label: 'Polar',
+    kind: 'art',
+    tint: '#404e78',
+    darkness: 96,
+    gradient: ['#141c2e', '#1f2d47', '#101624'],
+    accent: '#7cb8f7',
+    focusRing: '#7cb8f7',
+    selection: '#7cb8f724',
+    text: '#e6e4de',
+    mutedText: '#8c95a3',
+    success: '#a3c48e',
+    warning: '#dcbd7a',
+    danger: '#d9827c',
     terminalPalette: 'Ghostex Nord',
   }),
   artLook({
@@ -332,15 +339,16 @@ export const ART_THEME_LOOKS: readonly ThemeLook[] = [
   }),
 ];
 
-/** Desktop Stage 1 (`theme_gallery.rs`) Agent-made look order. */
+/** Desktop `theme_gallery.rs` (67eb86437) remaining looks, each defaulting to its still artwork. */
 export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
-  agentLook({
+  stillArtLook({
     id: 'firefly-forest',
     name: 'Firefly Forest',
     label: 'Firefly',
+    kind: 'look',
     tint: '#4a5f4f',
     darkness: 96,
-    liveStyle: 'drift',
+    gradient: ['#161f19', '#1d2920', '#151b17'],
     accent: '#a9c46c',
     text: '#e8e6d6',
     mutedText: '#979c8b',
@@ -349,13 +357,14 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
     danger: '#e06c75',
     terminalPalette: 'Ghostex Everforest Dark',
   }),
-  agentLook({
+  stillArtLook({
     id: 'ember-forge',
     name: 'Ember Forge',
     label: 'Ember',
+    kind: 'look',
     tint: '#5e4a40',
     darkness: 96,
-    liveStyle: 'nebula',
+    gradient: ['#1e1815', '#29201b', '#1a1513'],
     accent: '#d9824a',
     text: '#efe3d4',
     mutedText: '#a3958a',
@@ -364,13 +373,14 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
     danger: '#e06c6c',
     terminalPalette: 'Ghostex Gruvbox Material Dark',
   }),
-  agentLook({
+  stillArtLook({
     id: 'synthwave-84',
     name: "Synthwave '84",
     label: 'Synthwave',
+    kind: 'look',
     tint: '#4f4468',
     darkness: 97,
-    liveStyle: 'mesh',
+    gradient: ['#1a1623', '#241e31', '#17141f'],
     accent: '#d77cc8',
     focusRing: '#6fc6c4',
     text: '#ece4ea',
@@ -380,28 +390,14 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
     danger: '#e6707a',
     terminalPalette: 'Ghostex Dracula',
   }),
-  agentLook({
-    id: 'polar-night',
-    name: 'Polar Night',
-    label: 'Polar',
-    tint: '#404e78',
-    darkness: 96,
-    liveStyle: 'aurora',
-    accent: '#7cbf9f',
-    text: '#e6e4de',
-    mutedText: '#8c95a3',
-    success: '#a3c48e',
-    warning: '#dcbd7a',
-    danger: '#d9827c',
-    terminalPalette: 'Ghostex Nord',
-  }),
-  agentLook({
+  stillArtLook({
     id: 'inkstone',
     name: 'Inkstone',
     label: 'Inkstone',
+    kind: 'look',
     tint: '#46506a',
     darkness: 96,
-    liveStyle: 'ink',
+    gradient: ['#14161c', '#1c202a', '#13151a'],
     accent: '#d8664f',
     text: '#ece4d6',
     mutedText: '#9b968d',
@@ -410,13 +406,14 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
     danger: '#e06c75',
     terminalPalette: 'Ghostex Kanagawa Dragon',
   }),
-  agentLook({
+  stillArtLook({
     id: 'orchid-dusk',
     name: 'Orchid Dusk',
     label: 'Orchid',
+    kind: 'look',
     tint: '#725868',
     darkness: 96,
-    liveStyle: 'silk',
+    gradient: ['#1f171c', '#2a2027', '#1a1418'],
     accent: '#d69bb5',
     text: '#ece4df',
     mutedText: '#9e939c',
@@ -427,7 +424,7 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
   }),
 ];
 
-/** Every built-in look in desktop gallery order: Default, 6 Art looks, 6 Agent-made looks. */
+/** Every built-in look in desktop gallery order: Default, Moonwater, Polar, the remaining Art themes and looks. */
 export const ALL_THEME_LOOKS: readonly ThemeLook[] = [
   DEFAULT_THEME_LOOK,
   ...ART_THEME_LOOKS,
@@ -438,7 +435,7 @@ export function themeLookById(id: string): ThemeLook | undefined {
   return ALL_THEME_LOOKS.find((look) => look.id === id);
 }
 
-/** Whether `settings` currently matches a built-in ThemeLook. */
+/** Whether `settings` currently matches a built-in ThemeLook (even if the user switched artwork afterwards). */
 export function themeLookMatches(
   settings: Pick<
     GhostexSettings,
@@ -448,6 +445,7 @@ export function themeLookMatches(
     | 'themeSidebarContrast'
     | 'themeWorkAreaContrast'
     | 'windowArt'
+    | 'windowArtLight'
     | 'windowLiveStyle'
     | 'themeRoles'
   >,
@@ -462,25 +460,26 @@ export function themeLookMatches(
       settings.themeSidebarContrast === 0 &&
       settings.themeWorkAreaContrast === 0 &&
       settings.windowArt === 'none' &&
+      settings.windowArtLight === 'none' &&
       settings.windowLiveStyle === 'none' &&
       darkRolesEmpty &&
       lightRolesEmpty
     );
   }
-  if (look.kind === 'art') {
+  const tintMatches =
+    settings.darkThemePreset === 'custom' &&
+    settings.customSidebarTitlebarBackgroundTintColor.trim().toLowerCase() === look.matchTint;
+  if (!tintMatches) return false;
+  const accent = settings.themeRoles?.dark?.accent?.trim().toLowerCase();
+  if (look.id === 'polar-night') {
+    // Match both Polar's crisp ice-blue accent (#7cb8f7) and desktop's built-in default Polar blue (#5581a9).
     return (
-      settings.windowArt === look.artId &&
-      settings.darkThemePreset === 'custom' &&
-      settings.customSidebarTitlebarBackgroundTintColor.trim().toLowerCase() === look.matchTint
+      accent === look.matchAccent ||
+      accent === '#5581a9' ||
+      settings.windowArt === 'polar-night'
     );
   }
-  const accent = settings.themeRoles?.dark?.accent?.trim().toLowerCase();
-  return (
-    settings.darkThemePreset === 'custom' &&
-    settings.windowArt === 'none' &&
-    settings.customSidebarTitlebarBackgroundTintColor.trim().toLowerCase() === look.matchTint &&
-    (settings.windowLiveStyle === look.liveStyle || accent === look.matchAccent)
-  );
+  return accent === look.matchAccent || settings.windowArt === look.artId;
 }
 
 /** Builds a clean patch that applies `look` while preserving any light-mode role overrides. */
@@ -506,8 +505,9 @@ export function resetThemeToDefaultPatch(): Partial<GhostexSettings> {
   };
 }
 
-/** Quick-pick accent dots shown in the Fine-tune section (matching desktop muted accents). */
+/** Quick-pick accent dots shown in the Fine-tune section (matching desktop muted accents + Polar ice blue). */
 export const QUICK_ACCENT_SWATCHES: ReadonlyArray<{ readonly label: string; readonly hex: string }> = [
+  { label: 'Polar', hex: '#7cb8f7' },
   { label: 'Sky', hex: '#7dd3fc' },
   { label: 'Moon', hex: '#b9d6e7' },
   { label: 'Sage', hex: '#b3c98c' },

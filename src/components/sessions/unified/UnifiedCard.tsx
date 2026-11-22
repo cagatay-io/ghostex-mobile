@@ -28,6 +28,7 @@ import {
 } from '../../../contract/mobileSummary';
 import { SessionCopy } from '../../../copy';
 import { SidebarPalette } from '../../../theme/palette';
+import { useHasScreenArtBackdrop } from '../../../theme/ScreenArtBackdrop';
 import { useSettingsStore } from '../../../settings/store';
 import SwipeRevealRow from '../../../screens/machines-screen/SwipeRevealRow';
 import type { MenuAnchor } from '../ContextMenu';
@@ -335,6 +336,7 @@ export function UnifiedCard({
   if (branch.length > 0) lastBranch.current = branch;
   const placeholder = branch.length === 0 && !row.noSourceControl;
   const shownBranch = branch.length > 0 ? branch : lastBranch.current.length > 0 ? lastBranch.current : SessionCopy.noBranch;
+  const hasScreenArt = useHasScreenArtBackdrop(ink.light);
   const openMenu = (): void => {
     cardRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }));
   };
@@ -353,7 +355,15 @@ export function UnifiedCard({
           onLongPress={openMenu}
           style={({ pressed }) => [
             styles.card,
-            { backgroundColor: active ? selectedFill(sidebarBackground, ink) : pressed ? inkWash(ink, 0.06) : sidebarBackground },
+            {
+              backgroundColor: active
+                ? selectedFill(sidebarBackground, ink)
+                : pressed
+                  ? inkWash(ink, 0.06)
+                  : hasScreenArt
+                    ? 'transparent'
+                    : sidebarBackground,
+            },
           ]}
         >
           {active ? <SelectedCardOutline /> : null}
@@ -454,6 +464,7 @@ export function UnifiedSlimRow({
   const active = open || row.crew?.containsActive === true;
   const rowRef = useRef<ViewInstance | null>(null);
   const ink = useSidebarInk();
+  const hasScreenArt = useHasScreenArtBackdrop(ink.light);
   const styles = unifiedStyles(ink);
   const session = row.session.source!;
   const wake = shelf === 'snoozed' ? row.session.snoozedUntilMs : null;
@@ -483,7 +494,15 @@ export function UnifiedSlimRow({
           onLongPress={() => rowRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }))}
           style={({ pressed }) => [
             styles.slim,
-            { backgroundColor: active ? selectedFill(sidebarBackground, ink) : pressed ? inkWash(ink, 0.06) : sidebarBackground },
+            {
+              backgroundColor: active
+                ? selectedFill(sidebarBackground, ink)
+                : pressed
+                  ? inkWash(ink, 0.06)
+                  : hasScreenArt
+                    ? 'transparent'
+                    : sidebarBackground,
+            },
           ]}
         >
           {active ? <SelectedCardOutline /> : null}

@@ -1,15 +1,17 @@
 /**
- * Settings > Themes: full desktop-matching Themes screen (Q4465, Q4466, Q4467).
+ * Settings > Themes: full desktop-matching Themes screen.
  *
- * Order matches desktop Settings > Themes:
- * 1. Compact live mini-chat preview (with optional dimmed Art backdrop or static Live tint gradient)
+ * Order matches desktop Settings > Themes (commits 8ac98a01d, 5ce4a5f7d, 67eb86437):
+ * 1. Compact live mini-chat preview (with dimmed still artwork backdrop behind the card)
  * 2. Copy from a computer (one-time copy with live swatch preview over chatMachineLink + SSH fallback)
  * 3. Appearance mode (System / Dark / Light)
- * 4. Themes strip (Default + 6 Art looks + 6 Agent-made looks) + Header artwork backdrop toggle + Named presets
- * 5. Dark and Light subtle OKLCH colour swatches + uncapped Custom hex
- * 6. Colourfulness (unified or separate sidebar and work area sliders)
+ * 4. Themes strip (Default, Moonwater, Polar with blue accents, remaining Art themes & still-art looks)
+ * 5. Artwork strip (None + 32 on-demand artworks) + Show artwork toggle + Dimming slider
+ * 6. Dark and Light subtle OKLCH colour swatches + uncapped Custom hex + Colourfulness
  * 7. Fine-tune accents & fills (all 18 desktop themeRoles, uncapped)
- * 8. Chat theme, Terminal theme, Terminal palettes, Import Ghostty theme, and Reset to default
+ * 8. Named presets, Chat theme, Terminal theme, Terminal palettes, Import Ghostty theme, and Reset to default
+ *
+ * Window transparency stays desktop-only.
  */
 
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -17,7 +19,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { Glyph } from '../../chat/native/cards/icons';
@@ -25,7 +27,17 @@ import { useTranscriptTheme } from '../../chat/native/transcript/theme';
 import { useTwoColumns } from '../../components/common/verticalBar/VerticalBarArea';
 import type { RootStackParamList } from '../../navigation/types';
 import { defaultSettings, useSettingsStore, type GhostexSettings } from '../../settings/store';
-import { HeaderBackdrop } from '../../theme/HeaderBackdrop';
+import { isAppearanceSyncActive } from '../../settingsSync/appearanceSync';
+import { patchThemeSettings } from '../../settingsSync/settingsSync';
+import { useSyncedEntriesStore } from '../../settingsSync/syncedEntries';
+import {
+  artworkById,
+  artworkThumbSource,
+  isKnownArtworkId,
+  THEME_ARTWORKS,
+  YOUR_IMAGE_ART_ID,
+  type ThemeArtwork,
+} from '../../theme/artworks';
 import { GhosttyImportError, importGhosttyTheme } from '../../theme/importGhostty';
 import { colorWithOpacity, GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import {
@@ -35,6 +47,7 @@ import {
   themePresetPatch,
   type ThemePreset,
 } from '../../theme/presets';
+import { ScreenArtBackdrop } from '../../theme/ScreenArtBackdrop';
 import {
   areaColourfulnessPatch,
   COLOURFULNESS_LAST_POSITION,
@@ -58,9 +71,6 @@ import {
 import { terminalPaletteLabel } from '../../theme/terminalPalettes';
 import {
   ALL_THEME_LOOKS,
-  BUNDLED_ART_IMAGES,
-  isBundledArtId,
-  liveGradientForStyle,
   QUICK_ACCENT_SWATCHES,
   resetThemeToDefaultPatch,
   themeLookMatches,
@@ -188,15 +198,15 @@ function ModeGlyph({ dark, size, color }: { dark: boolean; size: number; color: 
   );
 }
 
-/** Compact live mini-chat preview at the top of Settings > Themes (Q4465 Option A + Q4467 Art/Live header). */
+/** Compact live mini-chat preview at the top of Settings > Themes, showing the still artwork backdrop behind it. */
 function LiveMiniChatPreview() {
   const settings = useSettingsStore((state) => state.settings);
   const appearance = useAppearance();
   const chatTheme = useTranscriptTheme();
   const badge = activeThemeBadge(settings, appearance.light);
-  const hasArtOrLive =
-    isBundledArtId(settings.windowArt) ||
-    liveGradientForStyle(settings.windowLiveStyle, appearance.background, appearance.accent) !== null;
+  const activeArtId = chatTheme.light ? settings.windowArtLight : settings.windowArt;
+  const hasArt = settings.showHeaderArtworkBackdrop && isKnownArtworkId(activeArtId);
+  const art = hasArt ? artworkById(activeArtId) : undefined;
 
   return (
     <View
@@ -209,23 +219,21 @@ function LiveMiniChatPreview() {
         },
       ]}
     >
+      <ScreenArtBackdrop baseColor={chatTheme.background} area="preview" lightOverride={chatTheme.light} />
       <View
         style={[
           styles.previewHeader,
           {
-            backgroundColor: appearance.background,
+            backgroundColor: hasArt ? 'transparent' : appearance.background,
             borderBottomColor: chatTheme.border,
           },
         ]}
       >
-        <HeaderBackdrop baseColor={chatTheme.background} />
         <Text style={[styles.previewTitle, { color: appearance.foreground }]} numberOfLines={1}>
           Live preview
         </Text>
         <Text style={[styles.previewBadge, { color: appearance.accent }]} numberOfLines={1}>
-          {!appearance.light && hasArtOrLive && settings.showHeaderArtworkBackdrop && isBundledArtId(settings.windowArt)
-            ? `${badge} · ${settings.windowArtDim}% dim`
-            : badge}
+          {art !== undefined ? `${badge} · ${settings.windowArtDim}% dim` : badge}
         </Text>
       </View>
 
@@ -263,7 +271,7 @@ function LiveMiniChatPreview() {
   );
 }
 
-/** One tile in the Themes gallery strip (Default, Art look with real .webp thumbnail, or Agent-made Live look). */
+/** One tile in the Themes gallery strip (Default, Moonwater, Polar, and the rest in desktop order). */
 function LookTile({
   look,
   selected,
@@ -277,6 +285,10 @@ function LookTile({
 }) {
   const gradId = useId().replace(/[^a-zA-Z0-9_-]/gu, '');
   const thumbBorder = selected ? appearance.accent : colorWithOpacity(appearance.foreground, 14);
+  const thumbSource = look.artId !== null ? artworkThumbSource(look.artId) : null;
+  const artMeta = look.artId !== null ? artworkById(look.artId) : undefined;
+  const fallbackGradient = look.preview.gradient ?? artMeta?.previewStops;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -295,15 +307,13 @@ function LookTile({
           },
         ]}
       >
-        {look.artId !== null ? (
-          <Image source={BUNDLED_ART_IMAGES[look.artId]} resizeMode="cover" style={StyleSheet.absoluteFill} />
-        ) : look.preview.gradient !== undefined ? (
+        {fallbackGradient !== undefined ? (
           <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id={`look-${gradId}`} x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0%" stopColor={look.preview.gradient[0]} />
-                <Stop offset="55%" stopColor={look.preview.gradient[1]} />
-                <Stop offset="100%" stopColor={look.preview.gradient[2]} />
+                <Stop offset="0%" stopColor={fallbackGradient[0]} />
+                <Stop offset="55%" stopColor={fallbackGradient[1]} />
+                <Stop offset="100%" stopColor={fallbackGradient[2]} />
               </LinearGradient>
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill={`url(#look-${gradId})`} />
@@ -314,6 +324,9 @@ function LookTile({
             <View style={[styles.lookDefaultMain, { backgroundColor: look.preview.work }]} />
           </View>
         )}
+        {thumbSource !== null ? (
+          <Image source={thumbSource} resizeMode="cover" style={StyleSheet.absoluteFill} />
+        ) : null}
         <View style={[styles.lookAccentDot, { backgroundColor: look.preview.accent }]} />
       </View>
       <Text
@@ -332,71 +345,245 @@ function LookTile({
   );
 }
 
-/** Themes gallery strip: Default + 6 Art looks + 6 Agent-made looks + optional header artwork toggle. */
+/** Themes gallery strip: Default, Moonwater, Polar, and the remaining Art themes & still-art looks. */
 function ThemesGallerySection({ onPicked }: { onPicked: (dark: boolean) => void }) {
   const settings = useSettingsStore((state) => state.settings);
-  const patchSettings = useSettingsStore((state) => state.patchSettings);
+  const settingsStyles = useSettingsStyles();
+  const appearance = useAppearance();
+
+  return (
+    <SettingsSearchAnchor label="Themes">
+      <View style={settingsStyles.card}>
+        <View style={styles.colourHeader}>
+          <Text style={settingsStyles.cardLabel}>Themes</Text>
+          <Text style={[styles.readout, { color: appearance.muted }]}>Art themes</Text>
+        </View>
+        <ScrollView
+          horizontal
+          accessibilityLabel="Built-in themes"
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.lookStrip}
+        >
+          {ALL_THEME_LOOKS.map((look) => (
+            <LookTile
+              key={look.id}
+              look={look}
+              selected={themeLookMatches(settings, look)}
+              appearance={appearance}
+              onPress={() => {
+                patchThemeSettings(themeLookPatch(look, settings.themeRoles));
+                if (look.kind !== 'default') onPicked(true);
+              }}
+            />
+          ))}
+        </ScrollView>
+      </View>
+    </SettingsSearchAnchor>
+  );
+}
+
+type ArtworkStripItem = { kind: 'none' } | { kind: 'art'; artwork: ThemeArtwork };
+
+const ARTWORK_STRIP_ITEMS: readonly ArtworkStripItem[] = [
+  { kind: 'none' },
+  ...THEME_ARTWORKS.map((artwork): ArtworkStripItem => ({ kind: 'art', artwork })),
+];
+
+function ArtworkTile({
+  item,
+  selected,
+  appearance,
+  onPress,
+}: {
+  item: ArtworkStripItem;
+  selected: boolean;
+  appearance: Appearance;
+  onPress: () => void;
+}) {
+  const gradId = useId().replace(/[^a-zA-Z0-9_-]/gu, '');
+  const thumbBorder = selected ? appearance.accent : colorWithOpacity(appearance.foreground, 14);
+
+  if (item.kind === 'none') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="No artwork"
+        accessibilityState={{ selected }}
+        style={styles.lookTile}
+        onPress={onPress}
+      >
+        <View
+          style={[
+            styles.lookThumb,
+            styles.artworkNoneThumb,
+            {
+              borderColor: thumbBorder,
+              borderWidth: selected ? 2 : 1.5,
+              backgroundColor: appearance.background,
+            },
+          ]}
+        >
+          <Text style={[styles.artworkNoneGlyph, { color: appearance.mutedGlyph }]}>∅</Text>
+        </View>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.lookName,
+            {
+              color: selected ? appearance.foreground : appearance.muted,
+              fontWeight: selected ? '600' : '400',
+            },
+          ]}
+        >
+          None
+        </Text>
+      </Pressable>
+    );
+  }
+
+  const { artwork } = item;
+  const thumbSource = artworkThumbSource(artwork.id);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${artwork.name} artwork`}
+      accessibilityState={{ selected }}
+      style={styles.lookTile}
+      onPress={onPress}
+    >
+      <View
+        style={[
+          styles.lookThumb,
+          {
+            borderColor: thumbBorder,
+            borderWidth: selected ? 2 : 1.5,
+            backgroundColor: artwork.previewStops[0],
+          },
+        ]}
+      >
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id={`art-${gradId}`} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor={artwork.previewStops[0]} />
+              <Stop offset="55%" stopColor={artwork.previewStops[1]} />
+              <Stop offset="100%" stopColor={artwork.previewStops[2]} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#art-${gradId})`} />
+        </Svg>
+        {thumbSource !== null ? (
+          <Image source={thumbSource} resizeMode="cover" style={StyleSheet.absoluteFill} />
+        ) : null}
+        <View style={[styles.lookAccentDot, { backgroundColor: artwork.previewAccent }]} />
+      </View>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.lookName,
+          {
+            color: selected ? appearance.foreground : appearance.muted,
+            fontWeight: selected ? '600' : '400',
+          },
+        ]}
+      >
+        {artwork.label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Single Artwork strip (None + 32 on-demand artworks), local screen toggle, and Dimming slider. */
+function ArtworkPickerSection() {
+  const settings = useSettingsStore((state) => state.settings);
   const setSetting = useSettingsStore((state) => state.setSetting);
   const settingsStyles = useSettingsStyles();
   const appearance = useAppearance();
-  const hasArt = isBundledArtId(settings.windowArt);
-  const liveSpec = liveGradientForStyle(settings.windowLiveStyle, appearance.background, appearance.accent);
+
+  const artKey = appearance.light ? 'windowArtLight' : 'windowArt';
+  const currentArtId = appearance.light ? settings.windowArtLight : settings.windowArt;
+  const currentArt = artworkById(currentArtId);
+  const isYourImage = currentArtId === YOUR_IMAGE_ART_ID;
+  const hasArt = currentArt !== undefined;
+  const modeLabel = appearance.light ? 'Light mode' : 'Dark mode';
+
+  const selectArtwork = (id: string): void => {
+    patchThemeSettings({
+      [artKey]: id,
+      ...(id !== 'none' ? { windowLiveStyle: 'none' } : {}),
+    });
+  };
 
   return (
     <>
-      <SettingsSearchAnchor label="Themes">
+      <SettingsSearchAnchor label="Artwork">
         <View style={settingsStyles.card}>
           <View style={styles.colourHeader}>
-            <Text style={settingsStyles.cardLabel}>Themes</Text>
-            <Text style={[styles.readout, { color: appearance.muted }]}>Art &amp; looks</Text>
+            <Text style={settingsStyles.cardLabel}>Artwork</Text>
+            <Text style={[styles.readout, { color: appearance.muted }]}>
+              {currentArt !== undefined
+                ? `${currentArt.name} · ${modeLabel}`
+                : isYourImage
+                  ? `Custom (computer) · ${modeLabel}`
+                  : `None · ${modeLabel}`}
+            </Text>
           </View>
-          <ScrollView
+          <FlatList
             horizontal
-            accessibilityLabel="Built-in themes"
+            data={ARTWORK_STRIP_ITEMS}
+            keyExtractor={(item) => (item.kind === 'none' ? 'none' : item.artwork.id)}
+            accessibilityLabel="Artwork backgrounds"
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.lookStrip}
-          >
-            {ALL_THEME_LOOKS.map((look) => (
-              <LookTile
-                key={look.id}
-                look={look}
-                selected={themeLookMatches(settings, look)}
+            initialNumToRender={7}
+            maxToRenderPerBatch={8}
+            windowSize={5}
+            renderItem={({ item }) => (
+              <ArtworkTile
+                item={item}
+                selected={
+                  item.kind === 'none'
+                    ? !hasArt
+                    : currentArt !== undefined && currentArt.id === item.artwork.id
+                }
                 appearance={appearance}
-                onPress={() => {
-                  patchSettings(themeLookPatch(look, settings.themeRoles));
-                  if (look.kind !== 'default') onPicked(true);
-                }}
+                onPress={() => selectArtwork(item.kind === 'none' ? 'none' : item.artwork.id)}
               />
-            ))}
-          </ScrollView>
+            )}
+          />
+          {isYourImage ? (
+            <Caption>
+              Your computer uses a local custom image for {modeLabel.toLowerCase()}. Pick an artwork above to show one on this phone.
+            </Caption>
+          ) : (
+            <Caption>
+              Downloads on demand and caches locally. Shown softly dimmed behind the sessions list and chat.
+            </Caption>
+          )}
         </View>
       </SettingsSearchAnchor>
 
       <ToggleRow
-        label="Show dimmed artwork in header"
+        label="Show artwork behind screens"
         detail={
-          appearance.light
-            ? 'Applies in dark mode when an Art or Live look is active.'
-            : hasArt
-              ? 'Shows the active Art look softly dimmed behind the top bar.'
-              : liveSpec !== null
-                ? `Maps ${liveSpec.label} to a clean static tint gradient behind the top bar.`
-                : 'When an Art or Live look is active, shows its dimmed backdrop behind the top bar.'
+          hasArt
+            ? `Paints ${currentArt.name} softly dimmed behind the sessions list and chat on this phone.`
+            : 'When an artwork is picked, paints it softly dimmed behind the sessions list and chat.'
         }
         value={settings.showHeaderArtworkBackdrop}
         onValueChange={(next) => setSetting('showHeaderArtworkBackdrop', next)}
       />
 
-      {!appearance.light && hasArt && settings.showHeaderArtworkBackdrop ? (
+      {hasArt && settings.showHeaderArtworkBackdrop ? (
         <SettingsSlider
           label="Artwork dimming"
-          minimumValue={15}
-          maximumValue={80}
+          minimumValue={0}
+          maximumValue={85}
           step={5}
-          value={Math.min(80, Math.max(15, settings.windowArtDim))}
+          value={Math.min(85, Math.max(0, settings.windowArtDim))}
           valueLabel={`${settings.windowArtDim}%`}
           rangeLabels={['Lighter', 'Darker']}
-          onValueChange={(next) => setSetting('windowArtDim', next)}
+          onValueChange={(next) => patchThemeSettings({ windowArtDim: next })}
         />
       ) : null}
     </>
@@ -463,7 +650,6 @@ function PresetCard({
 
 function PresetsSection({ picked, onPicked }: { picked: Picked; onPicked: (dark: boolean) => void }) {
   const settings = useSettingsStore((state) => state.settings);
-  const patchSettings = useSettingsStore((state) => state.patchSettings);
   const appearance = useAppearance();
 
   return (
@@ -486,7 +672,7 @@ function PresetsSection({ picked, onPicked }: { picked: Picked; onPicked: (dark:
                   selected={themePresetMatches(settings, preset)}
                   appearance={appearance}
                   onPress={() => {
-                    patchSettings(themePresetPatch(preset.id, picked.light, settings.themeRoles)!);
+                    patchThemeSettings(themePresetPatch(preset.id, picked.light, settings.themeRoles)!);
                     onPicked(preset.mode === 'dark');
                   }}
                 />
@@ -501,7 +687,10 @@ function PresetsSection({ picked, onPicked }: { picked: Picked; onPicked: (dark:
 
 function AppearanceRow() {
   const sidebarTheme = useSettingsStore((state) => state.settings.sidebarTheme);
-  const setSetting = useSettingsStore((state) => state.setSetting);
+  const carrying = useSettingsStore((state) => state.settings.settingsSyncThroughPhone);
+  const syncing = useSyncedEntriesStore((state) =>
+    isAppearanceSyncActive(state.categoriesByMachine, state.values),
+  );
   const settingsStyles = useSettingsStyles();
   const appearance = useAppearance();
   const currentLabel = APPEARANCE_CHOICES.find((choice) => choice.value === sidebarTheme)?.label ?? 'System';
@@ -517,9 +706,13 @@ function AppearanceRow() {
           label="Appearance mode"
           options={APPEARANCE_CHOICES}
           value={sidebarTheme}
-          onChange={(next) => setSetting('sidebarTheme', next)}
+          onChange={(next) => patchThemeSettings({ sidebarTheme: next })}
         />
-        <Caption>System follows your phone&apos;s light or dark mode.</Caption>
+        <Caption>
+          {carrying && syncing
+            ? 'System follows your phone\u2019s light or dark mode. Theme, artwork and fine-tune colours sync with your computers.'
+            : 'System follows your phone\u2019s light or dark mode.'}
+        </Caption>
       </View>
     </SettingsSearchAnchor>
   );
@@ -528,7 +721,6 @@ function AppearanceRow() {
 /** Dark mode colour or Light mode colour: the sixteen Stage 1 subtle OKLCH squares plus uncapped Custom hex. */
 function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; onPicked: (dark: boolean) => void }) {
   const settings = useSettingsStore((state) => state.settings);
-  const patchSettings = useSettingsStore((state) => state.patchSettings);
   const settingsStyles = useSettingsStyles();
   const appearance = useAppearance();
   const mode = dark ? 'dark' : 'light';
@@ -540,9 +732,9 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
   const follows = themeColoursPaired(settings, dark) && !pickedHere && (!dark || otherPicked);
   const name = selected === 'custom' ? 'Custom' : (squares.find((square) => square.id === selected)?.label ?? selected);
   const choose = (preset: DarkThemePreset | LightThemePreset): void => {
-    patchSettings({
+    patchThemeSettings({
       ...themeColourPatch(settings, dark, preset, otherPicked),
-      ...(preset !== 'custom' && dark ? { windowArt: 'none', windowLiveStyle: 'none' } : {}),
+      ...(preset !== 'custom' && dark ? { windowLiveStyle: 'none' } : {}),
     });
     onPicked(dark);
   };
@@ -597,7 +789,7 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
               label="Custom tint"
               value={settings[tintKey]}
               onChange={(hex) => {
-                patchSettings({ [tintKey]: hex });
+                patchThemeSettings({ [tintKey]: hex });
                 onPicked(dark);
               }}
             />
@@ -614,7 +806,6 @@ function ColourRow({ dark, picked, onPicked }: { dark: boolean; picked: Picked; 
 /** Colourfulness, and the sidebar and work area set apart. */
 function ColourfulnessRows() {
   const settings = useSettingsStore((state) => state.settings);
-  const patchSettings = useSettingsStore((state) => state.patchSettings);
   const [split, setSplit] = useState(
     () =>
       settings.themeSidebarContrast !== settings.themeWorkAreaContrast ||
@@ -635,7 +826,7 @@ function ColourfulnessRows() {
           value={step}
           valueLabel={colourfulnessName(colourfulnessPoints(step))}
           rangeLabels={['Subtle', 'Full']}
-          onValueChange={(next) => patchSettings(colourfulnessPatch(next))}
+          onValueChange={(next) => patchThemeSettings(colourfulnessPatch(next))}
         />
       )}
       <Caption>
@@ -646,7 +837,7 @@ function ColourfulnessRows() {
         value={split}
         onValueChange={(checked) => {
           setSplit(checked);
-          if (!checked) patchSettings(colourfulnessPatch(colourfulnessDisplayStep(settings.themeSidebarContrast)));
+          if (!checked) patchThemeSettings(colourfulnessPatch(colourfulnessDisplayStep(settings.themeSidebarContrast)));
         }}
       />
       <Caption>Off: one Colourfulness for both.</Caption>
@@ -668,7 +859,7 @@ function ColourfulnessRows() {
                 value={position}
                 valueLabel={colourfulnessName(colourfulnessPoints(position))}
                 rangeLabels={['Subtle', 'Full']}
-                onValueChange={(next) => patchSettings(areaColourfulnessPatch(key, next))}
+                onValueChange={(next) => patchThemeSettings(areaColourfulnessPatch(key, next))}
               />
             );
           })
@@ -782,7 +973,6 @@ function ThemeRoleEditorRow({
 /** Fine-tune accents & fills (`themeRoles`): quick accent dots, chat/surface fills, and expandable More theme colours. */
 function FineTuneSection() {
   const settings = useSettingsStore((state) => state.settings);
-  const setSetting = useSettingsStore((state) => state.setSetting);
   const settingsStyles = useSettingsStyles();
   const appearance = useAppearance();
   const light = appearance.light;
@@ -793,7 +983,7 @@ function FineTuneSection() {
   );
 
   const updateRole = (role: ThemeRoleId, next: string | null): void => {
-    setSetting('themeRoles', setThemeRole(settings.themeRoles, light, role, next));
+    patchThemeSettings({ themeRoles: setThemeRole(settings.themeRoles, light, role, next) });
   };
 
   const accentValue = activeRoles.accent ?? '';
@@ -826,7 +1016,9 @@ function FineTuneSection() {
                   hitSlop={4}
                   onPress={() => {
                     const withAccent = setThemeRole(settings.themeRoles, light, 'accent', swatch.hex);
-                    setSetting('themeRoles', setThemeRole(withAccent, light, 'focusRing', swatch.hex));
+                    patchThemeSettings({
+                      themeRoles: setThemeRole(withAccent, light, 'focusRing', swatch.hex),
+                    });
                   }}
                   style={[
                     styles.accentDotFrame,
@@ -848,7 +1040,9 @@ function FineTuneSection() {
           appearance={appearance}
           onChange={(next) => {
             const withAccent = setThemeRole(settings.themeRoles, light, 'accent', next);
-            setSetting('themeRoles', setThemeRole(withAccent, light, 'focusRing', next));
+            patchThemeSettings({
+              themeRoles: setThemeRole(withAccent, light, 'focusRing', next),
+            });
           }}
         />
 
@@ -908,7 +1102,7 @@ function FineTuneSection() {
               const mode = light ? 'light' : 'dark';
               const next = { ...settings.themeRoles };
               delete next[mode];
-              setSetting('themeRoles', next);
+              patchThemeSettings({ themeRoles: next });
             }}
             style={({ pressed }) => [
               styles.clearAllBtn,
@@ -935,7 +1129,6 @@ function ContentSchemeRows({
   caption: string;
 }) {
   const value = useSettingsStore((state) => state.settings[settingKey]);
-  const setSetting = useSettingsStore((state) => state.setSetting);
   return (
     <>
       <SectionHeader title={title} />
@@ -944,7 +1137,7 @@ function ContentSchemeRows({
           key={scheme}
           label={CONTENT_SCHEME_LABELS[scheme]}
           selected={value === scheme}
-          onPress={() => setSetting(settingKey, scheme)}
+          onPress={() => patchThemeSettings({ [settingKey]: scheme })}
         />
       ))}
       <Caption>{caption}</Caption>
@@ -1056,7 +1249,7 @@ export function promptResetThemeToDefault(onDidReset?: () => void): void {
         text: 'Reset',
         style: 'destructive',
         onPress: () => {
-          useSettingsStore.getState().patchSettings(resetThemeToDefaultPatch());
+          patchThemeSettings(resetThemeToDefaultPatch());
           onDidReset?.();
         },
       },
@@ -1159,6 +1352,10 @@ export default function ThemePage() {
 
       <SettingsSection name="settings:theme:gallery">
         <ThemesGallerySection onPicked={onPicked} />
+      </SettingsSection>
+
+      <SettingsSection name="settings:theme:artwork">
+        <ArtworkPickerSection />
       </SettingsSection>
 
       <SettingsSection name="settings:theme:colours">
@@ -1324,6 +1521,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     position: 'relative',
+  },
+  artworkNoneThumb: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artworkNoneGlyph: {
+    fontSize: 18,
+    fontWeight: '500',
   },
   lookDefaultSplit: {
     flex: 1,

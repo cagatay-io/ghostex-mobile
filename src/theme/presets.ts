@@ -155,7 +155,6 @@ export function themePresetPatch(
   }
   return {
     ...basePatch,
-    windowArt: 'none',
     windowLiveStyle: 'none',
     themeRoles: nextRoles,
   };
@@ -182,7 +181,6 @@ export function themePresetMatches(settings: GhostexSettings, preset: ThemePrese
     tintMatches &&
     (dark ? settings.terminalGhosttyTheme : settings.terminalGhosttyLightTheme) === preset.terminalPalette &&
     settings.terminalBackgroundMode === 'theme' &&
-    settings.windowArt === 'none' &&
     (Object.keys(full) as (keyof typeof full)[]).every((key) => settings[key] === full[key])
   );
 }

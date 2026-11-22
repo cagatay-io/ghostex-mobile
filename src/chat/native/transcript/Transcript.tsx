@@ -27,6 +27,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { NO_BAR_INSETS } from '../../../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../../../components/common/verticalBar/VerticalBarArea';
 import { useSettingsStore } from '../../../settings/store';
+import { useHasScreenArtBackdrop } from '../../../theme/ScreenArtBackdrop';
 import { columnPercentStyle, useTranscriptColumnPercent } from './rowWidth';
 import { transcriptItemKey, type ChatDocument, type TranscriptItem } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -248,6 +249,7 @@ export function NativeTranscript({ chat, items, main = true, active = true }: Na
   // The chat view's list reaches under the iPhone Duo's side bar, its rows keep clear of it;
   // a transcript inside a card (a subagent's) keeps to the card.
   const listEdges = useScrollToBarEdges(undefined, main ? null : NO_BAR_INSETS);
+  const hasScreenArt = useHasScreenArtBackdrop(theme.light);
   const [awayFromBottom, setAwayFromBottom] = useState(false);
   const look = chatLookOf(document);
   // Message spacing: the space every row ends with (`messageSpacing.ts`).
@@ -606,7 +608,7 @@ export function NativeTranscript({ chat, items, main = true, active = true }: Na
           <TranscriptFieldRevealContext.Provider value={revealFocusedField}>
             <View
               ref={rootRef}
-              style={[styles.root, { backgroundColor: theme.background }]}
+              style={[styles.root, { backgroundColor: main && hasScreenArt ? 'transparent' : theme.background }]}
               accessibilityLabel="Conversation"
             >
               <QuietLinesContext.Provider value={quietLines}>{body}</QuietLinesContext.Provider>

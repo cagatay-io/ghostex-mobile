@@ -7,6 +7,7 @@ import {
   useSettingsStore,
   type TerminalBackgroundMode,
 } from '../../settings/store';
+import { patchThemeSettings } from '../../settingsSync/settingsSync';
 import { useTerminalStore } from '../../terminal/sessions';
 import {
   Caption,
@@ -79,7 +80,6 @@ const TERMINAL_BACKGROUND_ROWS: ReadonlyArray<{ value: TerminalBackgroundMode; l
 function BackgroundSection() {
   const mode = useSettingsStore((state) => state.settings.terminalBackgroundMode);
   const colour = useSettingsStore((state) => state.settings.workspaceBackgroundColor);
-  const patchSettings = useSettingsStore((state) => state.patchSettings);
 
   return (
     <>
@@ -90,7 +90,7 @@ function BackgroundSection() {
           label={row.label}
           selected={mode === row.value}
           onPress={() =>
-            patchSettings(
+            patchThemeSettings(
               row.value === 'custom' && colour === ''
                 ? { terminalBackgroundMode: row.value, workspaceBackgroundColor: TERMINAL_BACKGROUND_STARTING_COLOR }
                 : { terminalBackgroundMode: row.value },
@@ -106,7 +106,7 @@ function BackgroundSection() {
           <HexColourField
             label="Terminal background color"
             value={colour}
-            onChange={(hex) => patchSettings({ workspaceBackgroundColor: hex })}
+            onChange={(hex) => patchThemeSettings({ workspaceBackgroundColor: hex })}
           />
           <Caption>Painted behind terminal text in dark and light mode.</Caption>
         </>

@@ -76,6 +76,7 @@ import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PILLS_IN_DOCK_BAR, PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
 import { SideChatBar } from './cards/SideChats';
 import { useTerminalStore } from '../../terminal/sessions';
+import { ScreenArtBackdrop } from '../../theme/ScreenArtBackdrop';
 import { LoneScrollBottom, WorkingCard, cardGap, dockStatusCard, useWorkedLineSpent } from './cards/WorkingCard';
 import { COMPOSER_TOP_PADDING, STACK_GAP, chatCardsShown } from './cards/NativeChatCards';
 import { NativeComposer } from './composer';
@@ -570,7 +571,7 @@ export default function NativeChatScreen({
             onDropActive={(event) => setDropActive(event.nativeEvent.active)}
           >
             <View
-              style={[styles.root, { backgroundColor: theme.background }]}
+              style={[styles.root, { backgroundColor: theme.background, overflow: 'hidden' }]}
               pointerEvents={visible ? 'auto' : 'none'}
               onLayout={(event) => {
                 const { width, height } = event.nativeEvent.layout;
@@ -579,6 +580,7 @@ export default function NativeChatScreen({
                   setPaneSize((now) => (now?.width === width && now.height === height ? now : { width, height }));
               }}
             >
+              <ScreenArtBackdrop baseColor={theme.background} area="chat" lightOverride={theme.light} />
               {chat.state?.error ? <ErrorLine message={chat.state.error} style={styles.error} /> : null}
               {document ? <SideChatBar chat={chat} document={document} /> : null}
               <TranscriptSearchBar chat={chat} />

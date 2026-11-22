@@ -23,7 +23,12 @@ import { isCloudBoxMachineId } from '../cloudBoxes/types';
 import { pairingDeviceName } from '../machines/pairing';
 import { useMachinesStore } from '../machines/store';
 import { useInventoryStore } from '../inventory/store';
-import { useSettingsStore } from '../settings/store';
+import { useSettingsStore, type GhostexSettings } from '../settings/store';
+import {
+  extractSyncedAppearancePatch,
+  isAppearanceSyncActive,
+  pickAppearanceSyncUpdates,
+} from './appearanceSync';
 import {
   computerDiffersFromSynced,
   SIDEBAR_ORGANIZATION_PREFIX,
@@ -54,6 +59,8 @@ type Stored = {
   refused: Record<string, string>;
   /** Per computer id, the categories it synced at the last exchange (only what this phone needs to know). */
   categories: Record<string, string[]>;
+  /** Last applied HLC per `appearance/setting/*` key so inbound sync applies once and never overwrites newer local edits. */
+  appliedAppearanceHlcs: Record<string, string>;
 };
 
 /** What Settings › Sync shows: per computer id, when it last synced or why it refused. */
@@ -61,6 +68,21 @@ export const useSettingsSyncStore = create<{
   lastSyncAt: Record<string, number>;
   refused: Record<string, string>;
 }>(() => ({ lastSyncAt: {}, refused: {} }));
+
+function applySyncedAppearance(state: Stored): boolean {
+  if (!useSettingsStore.getState().hydrated) return false;
+  if (!useSettingsStore.getState().settings.settingsSyncThroughPhone) return false;
+  const { patch, nextAppliedHlcs, changed } = extractSyncedAppearancePatch(
+    state.entries,
+    state.appliedAppearanceHlcs,
+  );
+  if (!changed) return false;
+  state.appliedAppearanceHlcs = nextAppliedHlcs;
+  if (Object.keys(patch).length > 0) {
+    useSettingsStore.getState().patchSettings(patch);
+  }
+  return true;
+}
 
 function publishEntries(state: Stored): void {
   const values: Record<string, unknown> = {};
@@ -98,9 +120,17 @@ async function load(): Promise<Stored> {
     lastSyncAt: parsed.lastSyncAt ?? {},
     refused: parsed.refused ?? {},
     categories: parsed.categories ?? {},
+    appliedAppearanceHlcs: parsed.appliedAppearanceHlcs ?? {},
   };
   useSettingsSyncStore.setState({ lastSyncAt: stored.lastSyncAt, refused: stored.refused });
   publishEntries(stored);
+  if (applySyncedAppearance(stored)) {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    } catch {
+      // Kept for this run; applied settings are already persisted in settings.v1.
+    }
+  }
   return stored;
 }
 
@@ -146,6 +176,7 @@ async function round(): Promise<void> {
       state.lastSyncAt[machine.id] = Date.now();
       delete state.refused[machine.id];
     }
+    applySyncedAppearance(state);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     useSettingsSyncStore.setState({ lastSyncAt: { ...state.lastSyncAt }, refused: { ...state.refused } });
     publishEntries(state);
@@ -198,23 +229,38 @@ function nextHlc(state: Stored, node: string): string {
 }
 
 /**
- * A change made on this phone to a synced key (gx-core settings_sync/entries.rs `local_edit`): stored with a new
- * stamp under the phone's own member id, so the next exchange hands it to every computer, where the newest stamp of
- * a key wins as between computers. Nothing is written when the key already says `value`.
+ * Several synced keys updated together in one persist and one exchange round (for example a theme
+ * or artwork change on this phone). When `recordAppliedAppearance` is true, each written HLC is
+ * recorded in `appliedAppearanceHlcs` so our own edit never echoes back as an inbound patch.
  */
-export async function editSyncedEntry(key: string, value: unknown): Promise<void> {
+export async function editSyncedEntries(
+  updates: ReadonlyArray<readonly [string, unknown]>,
+  recordAppliedAppearance = false,
+): Promise<void> {
+  if (updates.length === 0) return;
   const state = await load();
-  const current = state.entries[key];
-  if (current !== undefined && JSON.stringify(current.value ?? null) === JSON.stringify(value ?? null)) return;
   const origin = `phone-${state.phoneId}`;
-  state.entries[key] = {
-    key,
-    value,
-    hlc: nextHlc(state, origin),
-    parent: current?.hlc ?? null,
-    origin,
-    originName: pairingDeviceName(),
-  };
+  const originName = pairingDeviceName();
+  let changed = false;
+  for (const [key, value] of updates) {
+    const current = state.entries[key];
+    if (current !== undefined && JSON.stringify(current.value ?? null) === JSON.stringify(value ?? null)) {
+      if (recordAppliedAppearance) state.appliedAppearanceHlcs[key] = current.hlc;
+      continue;
+    }
+    const hlc = nextHlc(state, origin);
+    state.entries[key] = {
+      key,
+      value,
+      hlc,
+      parent: current?.hlc ?? null,
+      origin,
+      originName,
+    };
+    if (recordAppliedAppearance) state.appliedAppearanceHlcs[key] = hlc;
+    changed = true;
+  }
+  if (!changed) return;
   publishEntries(state);
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -224,12 +270,28 @@ export async function editSyncedEntry(key: string, value: unknown): Promise<void
   syncSoon();
 }
 
+/**
+ * A change made on this phone to a synced key (gx-core settings_sync/entries.rs `local_edit`): stored with a new
+ * stamp under the phone's own member id, so the next exchange hands it to every computer, where the newest stamp of
+ * a key wins as between computers. Nothing is written when the key already says `value`.
+ */
+export async function editSyncedEntry(key: string, value: unknown): Promise<void> {
+  await editSyncedEntries([[key, value]]);
+}
+
 /** Starts the rounds: every half minute and whenever the app comes to the front. */
 export function initSettingsSync(): void {
   if (started) return;
   started = true;
   void load();
   setInterval(() => void round(), ROUND_MS);
+  useSettingsStore.subscribe((state, previous) => {
+    if (state.hydrated && !previous.hydrated && stored !== null) {
+      if (applySyncedAppearance(stored)) {
+        void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored)).catch(() => {});
+      }
+    }
+  });
   useInventoryStore.subscribe((state, previous) => {
     if (state.inventoriesByMachineId !== previous.inventoriesByMachineId) exchangeWhenAComputerChanged();
   });
@@ -268,4 +330,21 @@ function exchangeWhenAComputerChanged(): void {
  */
 export function setSidebarSetting<K extends SidebarOrganizationKey>(key: K, value: SidebarOrganization[K]): void {
   void editSyncedEntry(`${SIDEBAR_ORGANIZATION_PREFIX}${key}`, value);
+}
+
+/**
+ * Applies a theme/artwork settings patch locally on this phone and, when Settings Sync is carrying
+ * Appearance with at least one computer, forwards the synced Appearance keys (`windowArt`,
+ * `windowArtLight`, `windowArtDim`, `themeRoles`, colours and palettes) to the next exchange.
+ * Desktop-only window transparency keys are never written by the phone.
+ */
+export function patchThemeSettings(patch: Partial<GhostexSettings>): void {
+  useSettingsStore.getState().patchSettings(patch);
+  if (!useSettingsStore.getState().settings.settingsSyncThroughPhone) return;
+  const { categoriesByMachine, values } = useSyncedEntriesStore.getState();
+  if (!isAppearanceSyncActive(categoriesByMachine, values)) return;
+  const updates = pickAppearanceSyncUpdates(patch);
+  if (updates.length > 0) {
+    void editSyncedEntries(updates, true);
+  }
 }
