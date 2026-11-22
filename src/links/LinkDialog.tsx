@@ -77,13 +77,13 @@ export default function LinkDialog({
             <KeyboardAwareScrollView bounces={false} contentContainerStyle={styles.cardContent}>
               <Text style={styles.title}>{editing ? LinksCopy.editTitle : LinksCopy.addTitle}</Text>
               <Text style={styles.body}>{editing ? LinksCopy.editBody : LinksCopy.addBody}</Text>
-              <Text style={[styles.body, { color: appearance.foreground, fontWeight: '600', marginTop: 14 }]}>
+              <Text style={[styles.body, { color: appearance.foreground, fontWeight: '600', marginTop: 10 }]}>
                 {LinksCopy.addressLabel}
               </Text>
               <TextInput
                 accessibilityLabel={LinksCopy.addressLabel}
                 keyboardAppearance={appearance.light ? 'light' : 'dark'}
-                style={[styles.input, { marginTop: 6 }]}
+                style={[styles.input, { marginTop: 4 }]}
                 placeholder={LinksCopy.addressPlaceholder}
                 placeholderTextColor={appearance.muted}
                 autoCapitalize="none"
@@ -100,25 +100,30 @@ export default function LinkDialog({
                 onSubmitEditing={() => nameRef.current?.focus()}
                 submitBehavior="submit"
               />
-              {where !== null ? <Text style={styles.body}>{where}</Text> : null}
-              <Text style={[styles.body, { color: appearance.foreground, fontWeight: '600', marginTop: 14 }]}>
+              {error !== null ? (
+                <Text style={styles.error}>{error}</Text>
+              ) : where !== null ? (
+                <Text style={styles.body}>{where}</Text>
+              ) : null}
+              <Text style={[styles.body, { color: appearance.foreground, fontWeight: '600', marginTop: 10 }]}>
                 {LinksCopy.nameLabel}
               </Text>
               <TextInput
                 ref={nameRef}
                 accessibilityLabel={LinksCopy.nameLabel}
                 keyboardAppearance={appearance.light ? 'light' : 'dark'}
-                style={[styles.input, { marginTop: 6 }]}
+                style={[styles.input, { marginTop: 4 }]}
                 placeholder={LinksCopy.namePlaceholder}
                 placeholderTextColor={appearance.muted}
                 autoCapitalize="sentences"
+                autoCorrect={false}
+                spellCheck={false}
                 returnKeyType="done"
                 value={name}
                 onChangeText={setName}
                 onSubmitEditing={submit}
               />
-              {error !== null ? <Text style={styles.error}>{error}</Text> : null}
-              <View style={styles.buttonRow}>
+              <View style={[styles.buttonRow, { marginTop: 12 }]}>
                 <Pressable
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelButtonPressed]}
