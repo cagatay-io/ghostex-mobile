@@ -16,8 +16,21 @@
  * SEE-ALSO: apps/desktop/src/app/window/visual_page_modal/source.rs (the desktop's check and Refresh), server/src/visual_pages/source.rs (the two routes).
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Linking, Modal, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
@@ -45,6 +58,7 @@ import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
 import { CardMoreMenu, pageRows, snoozeRow, starRow } from './CardMoreMenu';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
 import { PAGE_DICTATION_SCRIPT, usePageDictation } from './pageDictation';
+import { usePageArtBackdrop, type PageOrigin, type SheetSize } from './pageArtBackdrop';
 import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
 
 /** How long the first back press keeps the sheet armed for a second one to close it. */
@@ -55,6 +69,10 @@ const SOURCE_CHECK_TIMEOUT_MS = 10_000;
 const REFRESH_TIMEOUT_MS = 30_000;
 /** How long the page has to hand over the draft it had not saved, when it closes or moves port. */
 const PENDING_DRAFT_TIMEOUT_MS = 800;
+/** Cap on waiting for a first-time artwork blur pass before revealing the loaded page. */
+const FIRST_BLUR_WAIT_MS = 350;
+/** Minimum height of the sheet's top bar (`styles.bar.minHeight`), used before its first `onLayout`. */
+const SHEET_BAR_MIN_HEIGHT = 48;
 
 /**
  * Whether a navigation replaces the page rather than loading into a sub-frame: Android reports no
@@ -117,10 +135,21 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
   const P = useTranscriptTheme();
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
+  const windowDims = useWindowDimensions();
   // Laptop pose: the page area's bottom edge in the window (the sheet covers the window from its top), so the page
   // ends above the fold.
   const fold = useLaptopFold();
   const [pageBottom, setPageBottom] = useState<number | null>(null);
+  const [measuredSheetSize, setMeasuredSheetSize] = useState<SheetSize | null>(null);
+  const [measuredPageOrigin, setMeasuredPageOrigin] = useState<PageOrigin | null>(null);
+  const sheetSize = useMemo<SheetSize>(
+    () => measuredSheetSize ?? { width: windowDims.width, height: windowDims.height },
+    [measuredSheetSize, windowDims.width, windowDims.height],
+  );
+  const pageOrigin = useMemo<PageOrigin>(
+    () => measuredPageOrigin ?? { x: bar.left, y: insets.top + SHEET_BAR_MIN_HEIGHT },
+    [measuredPageOrigin, bar.left, insets.top],
+  );
   const webviewRef = useRef<WebView<object>>(null);
   // The machine record is rebuilt on every connection the inventory records; only its id matters.
   const machineRef = useRef(machine);
@@ -132,7 +161,8 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
   const uriRef = useRef<string | null>(null);
   const localPortRef = useRef<number | null>(null);
   const [failure, setFailure] = useState<WebPreviewFailure | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [blurWaitExpired, setBlurWaitExpired] = useState(false);
   const [title, setTitle] = useState('');
   const [pictures, setPictures] = useState<ImageViewerList | null>(null);
   const [armed, setArmed] = useState(false);
@@ -144,9 +174,41 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
     const subscription = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
     return () => subscription.remove();
   }, []);
+  const artBackdrop = usePageArtBackdrop({
+    open: page !== null,
+    light: P.light,
+    baseColor: P.background,
+    sheetSize,
+    pageOrigin,
+  });
+  const receiveBlurredArt = artBackdrop.receiveBlurredArt;
+  // Hold the loading overlay briefly if the page finished before a first-time artwork blur returned,
+  // so both the header bar and the page reveal on the exact same blurred JPEG with no flash or seam.
+  useEffect(() => {
+    if (!pageLoaded || !artBackdrop.active || artBackdrop.blurred !== null || blurWaitExpired) return undefined;
+    const timer = setTimeout(() => setBlurWaitExpired(true), FIRST_BLUR_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [pageLoaded, artBackdrop.active, artBackdrop.blurred, blurWaitExpired]);
+  const loading = !pageLoaded || (artBackdrop.active && artBackdrop.blurred === null && !blurWaitExpired);
+  // Push backdrop updates (rotation, theme/dimming changes, or first-time blur completion) into the live page.
+  useEffect(() => {
+    if (uri === null) return;
+    webviewRef.current?.injectJavaScript(artBackdrop.glassScript);
+  }, [uri, artBackdrop.glassKey, artBackdrop.glassScript]);
   // The page's text boxes dictate only while the reader sees the page (`pageDictation.ts`).
   const dictation = usePageDictation(machine, webviewRef, page !== null && uri !== null && appActive && pictures === null);
   const askDictation = dictation.asked;
+  const beforeContentScript = useMemo(
+    () =>
+      [PAGE_SCRIPT, dictation.available ? PAGE_DICTATION_SCRIPT : null, artBackdrop.glassScript]
+        .filter((part): part is string => part !== null)
+        .join('\n'),
+    [dictation.available, artBackdrop.glassScript],
+  );
+  const afterContentScript = useMemo(
+    () => `${PAGE_SCRIPT}\n${artBackdrop.glassScript}`,
+    [artBackdrop.glassScript],
+  );
   /** Takes the page's answer to {@link PENDING_DRAFT_SCRIPT} while one is awaited. */
   const draftReplyRef = useRef<((draft: Record<string, unknown> | null) => void) | null>(null);
 
@@ -156,11 +218,16 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
     uriRef.current = null;
     localPortRef.current = null;
     setFailure(null);
-    setLoading(true);
+    setPageLoaded(false);
+    setBlurWaitExpired(false);
     setTitle('');
     setPictures(null);
     setArmed(false);
-    if (page === null) return undefined;
+    if (page === null) {
+      setMeasuredSheetSize(null);
+      setMeasuredPageOrigin(null);
+      return undefined;
+    }
     let live = true;
     let held = false;
     const target = machineRef.current;
@@ -381,9 +448,10 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       if (message.type === 'images') setPictures({ images: message.images, index: message.index });
       else if (message.type === 'draft') draftReplyRef.current?.(message.draft);
       else if (message.type === 'dictate') askDictation(message.action);
+      else if (message.type === 'blurredArt') receiveBlurredArt(message);
       else close();
     },
-    [askDictation, close],
+    [askDictation, close, receiveBlurredArt],
   );
 
   if (page === null) return null;
@@ -399,8 +467,41 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View style={[styles.sheet, { paddingTop: insets.top, paddingBottom: insets.bottom }, bar.padding]}>
-        <View style={styles.bar}>
+      <View
+        style={[styles.sheet, { paddingTop: insets.top, paddingBottom: insets.bottom }, bar.padding]}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setMeasuredSheetSize((prev) => (prev?.width === width && prev.height === height ? prev : { width, height }));
+        }}
+      >
+        {artBackdrop.active ? (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {artBackdrop.blurred !== null && artBackdrop.rect !== null ? (
+              <Image
+                source={{ uri: artBackdrop.blurred.dataUri }}
+                resizeMode="stretch"
+                fadeDuration={0}
+                style={{
+                  position: 'absolute',
+                  left: artBackdrop.rect.x,
+                  top: artBackdrop.rect.y,
+                  width: artBackdrop.rect.width,
+                  height: artBackdrop.rect.height,
+                }}
+              />
+            ) : artBackdrop.rawSource !== null ? (
+              <Image
+                source={artBackdrop.rawSource}
+                resizeMode="cover"
+                blurRadius={Platform.OS === 'ios' ? 30 : 25}
+                fadeDuration={0}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : null}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: artBackdrop.tint }]} />
+          </View>
+        ) : null}
+        <View style={[styles.bar, artBackdrop.active && { borderBottomColor: P.ink(0.09) }]}>
           <View style={styles.heading}>
             <Text numberOfLines={1} style={styles.title}>
               {title.length > 0 ? title : 'Live page'}
@@ -460,7 +561,11 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
         </View>
         <View
           style={styles.page}
-          onLayout={(event) => setPageBottom(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}
+          onLayout={(event) => {
+            const { x, y, height } = event.nativeEvent.layout;
+            setPageBottom(y + height);
+            setMeasuredPageOrigin((prev) => (prev?.x === x && prev.y === y ? prev : { x, y }));
+          }}
         >
           <View testID="page-area" style={[styles.page, pageInset > 0 && { marginBottom: pageInset }]}>
             {uri !== null ? (
@@ -468,15 +573,17 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
                 ref={webviewRef}
                 source={{ uri }}
                 originWhitelist={['http://*', 'https://*']}
-                style={styles.webview}
-                injectedJavaScriptBeforeContentLoaded={
-                  dictation.available ? `${PAGE_SCRIPT}\n${PAGE_DICTATION_SCRIPT}` : PAGE_SCRIPT
-                }
-                injectedJavaScript={PAGE_SCRIPT}
+                style={[
+                  styles.webview,
+                  artBackdrop.active && styles.transparent,
+                  artBackdrop.active && loading && styles.webviewLoading,
+                ]}
+                injectedJavaScriptBeforeContentLoaded={beforeContentScript}
+                injectedJavaScript={afterContentScript}
                 onMessage={received}
                 onShouldStartLoadWithRequest={shouldStartLoad}
                 onLoadStart={() => setFailure(null)}
-                onLoadEnd={() => setLoading(false)}
+                onLoadEnd={() => setPageLoaded(true)}
                 onNavigationStateChange={(state) => {
                   setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''));
                   followLinkedPage(state.url);
@@ -491,7 +598,7 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
                     hint: WebPreviewCopy.connectionLostHint,
                   });
                 }}
-                renderError={() => <View style={styles.webview} />}
+                renderError={() => <View style={[styles.webview, artBackdrop.active && styles.transparent]} />}
                 // Links the page opens leave through `onOpenLink`, never as a window of their own.
                 setSupportMultipleWindows={false}
                 allowsLinkPreview={false}
@@ -499,7 +606,7 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
               />
             ) : null}
             {failure !== null ? (
-              <View style={styles.state}>
+              <View style={[styles.state, artBackdrop.active && styles.transparent]}>
                 <Text style={styles.stateBody}>{failure.message}</Text>
                 {failure.hint.length > 0 ? <Text style={styles.stateHint}>{failure.hint}</Text> : null}
                 <Pressable
@@ -511,7 +618,7 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
                 </Pressable>
               </View>
             ) : loading ? (
-              <View style={styles.state} pointerEvents="none">
+              <View style={[styles.state, artBackdrop.active && styles.transparent]} pointerEvents="none">
                 <ActivityIndicator color={P.muted} />
               </View>
             ) : null}
@@ -525,12 +632,12 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
 }
 
 const useStyles = themedStyles((P) => ({
-  sheet: { flex: 1, backgroundColor: P.background },
+  sheet: { flex: 1, backgroundColor: P.background, overflow: 'hidden' },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    minHeight: 48,
+    minHeight: SHEET_BAR_MIN_HEIGHT,
     paddingLeft: 16,
     paddingRight: 8,
     borderBottomWidth: 1,
@@ -552,6 +659,8 @@ const useStyles = themedStyles((P) => ({
   close: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   page: { flex: 1 },
   webview: { flex: 1, backgroundColor: P.background },
+  transparent: { backgroundColor: 'transparent' },
+  webviewLoading: { opacity: 0.01 },
   state: {
     position: 'absolute',
     top: 0,

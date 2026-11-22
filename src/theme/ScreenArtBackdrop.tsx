@@ -43,6 +43,55 @@ const SURFACE_TINT_ALPHA: Readonly<Record<ScreenArtArea, { dark: number; light: 
 
 const FADE_IN_MS = 320;
 
+function parseColorRgb(color: string): readonly [number, number, number] | null {
+  const trimmed = color.trim();
+  const hex6 = /^#([0-9a-f]{6})$/iu.exec(trimmed);
+  if (hex6 !== null) {
+    const value = Number.parseInt(hex6[1], 16);
+    return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+  }
+  const hex3 = /^#([0-9a-f]{3})$/iu.exec(trimmed);
+  if (hex3 !== null) {
+    const [r, g, b] = hex3[1].split('').map((ch) => Number.parseInt(ch + ch, 16));
+    return [r, g, b];
+  }
+  const rgb = /^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/iu.exec(trimmed);
+  if (rgb !== null) {
+    return [
+      Math.max(0, Math.min(255, Math.round(Number(rgb[1])))),
+      Math.max(0, Math.min(255, Math.round(Number(rgb[2])))),
+      Math.max(0, Math.min(255, Math.round(Number(rgb[3])))),
+    ];
+  }
+  return null;
+}
+
+/**
+ * Combines the artwork dimming wash (`dimPercent` of black in dark mode, white in light mode) with
+ * the screen's surface tint veil (`baseColor` at `SURFACE_TINT_ALPHA[area]`) into one equivalent
+ * Source-Over `rgba(r,g,b,a)` tint layer. Matches desktop's `art_tint`
+ * (`apps/desktop/src/app/window/visual_page_modal/glass.rs`), keeping the dimming in the tint layer
+ * so flipping a Live page's Dark / Light switch works cleanly.
+ */
+export function combineArtTint(
+  baseColor: string,
+  dimPercent: number,
+  light: boolean,
+  area: ScreenArtArea = 'chat',
+): string {
+  const workAlpha = light ? SURFACE_TINT_ALPHA[area].light : SURFACE_TINT_ALPHA[area].dark;
+  const dim = Math.max(0, Math.min(90, dimPercent)) / 100;
+  const alpha = 1 - (1 - workAlpha) * (1 - dim);
+  if (alpha <= 1e-6) return 'rgba(0,0,0,0)';
+  const parsed = parseColorRgb(baseColor) ?? (light ? [240, 240, 240] : [19, 19, 19]);
+  const wash = light ? 255 : 0;
+  const dimWeight = (1 - workAlpha) * dim;
+  const r = Math.round((parsed[0] * workAlpha + wash * dimWeight) / alpha);
+  const g = Math.round((parsed[1] * workAlpha + wash * dimWeight) / alpha);
+  const b = Math.round((parsed[2] * workAlpha + wash * dimWeight) / alpha);
+  return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+}
+
 /** Whether a still artwork backdrop is active for the given appearance (`lightOverride` defaults to app appearance). */
 export function useHasScreenArtBackdrop(lightOverride?: boolean): boolean {
   const appLight = useAppearanceIsLight();

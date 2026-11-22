@@ -16,6 +16,7 @@
  */
 
 import type { ChatImage } from './overlayStore';
+import { MAX_BLURRED_DATA_URI_CHARS, type BlurredArtwork } from './pageArtBackdrop';
 
 /**
  * Added to every document the sheet loads (before the content where the WebView can, and again once
@@ -153,7 +154,9 @@ export type PageMessage =
   /** What the page had not saved yet ({@link PENDING_DRAFT_SCRIPT}), `null` when nothing. */
   | { type: 'draft'; draft: Record<string, unknown> | null }
   /** A box's microphone was pressed, Escape cancelled it, or Restore was pressed (`pageDictation.ts`). */
-  | { type: 'dictate'; action: PageDictateAction };
+  | { type: 'dictate'; action: PageDictateAction }
+  /** A softened JPEG of the active theme artwork generated once in the WebView (`pageArtBackdrop.ts`). */
+  | ({ type: 'blurredArt' } & BlurredArtwork);
 
 /**
  * Asks the page for its draft that has not reached gxserver yet (`ghostex.__pending()`,
@@ -200,6 +203,27 @@ export function readPageMessage(payload: string): PageMessage | null {
     return message.action === 'toggle' || message.action === 'cancel' || message.action === 'restore'
       ? { type: 'dictate', action: message.action }
       : null;
+  }
+  if (message.type === 'blurredArt') {
+    const { artId, sha256, dataUri, width, height } = message;
+    if (
+      typeof artId !== 'string' ||
+      typeof sha256 !== 'string' ||
+      typeof dataUri !== 'string' ||
+      !dataUri.startsWith('data:image/jpeg;base64,') ||
+      dataUri.length > MAX_BLURRED_DATA_URI_CHARS ||
+      typeof width !== 'number' ||
+      !Number.isInteger(width) ||
+      width < 1 ||
+      width > 640 ||
+      typeof height !== 'number' ||
+      !Number.isInteger(height) ||
+      height < 1 ||
+      height > 640
+    ) {
+      return null;
+    }
+    return { type: 'blurredArt', artId, sha256, dataUri, width, height };
   }
   return message.type === 'close' ? { type: 'close' } : null;
 }
