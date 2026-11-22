@@ -68,6 +68,16 @@ public class TextSelectionCursorController implements CursorController {
             return false;
         }
 
+        hideNow();
+        return true;
+    }
+
+    /**
+     * CDXC:Terminal 2026-11-22 FIX: Issue #705, reported by seseegy from Ghostex 11.13.0 on Android 16 (Xiaomi), Terminal screen: "java.lang.NullPointerException: Attempt to read from field 'ne6 qe6.l' on a null object reference in method 'boolean i25.onActionItemClicked'", which the 11.13.0 R8 mapping decodes to the selection bar's Copy reading {@code TerminalView.mEmulator.mScreen} through {@link #getSelectedText()} after the emulator was gone. Easy Connect replaced a stuck connection, which retires its terminals and detaches the session from the view ({@code attachSession(null)} sets {@code mEmulator} to null), while the selection and its floating Copy / Paste / Select all bar stayed up; Copy four seconds later crashed. A selection belongs to the emulator it was made on, so {@link TerminalView#attachSession} ends it with this. It skips {@link #hide()}'s 300 ms guard: that guard only stops a long press from closing the selection it just opened, and a session swap inside it would leave the same stale selection behind.
+     */
+    public boolean hideNow() {
+        if (!isActive()) return false;
+
         mStartHandle.hide();
         mEndHandle.hide();
 

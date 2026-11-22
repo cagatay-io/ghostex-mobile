@@ -319,6 +319,8 @@ public final class TerminalView extends View {
     public boolean attachSession(@Nullable TerminalSession session) {
         if (session == mTermSession) return false;
         cancelFling();
+        // Ghostex: a selection belongs to the emulator it was made on (Issue #705, see TextSelectionCursorController#hideNow).
+        stopTextSelectionModeNow();
         mTopRow = 0;
 
         mTermSession = session;
@@ -1506,6 +1508,14 @@ public final class TerminalView extends View {
         }
     }
 
+    /** Ghostex: end text selection even right after it started; for when the emulator under it goes away. */
+    private void stopTextSelectionModeNow() {
+        if (mTextSelectionCursorController != null && mTextSelectionCursorController.hideNow()) {
+            mClient.copyModeChanged(isSelectingText());
+            invalidate();
+        }
+    }
+
     private void decrementYTextSelectionCursors(int decrement) {
         if (mTextSelectionCursorController != null) {
             mTextSelectionCursorController.decrementYTextSelectionCursors(decrement);
@@ -1529,7 +1539,8 @@ public final class TerminalView extends View {
         if (mTextSelectionCursorController != null) {
             // Might solve the following exception
             // android.view.WindowLeaked: Activity com.termux.app.TermuxActivity has leaked window android.widget.PopupWindow
-            stopTextSelectionMode();
+            // Ghostex: without the 300 ms guard, so a view leaving the window right after a long press drops its bar too.
+            stopTextSelectionModeNow();
 
             getViewTreeObserver().removeOnTouchModeChangeListener(mTextSelectionCursorController);
             mTextSelectionCursorController.onDetached();
