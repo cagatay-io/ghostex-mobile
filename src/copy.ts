@@ -1626,6 +1626,43 @@ export const DocsCopy = {
  * pop-up (apps/desktop/src/app/window/feedback_modal/render.rs), worded the same where the
  * two say the same thing.
  */
+/**
+ * The ☰ menu's Links: the phone's own saved links (src/links/), worded like the desktop's sidebar ⋯ menu and its
+ * Add link dialog (apps/desktop/src/app/window/custom_link_modal.rs in the Ghostex main repo).
+ */
+export const LinksCopy = {
+  menuLabel: 'Links',
+  title: 'Links',
+  empty: 'No links yet. Add a page you open often, such as a local dashboard.',
+  add: 'Add link…',
+  /** `computer`: the selected computer's short name. */
+  copyFrom: (computer: string) => `Copy links from ${computer}`,
+  copying: (computer: string) => `Reading ${computer}’s links…`,
+  copied: (count: number, computer: string) =>
+    count === 1 ? `Copied 1 link from ${computer}.` : `Copied ${count} links from ${computer}.`,
+  nothingNew: (computer: string) => `${computer} has no links this phone lacks.`,
+  tooOld: (computer: string) => `Update Ghostex on ${computer} to copy its links.`,
+  copyFailed: (computer: string, message: string) => `Could not read ${computer}’s links. ${message}`,
+  rowOptions: 'Link options',
+  edit: 'Edit…',
+  remove: 'Remove',
+  addTitle: 'Add link',
+  addBody: 'Open any page from the ☰ menu, such as a local dashboard.',
+  editTitle: 'Edit link',
+  editBody: 'Change where this link goes or what the menu calls it.',
+  addressLabel: 'Address',
+  addressPlaceholder: 'localhost:8317 or https://example.com',
+  nameLabel: 'Name',
+  namePlaceholder: 'Optional',
+  /** Under the address when it is on a computer: where it opens. */
+  opensOn: (computer: string) => `Opens on ${computer}, through its connection.`,
+  needsComputer: 'Opens on the selected computer, once one is connected.',
+  badAddress: 'Enter a web address, such as localhost:8317 or example.com.',
+  addButton: 'Add',
+  saveButton: 'Save',
+  cancelButton: 'Cancel',
+} as const;
+
 export const FeedbackCopy = {
   title: 'Send Bug / Feedback',
   menuLabel: 'Send Bug / Feedback',

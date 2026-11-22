@@ -62,6 +62,7 @@ import { useOpenProjectDraftsOnArrival } from '../components/sessions/useDraftAr
 import { useSessionListClock } from '../components/sessions/useSessionListClock';
 import ContextMenu, { type ContextMenuItem } from '../components/sessions/ContextMenu';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
+import LinksSheet from '../links/LinksSheet';
 import {
   buildDrawerList,
   hideProjectsWithoutSessions,
@@ -2154,6 +2155,16 @@ export default function SessionsScreen({ navigation }: Props) {
           anchor={appMenuAnchor}
         />
       ) : null}
+
+      <LinksSheet
+        visible={overlay.kind === 'links'}
+        machine={machine}
+        onClose={() => setOverlay(NONE)}
+        onOpen={(url, machineId) => {
+          setOverlay(NONE);
+          navigation.navigate('WebPreview', { machineId, url });
+        }}
+      />
 
       {overlay.kind === 'sortFilter' ? (
         <ContextMenu

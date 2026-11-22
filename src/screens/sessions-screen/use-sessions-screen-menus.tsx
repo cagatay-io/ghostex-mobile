@@ -38,6 +38,7 @@ import {
   EyeOffGlyph,
   InfoGlyph,
   MachinesGlyph,
+  LinkGlyph,
   ListGlyph,
   MessageCircleGlyph,
   NoteGlyph,
@@ -101,7 +102,7 @@ import {
   type GhostexAgentLauncher,
   type GhostexSession,
 } from '../../contract/mobileSummary';
-import { ConnectionsCopy, DocsCopy, FeedbackCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
+import { ConnectionsCopy, DocsCopy, FeedbackCopy, LinksCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
 import {
@@ -1524,6 +1525,15 @@ export function useSessionsScreenMenus({
         onPress: () => setOverlay({ kind: 'recentProjects', machine: target }),
       });
     }
+    // CDXC:Sidebar 2026-11-22 SEE-ALSO: src/links/links.ts; the desktop's links stand in its sidebar ⋯ menu, the phone's here.
+    items.push({
+      kind: 'item',
+      key: 'links',
+      label: LinksCopy.menuLabel,
+      icon: <LinkGlyph size={14} color={menuIconColor} />,
+      submenu: true,
+      onPress: () => setOverlay({ kind: 'links' }),
+    });
     items.push({
       kind: 'item',
       key: 'settings',

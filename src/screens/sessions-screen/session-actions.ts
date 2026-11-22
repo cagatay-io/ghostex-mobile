@@ -84,6 +84,8 @@ export type Overlay =
   | { kind: 'appMenu'; anchor?: MenuAnchor }
   /** The desktop's More › Sort & Filter: how the list is organized (synced) and the tag filter (this phone's). */
   | { kind: 'sortFilter' }
+  /** The ☰ menu's Links: the phone's saved links (src/links/LinksSheet.tsx). */
+  | { kind: 'links' }
   | {
       kind: 'confirmAction';
       title: string;

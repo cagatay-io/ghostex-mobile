@@ -19,6 +19,7 @@ mobile/
     inventory/                # inventory client (exec over native ssh), 5s polling on every screen (summaryRefresh.ts), per-machine fan-out
     terminal/                 # tab/session state, warm-session policy (max 7, within a scrollback-row budget), attach orchestration
     panes/                    # two panes on the iPhone Duo's inner display: layout store, geometry, pane host (see "Two panes" below)
+    links/                    # the phone's saved links (☰ menu › Links): parsing, store, Links sheet, Add/Edit dialog, copy from a computer
     usage/                    # Claude and Codex account usage, core-column adapter and view; the widget's usage bars
     commands/                 # ghostex CLI command builders (login-shell wrapping, quoting)
     docs/                     # document page builder, remote-file mirror and renderers

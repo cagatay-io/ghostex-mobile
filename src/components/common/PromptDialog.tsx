@@ -53,7 +53,7 @@ export default function PromptDialog({
   onCancel,
 }: PromptDialogProps) {
   const appearance = useAppearance();
-  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  const styles = useMemo(() => createPromptDialogStyles(appearance), [appearance]);
   const [value, setValue] = useState(initialValue);
   const [checkboxValue, setCheckboxValue] = useState(initialCheckboxValue);
   const placement = useFoldCardPlacement({ avoidsKeyboard: true, belowSafeAreaTop: true });
@@ -118,7 +118,8 @@ export default function PromptDialog({
   );
 }
 
-const createStyles = (appearance: Appearance) => StyleSheet.create({
+/** Shared with dialogs drawn in the same look (src/links/LinkDialog.tsx). */
+export const createPromptDialogStyles = (appearance: Appearance) => StyleSheet.create({
   // The dim sits on the keyboard-avoiding layer so it also covers the strip the keyboard leaves while it slides away.
   keyboardFill: {
     flex: 1,
