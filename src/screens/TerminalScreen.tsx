@@ -120,7 +120,7 @@ import { FORK_AGENT_ICONS, renameInitialTitle } from '../sessions/sessionCommand
 import { useSettingsStore } from '../settings/store';
 import { acknowledgeSessionAttention } from '../terminal/attention';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
-import { toggleEndsHold, useSavedChatView } from '../terminal/terminalHold';
+import { toggleSessionView, useSavedChatView } from '../terminal/terminalHold';
 import { setChatGridSessionKey } from '../terminal/chatGridClaim';
 import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { colorWithOpacity, GhostexPalette } from '../theme/palette';
@@ -905,15 +905,15 @@ export default function TerminalScreen({ navigation, route }: Props) {
     const sessionKey = store.selectedSessionKey;
     if (sessionKey === null) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // With two panes the selected session's pane turns, and only there: one chat per screen,
-    // the other pane's back to its terminal, the session's saved view kept; with one, the session's saved view, or,
-    // where its terminal is held (`terminalHold.ts`), its Chat View again with that saved view unchanged.
-    const holdEnded = toggleEndsHold(sessionKey);
-    const enteringChat = showsPanes ? paneChatKey !== sessionKey : holdEnded || !store.chatModeArmed(sessionKey);
     // Each surface owns its own input focus. Dismiss before either direction
     // so the retained hidden WebView cannot leave its keyboard attached to the
     // terminal, and the terminal keyboard cannot linger over chat.
     dismissKeyboard();
+    // With two panes the selected session's pane turns, and only there: one chat per screen,
+    // the other pane's back to its terminal, the session's saved view kept; with one, the session's view
+    // (`toggleSessionView`: a held terminal gives way to the Chat View without saving a view).
+    const shownView = toggleSessionView(sessionKey, showsPanes);
+    const enteringChat = showsPanes ? paneChatKey !== sessionKey : shownView === 'chat';
     if (enteringChat) {
       // Desktop parity: reading the session's chat is looking at the session,
       // so it clears attention the same way selecting its tab does.
@@ -923,7 +923,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
       }
     }
     if (showsPanes) setPaneChat(enteringChat ? sessionKey : null);
-    else if (!holdEnded) store.toggleChatMode(sessionKey);
   }, [dismissKeyboard, showsPanes, paneChatKey, setPaneChat]);
 
   // The keyboard's way to the composer of the chat in a pane (`focusRequestId`, each new value focuses it).

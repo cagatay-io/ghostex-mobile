@@ -254,17 +254,19 @@ function openSession(
     .then(
       (sessionKey) => ({ sessionKey, check: current, timedOut: false }),
       (error: unknown) => {
-        // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal, so the terminal
-        // opens as on success, but only while this opening is still current.
+        // Ended at the time limit: the tab shows the failure with Retry, so the terminal opens as on success, but only
+        // while this opening is still current.
         const sessionKey = deps.openTimedOut(error);
         if (sessionKey === null) throw error;
-        deps.holdTerminal(sessionKey);
         return { sessionKey, check: () => current?.() !== false && opening(), timedOut: true };
       },
     )
     .then(async ({ sessionKey, check, timedOut }) => {
       // The attach can take long: a later tap or the person may have moved on meanwhile.
       if (check?.() === false) return;
+      // Only a current opening's timeout holds the tab on its terminal: a newer opening of the session (in its Chat
+      // View, say) is the person's newer choice.
+      if (timedOut) deps.holdTerminal(sessionKey);
       // On a cold start the summary may only have arrived during the attach.
       deps.revealWorkspace(link.machineId, link.sessionId);
       // A question's Chat View only after a successful attach: a timed-out tab stays on its terminal's failure and

@@ -84,11 +84,11 @@ export default function FindPromptScreen({ navigation, route }: Props) {
             .attachSession(machine, { projectId: plan.projectId, sessionId: plan.sessionId });
         } catch (error) {
           if (!(error instanceof TerminalOpenTimedOut)) throw error;
-          // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal
-          // (`terminalHold.ts`). The Terminal opens as on success, but only while this opening is current
-          // (`currentOpening.ts`); otherwise nothing opens.
-          holdTerminal(error.sessionKey);
+          // Ended at the time limit: the tab shows the failure with Retry. Only while this opening is current
+          // (`currentOpening.ts`) does the Terminal open, as on success, and is the tab held on its terminal
+          // (`terminalHold.ts`); otherwise nothing opens.
           if (!opening.current()) return;
+          holdTerminal(error.sessionKey);
           sessionKey = error.sessionKey;
         }
         // Find and this screen give way to the Terminal, as if it had been opened from the sessions list.

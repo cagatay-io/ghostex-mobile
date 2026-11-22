@@ -45,7 +45,7 @@ import {
 import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { markSessionOpen, markSessionOpenTap } from '../../terminal/openTiming';
 import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../../terminal/sessions';
-import { endTerminalHold, holdTerminal } from '../../terminal/terminalHold';
+import { holdTerminal } from '../../terminal/terminalHold';
 import { sessionOpensInChatView } from '../terminal-screen/session-lookups';
 import { cloudBoxOpenTarget } from '../../cloudBoxes/open';
 import {
@@ -104,8 +104,9 @@ export function useSessionsScreenActions({
       // attention status.
       acknowledgeSessionAttention(target.id, session.sessionId);
       const openKey = attachSessionKey(target.id, session.sessionId);
-      // A new choice: a terminal held after an open that ended at its time limit is held no longer (`terminalHold.ts`).
-      endTerminalHold(openKey);
+      // The tap is an opening of the session, also where it opens the Chat View: an earlier opening's attach no
+      // longer navigates or holds its tab, and a held terminal is held no longer (`currentOpening.ts`).
+      const opening = beginOpening(openKey);
       if (options?.terminal === true) {
         // Long-press Open Terminal: the terminal, even where a tap opens claude.ai or the chat.
         useTerminalStore.getState().setSessionViewMode(openKey, 'terminal');
@@ -137,7 +138,6 @@ export function useSessionsScreenActions({
         return;
       }
       setTransientStatus(ProgressCopy.preparingAttach(session.alias));
-      const opening = beginOpening(openKey);
       let sessionKey: string;
       try {
         sessionKey = await useTerminalStore.getState().attachSession(target, {
@@ -152,12 +152,12 @@ export function useSessionsScreenActions({
           setTransientStatus(error instanceof Error ? error.message : String(error));
           return;
         }
-        // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal
-        // (`terminalHold.ts`). The Terminal opens as on success, but only while this opening is current
-        // (`currentOpening.ts`). The notice is left alone either way: "Preparing" left after its 6 s long ago, and a
+        // Ended at the time limit: the tab shows the failure with Retry. Only while this opening is current
+        // (`currentOpening.ts`) does the Terminal open, as on success, and is the tab held on its terminal
+        // (`terminalHold.ts`). The notice is left alone either way: "Preparing" left after its 6 s long ago, and a
         // notice shown now belongs to something newer.
-        holdTerminal(error.sessionKey);
         if (!opening.current()) return;
+        holdTerminal(error.sessionKey);
         sessionKey = error.sessionKey;
       }
       navigation.navigate('Terminal', {
@@ -194,15 +194,16 @@ export function useSessionsScreenActions({
       // CDXC:SessionChat 2026-09-09 DECISION:
       // User: open chat immediately while the terminal starts in the background. Creation supplies the identity, so inventory and SSH attachment do not gate navigation.
       if (!chatLaunch) {
-        // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal
-        // (`terminalHold.ts`). The Terminal opens as on success, but only while this opening is current
-        // (`currentOpening.ts`); otherwise nothing opens or reaches the caller.
+        // Ended at the time limit: the tab shows the failure with Retry. Only while this opening is current
+        // (`currentOpening.ts`) does the Terminal open, as on success, and is the tab held on its terminal
+        // (`terminalHold.ts`); otherwise nothing opens or reaches the caller.
         const opens = await attaching.then(
           () => true,
           (error: unknown) => {
             if (!(error instanceof TerminalOpenTimedOut)) throw error;
+            if (!opening.current()) return false;
             holdTerminal(error.sessionKey);
-            return opening.current();
+            return true;
           },
         );
         if (!opens) return;
