@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 
 import ContextMenu, { type ContextMenuItem } from '../components/sessions/ContextMenu';
-import { CopyGlyph, DotsGlyph, PencilGlyph, PlusGlyph, TrashGlyph, WorldGlyph } from '../components/sessions/icons';
+import { CopyGlyph, DotsGlyph, PencilGlyph, PlusGlyph, TrashGlyph } from '../components/sessions/icons';
 import { machineShortName } from '../components/sessions/machineNotice';
 import { isCloudBoxMachineId } from '../cloudBoxes/types';
 import { LinksCopy } from '../copy';
@@ -18,6 +18,7 @@ import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { useAppearance } from '../theme/useAppearance';
 import { readComputerLinks } from './copyFromComputer';
 import LinkDialog from './LinkDialog';
+import { LinkIcon } from './linkIcons';
 import { isComputerLink, linkLabel, type PhoneLink } from './links';
 import { usePhoneLinksStore } from './store';
 
@@ -68,8 +69,14 @@ export default function LinksSheet({ visible, machine, onClose, onOpen }: LinksS
       if (result.kind === 'tooOld') setStatus(LinksCopy.tooOld(name));
       else if (result.kind === 'failed') setStatus(LinksCopy.copyFailed(name, result.message));
       else {
-        const added = usePhoneLinksStore.getState().addMany(result.links);
-        setStatus(added > 0 ? LinksCopy.copied(added, name) : LinksCopy.nothingNew(name));
+        const { added, updated } = usePhoneLinksStore.getState().addMany(result.links);
+        setStatus(
+          added > 0
+            ? LinksCopy.copied(added, name)
+            : updated > 0
+              ? LinksCopy.updatedIcons(updated, name)
+              : LinksCopy.nothingNew(name),
+        );
       }
     });
   };
@@ -82,6 +89,7 @@ export default function LinksSheet({ visible, machine, onClose, onOpen }: LinksS
         editing={editing !== null}
         initialName={editing?.name ?? ''}
         initialUrl={editing?.url ?? ''}
+        initialIcon={editing?.icon}
         computerName={
           editing !== null
             ? (() => {
@@ -90,12 +98,12 @@ export default function LinksSheet({ visible, machine, onClose, onOpen }: LinksS
               })()
             : computerName
         }
-        onSubmit={(name, url) => {
+        onSubmit={(name, url, icon) => {
           const store = usePhoneLinksStore.getState();
           // A loopback address keeps the computer it was saved for, else takes the selected one.
           const machineId = isComputerLink(url) ? (editing?.machineId ?? machine?.id) : undefined;
-          if (editing !== null) store.update(editing.id, { name, url, machineId });
-          else store.add({ name, url, machineId });
+          if (editing !== null) store.update(editing.id, { name, url, icon, machineId });
+          else store.add({ name, url, icon, machineId });
           setStatus(null);
           setStep({ kind: 'list' });
         }}
@@ -146,7 +154,7 @@ export default function LinksSheet({ visible, machine, onClose, onOpen }: LinksS
       key: `link-${saved.id}`,
       label: linkLabel(saved),
       suffix: on !== null ? machineShortName(on) : undefined,
-      icon: <WorldGlyph size={14} color={iconColor} />,
+      icon: <LinkIcon icon={saved.icon} url={saved.url} size={14} color={iconColor} />,
       secondary: {
         icon: <DotsGlyph size={16} color={appearance.muted} />,
         label: LinksCopy.rowOptions,

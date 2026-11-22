@@ -25,6 +25,8 @@ export type PhoneLink = {
   name: string;
   /** A full http or https address (`normalizeLinkUrl`). */
   url: string;
+  /** Optional app icon id from `SPACE_EDITOR_ICONS` (`COMMAND_ICONS`); absent uses the site favicon / globe. */
+  icon?: string;
   /** The computer a loopback address (`localhost:8317`) opens on; absent for any other address. */
   machineId?: string;
 };
@@ -127,8 +129,24 @@ export function normalizeLinkUrl(input: string): string | null {
 }
 
 /**
+ * Origin `/favicon.ico` URL for a public web link, or `null` for loopback / local network / IP addresses
+ * where the phone cannot fetch a public site favicon directly.
+ */
+export function linkFaviconUrl(url: string): string | null {
+  const at = url.indexOf('://');
+  if (at < 0) return null;
+  const scheme = url.slice(0, at).toLowerCase();
+  if (scheme !== 'http' && scheme !== 'https') return null;
+  const authority = urlAuthority(url);
+  if (authority === null) return null;
+  const host = hostOfAuthority(authority);
+  if (host === null || looksLocal(host)) return null;
+  return `${scheme}://${authority}/favicon.ico`;
+}
+
+/**
  * The links a `customLinks` value holds (gx-core `custom_links_from_value`): unique ids, valid addresses, at most
- * `PHONE_LINKS_MAX`. Also reads the phone's own saved list, whose entries may carry a `machineId`.
+ * `PHONE_LINKS_MAX`. Also reads the phone's own saved list, whose entries may carry a `machineId` and `icon`.
  */
 export function linksFromValue(value: unknown): PhoneLink[] {
   const links: PhoneLink[] = [];
@@ -141,6 +159,8 @@ export function linksFromValue(value: unknown): PhoneLink[] {
     const url = typeof record.url === 'string' ? normalizeLinkUrl(record.url) : null;
     if (url === null) continue;
     const link: PhoneLink = { id, name: typeof record.name === 'string' ? record.name.trim() : '', url };
+    const icon = typeof record.icon === 'string' ? record.icon.trim() : '';
+    if (icon.length > 0) link.icon = icon;
     if (typeof record.machineId === 'string' && record.machineId.length > 0 && isComputerLink(url)) {
       link.machineId = record.machineId;
     }

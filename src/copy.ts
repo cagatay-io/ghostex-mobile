@@ -1640,6 +1640,8 @@ export const LinksCopy = {
   copying: (computer: string) => `Reading ${computer}’s links…`,
   copied: (count: number, computer: string) =>
     count === 1 ? `Copied 1 link from ${computer}.` : `Copied ${count} links from ${computer}.`,
+  updatedIcons: (count: number, computer: string) =>
+    count === 1 ? `Updated 1 link icon from ${computer}.` : `Updated ${count} link icons from ${computer}.`,
   nothingNew: (computer: string) => `${computer} has no links this phone lacks.`,
   tooOld: (computer: string) => `Update Ghostex on ${computer} to copy its links.`,
   copyFailed: (computer: string, message: string) => `Could not read ${computer}’s links. ${message}`,
@@ -1654,6 +1656,12 @@ export const LinksCopy = {
   addressPlaceholder: 'localhost:8317 or https://example.com',
   nameLabel: 'Name',
   namePlaceholder: 'Optional',
+  iconLabel: 'Icon',
+  iconDefault: 'Site icon',
+  iconChoose: 'Choose',
+  iconChange: 'Change',
+  iconReset: 'Reset',
+  iconSearchPlaceholder: 'Search icons…',
   /** Under the address when it is on a computer: where it opens. */
   opensOn: (computer: string) => `Opens on ${computer}, through its connection.`,
   needsComputer: 'Opens on the selected computer, once one is connected.',

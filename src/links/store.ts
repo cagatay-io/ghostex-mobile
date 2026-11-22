@@ -12,7 +12,9 @@ import { isComputerLink, linksFromValue, newLinkId, PHONE_LINKS_MAX, type PhoneL
 const PHONE_LINKS_STORAGE_KEY = 'phoneLinks.v1';
 
 /** What the Add link / Edit link dialog saves. `machineId`: the computer a loopback address opens on. */
-export type PhoneLinkDraft = { name: string; url: string; machineId?: string };
+export type PhoneLinkDraft = { name: string; url: string; icon?: string; machineId?: string };
+
+export type AddManyLinksResult = { added: number; updated: number };
 
 type PhoneLinksState = {
   hydrated: boolean;
@@ -25,14 +27,19 @@ type PhoneLinksState = {
   remove: (id: string) => void;
   /**
    * Adds the links of a computer that the list lacks (same address, and for a loopback address the same computer),
-   * up to `PHONE_LINKS_MAX`, each with a new id. Returns how many it added.
+   * up to `PHONE_LINKS_MAX`, each with a new id, and updates the icon of any matching link whose icon changed on the
+   * computer. Returns how many were added and how many existing links had their icon updated.
    */
-  addMany: (drafts: PhoneLinkDraft[]) => number;
+  addMany: (drafts: PhoneLinkDraft[]) => AddManyLinksResult;
 };
 
-/** A draft as it is kept: a computer only for a loopback address. */
+/** A draft as it is kept: a computer only for a loopback address, and a trimmed non-empty icon when set. */
 function linkFrom(id: string, draft: PhoneLinkDraft): PhoneLink {
   const link: PhoneLink = { id, name: draft.name.trim(), url: draft.url };
+  const icon = draft.icon?.trim();
+  if (icon !== undefined && icon.length > 0) {
+    link.icon = icon;
+  }
   if (draft.machineId !== undefined && draft.machineId.length > 0 && isComputerLink(draft.url)) {
     link.machineId = draft.machineId;
   }
@@ -84,15 +91,27 @@ export const usePhoneLinksStore = create<PhoneLinksState>()((set, get) => {
     addMany: (drafts) => {
       const links = [...get().links];
       let added = 0;
+      let updated = 0;
       for (const draft of drafts) {
-        if (links.length >= PHONE_LINKS_MAX) break;
-        const link = linkFrom(newLinkId(), draft);
-        if (links.some((existing) => sameLink(existing, link))) continue;
-        links.push(link);
+        const candidate = linkFrom(newLinkId(), draft);
+        const existingIndex = links.findIndex((existing) => sameLink(existing, candidate));
+        if (existingIndex >= 0) {
+          const existing = links[existingIndex]!;
+          if ((existing.icon ?? undefined) !== (candidate.icon ?? undefined)) {
+            const next: PhoneLink = { id: existing.id, name: existing.name, url: existing.url };
+            if (candidate.icon !== undefined) next.icon = candidate.icon;
+            if (existing.machineId !== undefined) next.machineId = existing.machineId;
+            links[existingIndex] = next;
+            updated += 1;
+          }
+          continue;
+        }
+        if (links.length >= PHONE_LINKS_MAX) continue;
+        links.push(candidate);
         added += 1;
       }
-      if (added > 0) save(links);
-      return added;
+      if (added > 0 || updated > 0) save(links);
+      return { added, updated };
     },
   };
 });

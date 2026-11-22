@@ -25,6 +25,7 @@ export async function readComputerLinks(machine: MachineConnectionTarget): Promi
       (link): PhoneLinkDraft => ({
         name: link.name,
         url: link.url,
+        ...(link.icon !== undefined ? { icon: link.icon } : {}),
         ...(isComputerLink(link.url) ? { machineId: machine.id } : {}),
       }),
     );
