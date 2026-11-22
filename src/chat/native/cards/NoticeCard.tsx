@@ -373,6 +373,18 @@ export function NoticeCard({
           />,
         );
       }
+    } else if (str(lead, 'kind') === 'accountSignIn') {
+      if (onHostAction) {
+        const accountId = str(lead, 'accountId');
+        actions.push(
+          <ToneButton
+            key={`action:${str(lead, 'id')}`}
+            kind="primary"
+            label={str(lead, 'label')}
+            onPress={() => onHostAction('openAccountsSettings', { accountId })}
+          />,
+        );
+      }
     } else {
       actions.push(
         <ToneButton
@@ -428,6 +440,22 @@ export function NoticeCard({
             icon="switch-horizontal"
             label={str(action, 'label')}
             onPress={() => onHostAction('pickModel')}
+          />,
+        );
+      }
+      continue;
+    }
+    // The every-account-full card's "Sign in …" (gx-chat-core questions/account_wait.rs):
+    // opens the computer's Accounts screen on that account's sign-in, as AccountsPanel's Reconnect does.
+    if (str(action, 'kind') === 'accountSignIn') {
+      if (onHostAction) {
+        const accountId = str(action, 'accountId');
+        actions.push(
+          <ToneButton
+            key={`action:${str(action, 'id')}`}
+            kind={actions.length === 0 ? 'primary' : 'secondary'}
+            label={str(action, 'label')}
+            onPress={() => onHostAction('openAccountsSettings', { accountId })}
           />,
         );
       }

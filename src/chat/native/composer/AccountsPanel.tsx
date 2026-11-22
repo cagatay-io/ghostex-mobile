@@ -137,6 +137,20 @@ function SessionBlocks({
               questions/account_wait.rs) and offers its "Continue with … on …" (Q2978 A). */}
           {str(recovery, 'detail').length > 0 ? <Text style={styles.paragraph}>{str(recovery, 'detail')}</Text> : null}
           {str(recovery, 'next').length > 0 ? <Text style={styles.paragraph}>{str(recovery, 'next')}</Text> : null}
+          {arr(recovery.fixes).map((entry, index) => {
+            const fix = obj(entry);
+            const label = str(fix, 'label');
+            const command = obj(fix?.command);
+            if (label.length === 0 || command === null) return null;
+            return (
+              <FilledButton
+                key={`fix:${index}:${label}`}
+                label={label}
+                disabled={busy}
+                onPress={() => onCommand(command, false)}
+              />
+            );
+          })}
           {obj(recovery.action) !== null ? (
             <FilledButton
               label={str(obj(recovery.action), 'label')}
