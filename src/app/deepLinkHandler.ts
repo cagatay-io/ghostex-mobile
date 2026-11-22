@@ -174,6 +174,11 @@ export type DeepLinkDeps = {
    */
   openTimedOut(error: unknown): string | null;
   /**
+   * Holds that tab on its terminal, where the failure with Retry shows, also where the session's view is its Chat View
+   * (`terminalHold.ts`): the person started this open.
+   */
+  holdTerminal(sessionKey: string): void;
+  /**
    * Begins an opening of the session from this entry path; every earlier opening of any entry path stops being
    * current. Its check is true while no later opening began and the person has not moved on since (the screens and
    * the Terminal screen's selected tab went nowhere but to this session).
@@ -249,10 +254,11 @@ function openSession(
     .then(
       (sessionKey) => ({ sessionKey, check: current, timedOut: false }),
       (error: unknown) => {
-        // Ended at the time limit: the tab shows the failure with Retry, so the terminal opens as on success, but
-        // only while this opening is still current.
+        // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal, so the terminal
+        // opens as on success, but only while this opening is still current.
         const sessionKey = deps.openTimedOut(error);
         if (sessionKey === null) throw error;
+        deps.holdTerminal(sessionKey);
         return { sessionKey, check: () => current?.() !== false && opening(), timedOut: true };
       },
     )

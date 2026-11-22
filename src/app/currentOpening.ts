@@ -9,7 +9,13 @@
  *
  * Only the latest opening can be current, so one record is kept and the next opening replaces it. A check holds no
  * listener: it is still valid when a navigation that waited until the screens were ready runs.
+ *
+ * A new opening is the person's new choice: once its session is known it ends that tab's terminal hold
+ * (`src/terminal/terminalHold.ts`), so it opens as its view says; its own attach, should it end at the time limit,
+ * holds the tab again.
  */
+
+import { endTerminalHold } from '../terminal/terminalHold';
 
 type Opening = { sessionKey: string | null; moved: boolean };
 
@@ -26,10 +32,12 @@ export type OpeningCheck = {
 export function beginOpening(sessionKey: string | null): OpeningCheck {
   const opening: Opening = { sessionKey, moved: false };
   latest = opening;
+  if (sessionKey !== null) endTerminalHold(sessionKey);
   return {
     current: () => latest === opening && !opening.moved,
     opens: (key) => {
       opening.sessionKey = key;
+      endTerminalHold(key);
     },
   };
 }

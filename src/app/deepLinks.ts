@@ -21,6 +21,7 @@ import { usePaneStore } from '../panes/store';
 import { sessionHasChatView, sessionOpensInChatView } from '../screens/terminal-screen/session-lookups';
 import { useSettingsStore } from '../settings/store';
 import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../terminal/sessions';
+import { holdTerminal } from '../terminal/terminalHold';
 import { revealSessionWorkspace } from '../workspaces/store';
 import { beginOpening, noteNavigation } from './currentOpening';
 import { handleDeepLink, type DeepLinkDeps } from './deepLinkHandler';
@@ -171,6 +172,7 @@ const appDeps: DeepLinkDeps = {
   later: (retry) => setTimeout(retry, 250),
   markOpened: (machineId, sessionId) => markOpenedHandler(machineId, sessionId),
   openTimedOut: (error) => (error instanceof TerminalOpenTimedOut ? error.sessionKey : null),
+  holdTerminal,
   beginOpening: (machineId, sessionId) => beginOpening(attachSessionKey(machineId, sessionId)).current,
 };
 

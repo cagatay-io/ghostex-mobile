@@ -38,6 +38,7 @@ import {
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../terminal/sessions';
+import { holdTerminal } from '../terminal/terminalHold';
 import { revealSessionWorkspace } from '../workspaces/store';
 import { GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import type { Appearance } from '../theme/useAppearance';
@@ -83,8 +84,10 @@ export default function FindPromptScreen({ navigation, route }: Props) {
             .attachSession(machine, { projectId: plan.projectId, sessionId: plan.sessionId });
         } catch (error) {
           if (!(error instanceof TerminalOpenTimedOut)) throw error;
-          // Ended at the time limit: the Terminal opens as on success, where the tab shows the failure with Retry, but
-          // only while this opening is current (`currentOpening.ts`); otherwise nothing opens.
+          // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal
+          // (`terminalHold.ts`). The Terminal opens as on success, but only while this opening is current
+          // (`currentOpening.ts`); otherwise nothing opens.
+          holdTerminal(error.sessionKey);
           if (!opening.current()) return;
           sessionKey = error.sessionKey;
         }

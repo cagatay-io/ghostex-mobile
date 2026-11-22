@@ -45,6 +45,7 @@ import {
 import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { markSessionOpen, markSessionOpenTap } from '../../terminal/openTiming';
 import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../../terminal/sessions';
+import { endTerminalHold, holdTerminal } from '../../terminal/terminalHold';
 import { sessionOpensInChatView } from '../terminal-screen/session-lookups';
 import { cloudBoxOpenTarget } from '../../cloudBoxes/open';
 import {
@@ -103,6 +104,8 @@ export function useSessionsScreenActions({
       // attention status.
       acknowledgeSessionAttention(target.id, session.sessionId);
       const openKey = attachSessionKey(target.id, session.sessionId);
+      // A new choice: a terminal held after an open that ended at its time limit is held no longer (`terminalHold.ts`).
+      endTerminalHold(openKey);
       if (options?.terminal === true) {
         // Long-press Open Terminal: the terminal, even where a tap opens claude.ai or the chat.
         useTerminalStore.getState().setSessionViewMode(openKey, 'terminal');
@@ -149,9 +152,11 @@ export function useSessionsScreenActions({
           setTransientStatus(error instanceof Error ? error.message : String(error));
           return;
         }
-        // Ended at the time limit: the Terminal opens as on success, where the tab shows the failure with Retry, but
-        // only while this opening is current (`currentOpening.ts`). The notice is left alone either way: "Preparing"
-        // left after its 6 s long ago, and a notice shown now belongs to something newer.
+        // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal
+        // (`terminalHold.ts`). The Terminal opens as on success, but only while this opening is current
+        // (`currentOpening.ts`). The notice is left alone either way: "Preparing" left after its 6 s long ago, and a
+        // notice shown now belongs to something newer.
+        holdTerminal(error.sessionKey);
         if (!opening.current()) return;
         sessionKey = error.sessionKey;
       }
@@ -189,12 +194,14 @@ export function useSessionsScreenActions({
       // CDXC:SessionChat 2026-09-09 DECISION:
       // User: open chat immediately while the terminal starts in the background. Creation supplies the identity, so inventory and SSH attachment do not gate navigation.
       if (!chatLaunch) {
-        // Ended at the time limit: the Terminal opens as on success, where the tab shows the failure with Retry, but
-        // only while this opening is current (`currentOpening.ts`); otherwise nothing opens or reaches the caller.
+        // Ended at the time limit: the tab shows the failure with Retry and is held on its terminal
+        // (`terminalHold.ts`). The Terminal opens as on success, but only while this opening is current
+        // (`currentOpening.ts`); otherwise nothing opens or reaches the caller.
         const opens = await attaching.then(
           () => true,
           (error: unknown) => {
             if (!(error instanceof TerminalOpenTimedOut)) throw error;
+            holdTerminal(error.sessionKey);
             return opening.current();
           },
         );
