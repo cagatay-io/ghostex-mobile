@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import type { NotSentKeyCounts } from '../copy/terminal';
 import { useTerminalStore } from './sessions';
+import { currentTabToken } from './tabTokens';
 
 type NotSentKeysState = {
   /** By terminal session key; absent while nothing went unsent since the last key or text that was sent. */
@@ -81,6 +82,7 @@ export function initNotSentKeys(): void {
   GhostexNative.addListener('onTerminalInputNotSent', (event) => {
     // A paste answered after its tab was closed makes no sign, neither now nor on a tab opened later for the session.
     if (!useTerminalStore.getState().tabs.some((tab) => tab.sessionKey === event.sessionKey)) return;
+    if (event.tabToken !== undefined && event.tabToken !== currentTabToken(event.sessionKey)) return;
     noteKeysNotSent(event.sessionKey, event);
   });
   GhostexNative.addListener('onTerminalInputSent', (event) => clearKeysNotSent(event.sessionKey));

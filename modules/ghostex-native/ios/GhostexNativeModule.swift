@@ -49,6 +49,8 @@ struct OpenTerminalOptionsRecord: Record {
     @Field var zmxBacked: Bool = false
     /// Scrollback row limit for newly created buffers: 500...20000 in 500-row steps.
     @Field var scrollbackRows: Int = 2000
+    /// The JavaScript tab this terminal belongs to; a reattach keeps it, a tab opened anew gets a new one.
+    @Field var tabToken: String?
 }
 
 struct TerminalRuntimeSettingsRecord: Record {
@@ -622,6 +624,7 @@ public class GhostexNativeModule: Module {
                 view.linkIdentity = { [weak entry] in
                     MainActor.assumeIsolated { entry?.shellId.map { "\($0)" } }
                 }
+                view.tabToken = opts.tabToken
                 self.notSent.opened(sessionKey)
 
                 registry.register(entry)

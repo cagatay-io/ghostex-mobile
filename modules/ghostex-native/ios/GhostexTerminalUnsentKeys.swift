@@ -46,6 +46,9 @@ struct GhostexTerminalUnsentKeys: Equatable {
     var texts = 0
     var pastes = 0
     var links: [String] = []
+    /// The JavaScript tab a late paste was asked in (`OpenTerminalOptions.tabToken`), so the paste of a closed tab makes
+    /// no sign on a tab opened later for the same session. Not counted.
+    var tabToken: String?
 
     var isEmpty: Bool { keys + returns + backspaces + escapes + texts + pastes == 0 && links.isEmpty }
 
@@ -104,10 +107,12 @@ struct GhostexTerminalUnsentKeys: Equatable {
     }
 
     func payload(sessionKey: String) -> [String: Any] {
-        [
+        var payload: [String: Any] = [
             "sessionKey": sessionKey, "keys": keys, "returns": returns, "backspaces": backspaces, "escapes": escapes,
             "texts": texts, "pastes": pastes, "links": links,
         ]
+        if let tabToken { payload["tabToken"] = tabToken }
+        return payload
     }
 }
 

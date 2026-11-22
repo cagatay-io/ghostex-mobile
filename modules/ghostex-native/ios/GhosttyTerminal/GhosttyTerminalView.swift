@@ -533,6 +533,9 @@ class GhosttyTerminalView: UIView {
     /// Set when Ghostty asks the unsafe-paste question for the paste being completed (Ghostty.App.swift).
     var pasteQuestionAsked = false
 
+    /// The JavaScript tab this view's terminal belongs to (`OpenTerminalOptions.tabToken`); a paste's question keeps it.
+    var tabToken: String?
+
     /// The software keyboard's operations at the not-sent boundary, before `textInputModel` takes them.
     var softwareInputGate = GhostexSoftwareInputGate()
 }

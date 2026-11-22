@@ -50,6 +50,8 @@ export type SshChannelStats = {
 };
 
 export type OpenTerminalOptions = {
+  /** iOS: the JavaScript tab this terminal belongs to (`src/terminal/tabTokens.ts`), for the not-sent sign. */
+  tabToken?: string;
   /** Command to run in the PTY. Omit for an interactive login shell. */
   command?: string;
   /** Defaults to "xterm-256color". */
@@ -265,6 +267,8 @@ export type TerminalInputNotSentEvent = {
   pastes: number;
   /** Upload references by their title, e.g. "Image #1" (`SentText` kind "link"). */
   links: string[];
+  /** A late paste's tab (`OpenTerminalOptions.tabToken`): no sign when that tab was closed meanwhile. */
+  tabToken?: string;
 };
 
 /**

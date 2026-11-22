@@ -17,6 +17,7 @@ import { create } from 'zustand';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { attachCommand } from '../commands/ghostexCli';
+import { newTabToken, tabTokenFor } from './tabTokens';
 import { ensureConnected } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
@@ -386,7 +387,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
             : await remoteShellCommand(machine.id, tab.cwd);
         if (remoteCommand !== null) opts.command = remoteCommand;
         openStartedAt = Date.now();
-        await GhostexNative.openTerminal(tab.sessionKey, machine.id, opts);
+        await GhostexNative.openTerminal(tab.sessionKey, machine.id, { ...opts, tabToken: newTabToken(tab.sessionKey) });
         if (!get().tabs.some((entry) => entry.sessionKey === tab.sessionKey)) {
           await GhostexNative.closeTerminal(tab.sessionKey);
         }
@@ -755,7 +756,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
             if (command !== null) opts.command = command;
           }
           openStartedAt = Date.now();
-          await GhostexNative.openTerminal(sessionKey, tab.machineId, opts);
+          await GhostexNative.openTerminal(sessionKey, tab.machineId, { ...opts, tabToken: tabTokenFor(sessionKey) });
         } catch (error) {
           patchTab(sessionKey, { state: 'failed', error: terminalOpenError(tab.machineId, error, openStartedAt) });
           logAppEvent(`Terminal: ${tab.machineId}: reopening ${tab.kind} tab failed (${errorCodeOf(error)})`);

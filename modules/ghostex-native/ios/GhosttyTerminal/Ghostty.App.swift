@@ -438,19 +438,22 @@ extension Ghostty {
             guard let surface = terminalView.surface?.unsafeCValue else { return }
             // Ghostty lends `string` only for this call.
             let text = String(cString: string)
-            // The link the paste would go to, and the session's report of a lost paste, as the question opens: the
-            // question can outlive this view (a reattach tears it down and clears its callbacks).
+            // The link the paste would go to, the session's report of a lost paste and the tab it was asked in, as the
+            // question opens: the question can outlive this view (a reattach tears it down and clears its callbacks).
             let link = terminalView.linkIdentity?()
             let reportLost = terminalView.reportsUnsentKeys
+            let tabToken = terminalView.tabToken
             terminalView.pasteQuestionAsked = true
             terminalView.askBeforeUnsafePaste { confirmed in
                 let sameSurface = terminalView.surface?.unsafeCValue == surface
                 let sameLink = link != nil && terminalView.linkIdentity?() == link
                 // Paste answered after the link went, was replaced, or the view or its surface was replaced while the
-                // question was open: counted for the not-sent sign and sent nowhere, never into a new link. Cancel
-                // counts nothing.
+                // question was open: counted for the not-sent sign and sent nowhere, never into a new link; JavaScript
+                // drops it when its tab was closed meanwhile. Cancel counts nothing.
                 if confirmed && !(sameSurface && sameLink) {
-                    reportLost?(GhostexTerminalUnsentKeys(item: .paste))
+                    var lost = GhostexTerminalUnsentKeys(item: .paste)
+                    lost.tabToken = tabToken
+                    reportLost?(lost)
                 }
                 // A reconnect replaces the surface, and the old one's request went with it.
                 guard sameSurface else { return }
