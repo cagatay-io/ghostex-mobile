@@ -277,7 +277,7 @@ function offerInBanner(thread: GhostexSession, coordinator: GhostexSession): boo
 /**
  * The state a thread counts as on its coordinator's crew badge (gx-core threads.rs `tallied_state`). A session
  * linked to a lead has no coordinator thread state, so its own activity stands in: working while it works, waiting
- * while it waits on the user (gx-core `SessionRow::needs_you`: an approval, a question, or attention).
+ * while it waits on an approval or question (matching coordinator `"waiting"`, never an unread finished turn).
  */
 function talliedState(session: GhostexSession, capabilities: GhostexSummaryCapabilities): string | undefined {
   const state = session.coordinatorThreadState ?? undefined;
@@ -287,17 +287,16 @@ function talliedState(session: GhostexSession, capabilities: GhostexSummaryCapab
     (session.leadSessionId ?? '').length > 0;
   if ((state !== undefined && state.length > 0) || !leadLinked) return state;
   if (session.activity === 'working') return 'working';
-  const needsYou =
+  const waiting =
     session.awaitingApproval ||
-    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) ||
-    session.activity === 'attention';
-  return needsYou ? 'waiting' : undefined;
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer);
+  return waiting ? 'waiting' : undefined;
 }
 
 /**
- * The crew badge a row draws: a coordinator's always, a lead's while its linked sessions nest under it (gx-core
- * `SessionRow::folds_threads`, the desktop's sidebar_snapshot.rs); a list that draws the linked sessions as their own
- * rows passes no nesting and the lead draws none.
+ * The crew badge a row draws: a coordinator's always, a lead's while its linked sessions nest under it or while an
+ * active linked session lives in another project or worktree (gx-core `SessionRow::folds_threads`, the desktop's
+ * sidebar_snapshot.rs); a list that draws the linked sessions as their own rows does not call this.
  *
  * CDXC:LeadLinks 2026-11-22 DECISION: the user's decision on gx-core `folds_threads`: a lead's child count uses the
  * coordinator's icon and style, and the link icon is kept for PR, issue and ticket links.
@@ -307,9 +306,12 @@ export function crewBadgeOf(
   badges: Map<string, CoordinatorBadge>,
   nesting?: RowNesting,
 ): CoordinatorBadge | undefined {
-  const lead = session.isLead === true && (nesting?.threadCount ?? 0) > 0;
+  const badge = badges.get(coordinatorRowKey(session));
+  const lead =
+    session.isLead === true &&
+    ((nesting?.threadCount ?? 0) > 0 || (badge !== undefined && badge.tone !== 'idle'));
   if (!session.isCoordinator && !lead) return undefined;
-  return badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' };
+  return badge ?? { count: 0, tone: 'idle' };
 }
 
 /** Every coordinator's badge, from all of the machine's sessions (a worktree thread sits in another project). */
