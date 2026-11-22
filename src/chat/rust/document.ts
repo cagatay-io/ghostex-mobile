@@ -955,7 +955,7 @@ export type ChatDocument = {
   emptyState: EmptyState;
   /** The greeting a brand new session shows, or null. Desktop: `new_session_welcome.rs`. */
   newSessionWelcome: NewSessionWelcome | null;
-  /** Ask Ghostex AI's welcome card in place of the welcome's headline, tips and Try a Boost; absent from older cores and every other chat. Desktop: `chief_welcome.rs`. */
+  /** Ask Ghostex AI's welcome card in place of the welcome's headline and tips; absent from older cores and every other chat. Desktop: `chief_welcome.rs`. */
   chiefWelcome?: ChiefWelcome | null;
   /** `blank`, `indicator` or `retry` while loading; null otherwise. Desktop: `transcript_reveal.rs`. */
   loadingStage: string | null;

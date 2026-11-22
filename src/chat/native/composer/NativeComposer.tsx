@@ -55,7 +55,7 @@ import { MenuSheet, type MenuRow, type MenuSearch } from './MenuSheet';
 import { ModelMenuSheet, type ModelSheetMode } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
 import { phonePlaceholder } from './placeholder';
-import { BoostCalloutAbove, TryABoost } from '../cards/Boosts';
+import { BoostCalloutAbove } from '../cards/Boosts';
 import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { CompactPromptCard } from '../cards/CompactPromptCard';
@@ -862,10 +862,6 @@ export function NativeComposer({
           ) : null}
           {document !== null ? <FilesLinksCard filesLinks={document.filesLinks} dispatch={dispatch} /> : null}
           {document?.suggestions ? <Suggestions data={document.suggestions} dispatch={dispatch} /> : null}
-          {/* "Try a Boost" on a new chat, above the run-location and worktree bar (`cards/Boosts.tsx`). */}
-          {!compact ? (
-            <TryABoost boosts={document?.boosts} welcome={document?.newSessionWelcome} dispatch={dispatch} />
-          ) : null}
           {document?.runLocation ? <RunLocationRow row={document.runLocation} dispatch={dispatch} /> : null}
           {attachError !== null ? (
             <DictationCard

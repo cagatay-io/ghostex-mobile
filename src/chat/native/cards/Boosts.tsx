@@ -1,8 +1,8 @@
 /**
  * Boosts on the phone (gx-chat-core `extras/boosts.rs` has the user's decisions and the rules; desktop
  * `native_chat/boosts.rs`): the Boost pill at the right of the pill strip, its sheet of Boosts in Show,
- * Actions, Work and Custom tabs with every description in full, the prompt sheet a long press opens, "Try a
- * Boost" on a new chat, and the one-time callout above the pill. Everything is drawn from the core's
+ * Actions, Work and Custom tabs with every description in full, the prompt sheet a long press opens,
+ * and the one-time callout above the pill. Everything is drawn from the core's
  * `boosts` key, which is null while the computer has no Boosts or they are switched off. `*` in the chat
  * box and Save as Boost come from the core (its suggestion list and its transcript menu rows).
  *
@@ -263,72 +263,6 @@ function BoostPromptSheet({ row, onClose }: { row: BoostRow | null; onClose: () 
   );
 }
 
-/** The Boosts "Try a Boost" offers on a new chat, in order (desktop `boosts.rs` `TRY_A_BOOST`). */
-const TRY_A_BOOST = ['live-page', 'chart', 'compare', 'computer-use'];
-
-/**
- * "Try a Boost" just above a new chat's chat box, while its welcome shows the headline: a chip per
- * featured Boost on one row that scrolls sideways when the phone is narrow; a tap puts it in the message.
- *
- * CDXC:Boosts 2026-11-20 DECISION: User: the chips wrapping under the headline "looks very ugly", then
- * "on a new chat they belong just above the chat box", one row, and "feature 'Computer & Browser use'"
- * instead of Ask me in a form. The desktop folds what does not fit into "+N"; a phone row scrolls instead.
- */
-export function TryABoost({
-  boosts,
-  welcome,
-  dispatch,
-}: {
-  boosts: BoostsDocument | null | undefined;
-  welcome: { showTitle?: boolean } | null | undefined;
-  dispatch: (action: UserAction) => void;
-}) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  const tone = accent(P.light);
-  if (boosts === null || boosts === undefined || welcome === null || welcome === undefined) return null;
-  if (welcome.showTitle === false) return null;
-  const featured = TRY_A_BOOST.map((id) => boosts.list.find((row) => row.id === id)).filter(
-    (row): row is BoostRow => row !== undefined,
-  );
-  if (featured.length === 0) return null;
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="always"
-      style={styles.tryScroll}
-      contentContainerStyle={styles.try}
-      accessibilityLabel="Try a Boost"
-    >
-      <View style={styles.tryLead}>
-        <Glyph name="sparkles" size={13} color={tone} />
-        <Text style={styles.tryLabel}>Try a Boost</Text>
-      </View>
-      {featured.map((row: BoostRow) => (
-          <Pressable
-            key={row.id}
-            accessibilityRole="button"
-            accessibilityLabel={row.label}
-            accessibilityHint={row.description}
-            accessibilityState={{ selected: row.inDraft }}
-            onPress={() => dispatch({ type: 'toggleBoost', id: row.id })}
-            style={({ pressed }) => [
-              styles.chip,
-              row.inDraft && { borderColor: `${tone}99`, backgroundColor: `${tone}24` },
-              pressed && styles.rowPressed,
-            ]}
-          >
-            <Glyph name={boostGlyph(row.iconPath)} size={14} color={tone} />
-            <Text style={styles.chipLabel} numberOfLines={1}>
-              {row.label}
-            </Text>
-          </Pressable>
-        ))}
-    </ScrollView>
-  );
-}
-
 /**
  * The one-time callout over the end of the conversation, pointing down at the Boost pill: "New: Boosts",
  * one line, Show me (opens the sheet) and an x. Nothing goes inside the chat box (Q4258 "C").
@@ -386,7 +320,7 @@ export function BoostCalloutAbove({
   dispatch: (action: UserAction) => void;
 }) {
   const styles = useStyles();
-  if (hint == null) return null;
+  if (hint == null || (!hint.title?.trim() && !hint.text?.trim())) return null;
   return (
     <View style={styles.calloutAnchor} pointerEvents="box-none">
       <BoostCallout hint={hint} onShow={openBoostSheet} dispatch={dispatch} />
@@ -440,16 +374,6 @@ const useStyles = themedStyles((P) => ({
   editor: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
   field: { maxHeight: 280, borderRadius: 10, backgroundColor: P.ink(0.05) },
   prompt: { color: P.foreground, fontSize: 14, lineHeight: 20, paddingHorizontal: 12, paddingVertical: 10 },
-  tryScroll: { flexGrow: 0 },
-  try: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-  },
-  tryLead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  tryLabel: { color: P.muted, fontSize: 13 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -460,7 +384,6 @@ const useStyles = themedStyles((P) => ({
     borderWidth: 1,
     borderColor: P.ink(0.1),
   },
-  chipLabel: { color: P.foreground, fontSize: 13 },
   callout: {
     position: 'absolute',
     right: 4,
