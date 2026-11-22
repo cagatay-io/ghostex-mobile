@@ -17,7 +17,7 @@ import { create } from 'zustand';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { attachCommand } from '../commands/ghostexCli';
-import { newTabToken, tabTokenFor } from './tabTokens';
+import { forgetTabToken, newTabToken, tabTokenFor } from './tabTokens';
 import { ensureConnected } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
@@ -640,6 +640,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       forgetAttach(sessionKey);
       dropWarm(sessionKey);
       removeTab(sessionKey);
+      // A Paste answered later for the closed tab makes no sign on a tab opened anew for the session.
+      forgetTabToken(sessionKey);
       // Chat mode is intentionally NOT cleared here: the persisted last-used
       // view survives tab close so a later reopen restores it.
       try {
