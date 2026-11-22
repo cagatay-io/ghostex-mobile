@@ -22,6 +22,9 @@ const SKELETON = { widths: [52, 72, 36], height: 10, gap: 12 };
 export function statusLineReserved(document: ChatDocument): boolean {
   const context = obj(document.contextMeter);
   if (context === null) return false;
+  // The computer's Chat Status Line extension is off (`chat/statusLineSwitch.ts`): no line and no
+  // row held for one, whatever is pinned.
+  if (isTrue(context, 'statusLineOff')) return false;
   return (
     isTrue(context, 'statusLineReserved') || isTrue(context, 'hasConfiguredItems') || arr(context.starred).length > 0
   );

@@ -25,6 +25,8 @@ export type ComposerBootRead = {
     toolCards: boolean;
     detailedDefault: boolean;
     statusLineFromComputer: boolean;
+    /** The computer's Chat Status Line extension; the host sets it (`chat/statusLineSwitch.ts`). */
+    statusLine?: boolean;
     composerRow: ReturnType<typeof composerRowSettings>;
     quietView?: PhoneQuietView;
   };

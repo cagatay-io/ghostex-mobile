@@ -68,6 +68,7 @@ import { dictationInserted } from '../native/composer/dictationTarget';
 import { receivePageThumbnail } from '../native/transcript/pageThumbnails';
 import { forgetRecording, requestEnded, wordsAsked, wordsAwaited } from '../../voice/dictation';
 import { readAloudSetAuto, readAloudSpeak, readAloudStopSpeaking, registerReadAloudChat } from '../../voice/readAloud';
+import { chatStatusLineOnFor, subscribeChatStatusLine } from '../statusLineSwitch';
 
 /** Which chat a host serves. */
 export type RustChatTarget = { machine: MachineConnectionTarget; projectId: string; sessionId: string };
@@ -263,6 +264,7 @@ export class RustChatHost {
   private unsubscribeProjectOrigin: (() => void) | null = null;
   private unsubscribeModelCatalog: (() => void) | null = null;
   private unsubscribeToolCards: (() => void) | null = null;
+  private unsubscribeStatusLine: (() => void) | null = null;
   private unregisterReadAloud: (() => void) | null = null;
   /** Session-open timing (`terminal/openTiming.ts`): the phone tab's `${machineId}:${sessionId}`. */
   private readonly openTraceKey: string;
@@ -376,7 +378,12 @@ export class RustChatHost {
       const nextDetailed = store.settings.sessionChatDetailedView;
       const nextRow = JSON.stringify(composerRowSettings(store.settings));
       const nextQuiet = store.settings.chatQuietView;
-      if (next === toolCards && nextDetailed === detailedDefault && nextRow === composerRow && nextQuiet === quietView) {
+      if (
+        next === toolCards &&
+        nextDetailed === detailedDefault &&
+        nextRow === composerRow &&
+        nextQuiet === quietView
+      ) {
         return;
       }
       toolCards = next;
@@ -395,6 +402,11 @@ export class RustChatHost {
         },
       });
     });
+    // The computer's Chat Status Line extension (`statusLineSwitch.ts`): the boot read carries the
+    // answer in, and a flip while the chat is open goes in here.
+    this.unsubscribeStatusLine = subscribeChatStatusLine(machineId, (statusLine) =>
+      this.enqueue({ type: 'settingsChanged', settings: { hideAccountEmails: false, title: this.title, statusLine } }),
+    );
     // This computer's model lineup, pushed on its chat socket; the `subscribe` effect hands over
     // the one already known.
     this.unsubscribeModelCatalog = chatMachineLink(this.target.machine).onModelCatalog((catalog) =>
@@ -461,6 +473,8 @@ export class RustChatHost {
     this.unsubscribeModelCatalog = null;
     this.unsubscribeToolCards?.();
     this.unsubscribeToolCards = null;
+    this.unsubscribeStatusLine?.();
+    this.unsubscribeStatusLine = null;
     this.unregisterReadAloud?.();
     this.unregisterReadAloud = null;
     this.poll.stop();
@@ -947,6 +961,9 @@ export class RustChatHost {
           answers.push({ type: 'composerBootFailed', error: BOOT_READ_FAILURE });
           return;
         }
+        // Whether this computer has its Chat Status Line on: the boot read is this phone's storage,
+        // so the computer's answer joins it here (`statusLineSwitch.ts`).
+        read.chatSettings.statusLine = chatStatusLineOnFor(this.target.machine.id);
         this.composer.init(read, this.target.sessionId);
         answers.push({ type: 'composerBootRead', read });
         markSessionOpen(this.openTraceKey, 'bootRead');

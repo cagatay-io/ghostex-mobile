@@ -75,6 +75,8 @@ export type ChatCoreEvent =
         detailedDefault?: boolean;
         composerRow?: { modePicker: boolean; terminalButton: boolean; contextRing: boolean; maximize: boolean };
         quietView?: { coordinators: boolean; chats: boolean; expandLast: boolean; calm: boolean };
+        /** The computer's Chat Status Line extension (`chat/statusLineSwitch.ts`); false hides the line. */
+        statusLine?: boolean;
       };
     }
   | { type: 'contextPreferencesChanged'; provider: string; preferences: unknown }
