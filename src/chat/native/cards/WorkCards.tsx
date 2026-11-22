@@ -61,6 +61,7 @@ import { FoldChevron } from '../transcript/foldChevron';
 import { animateNextFold } from '../transcript/foldMotion';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { WorkingLine } from './WorkingCard';
+import { VISUAL as WORKING_VISUAL } from './WorkingStrip';
 import {
   SINGLE_LINE_CARD,
   SINGLE_LINE_HEADER_HEIGHT,
@@ -598,9 +599,7 @@ function DockHeader({
   const statusWidth =
     status === null
       ? 0
-      : 24 +
-        (status.label ?? '').length * (status.labelKind === 'tool' || status.labelKind === 'activity' ? 7.4 : 6.9) +
-        12;
+      : 24 + (status.label ?? '').length * 7.4 + 12;
   // Every mark takes its name when the bar has room for all of them, and none does when it has not.
   const room = width - 24 - 12 - 5 - (board !== null ? 32 : 0) - (collapsible ? 30 : 0) - 16 - statusWidth;
   const named =
@@ -1719,8 +1718,8 @@ const useStyles = themedStyles((P) => ({
   dockStatus: { flexShrink: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'hidden' },
   dockSpacer: { flexGrow: 1, minWidth: 8 },
   dockCount: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
-  dockCountNumber: { fontSize: PROSE_SIZE, color: P.foreground, fontVariant: ['tabular-nums'] },
-  dockCountName: { marginLeft: -1, fontSize: PROSE_SIZE, color: P.cardMuted },
+  dockCountNumber: { fontSize: WORKING_VISUAL.fontSize, color: P.foreground, fontVariant: ['tabular-nums'] },
+  dockCountName: { marginLeft: -1, fontSize: WORKING_VISUAL.fontSize, color: P.cardMuted },
   dockHeadButton: { width: 28, height: 26, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   dockPress: { gap: 2, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8 },
   dockPressOpen: { paddingBottom: 2 },

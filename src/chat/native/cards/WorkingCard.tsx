@@ -409,8 +409,8 @@ const useStyles = themedStyles((P) => ({
   labelStrong: {
     flexShrink: 1,
     color: P.foreground,
-    fontSize: 13,
-    lineHeight: 19.5,
+    fontSize: VISUAL.fontSize,
+    lineHeight: VISUAL.fontSize * 1.5,
   },
   dim: {
     color: P.muted,

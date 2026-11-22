@@ -21,7 +21,7 @@ export const VISUAL = {
   gap: 8,
   sparkBox: 16,
   sparkSize: 14,
-  fontSize: 12.5,
+  fontSize: 13,
   pulseMs: 1600,
   spinMs: 9000,
   armedIconGap: 6,
