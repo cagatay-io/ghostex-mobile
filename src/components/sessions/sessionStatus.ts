@@ -24,6 +24,8 @@ type RowSession = Pick<
   | 'backgroundWorkDetectedAt'
   | 'programStatusFailed'
   | 'blockedSince'
+  | 'quotaResetsAt'
+  | 'quotaWaitState'
   | 'lastInteractionAt'
   | 'delayedSendDeadlineAt'
   | 'delayedSendRemainingLabel'
@@ -52,15 +54,65 @@ export function isAwaitingApproval(session: RowSession): boolean {
  * of usage on every account, an API or sign-in error Ghostex could not get past) draws the failed red dot, and its
  * long-press menu says why. A computer that predates `blockedSince` sends none, so its rows draw no blocked dot.
  */
-export function isBlocked(session: Pick<GhostexSession, 'blockedSince'>): boolean {
-  return (session.blockedSince ?? '').length > 0;
+export function isBlocked(session: Pick<GhostexSession, 'blockedSince' | 'quotaWaitState'>): boolean {
+  return (session.blockedSince ?? '').length > 0 || session.quotaWaitState === 'blocked';
 }
 
 /** The blocked dot's detail, as the desktop row's hover words it; null while the session is not blocked. */
-export function blockedDetail(session: Pick<GhostexSession, 'blockedSince' | 'blockedReason'>): string | null {
+export function blockedDetail(
+  session: Pick<GhostexSession, 'blockedSince' | 'blockedReason' | 'quotaWaitState'>,
+): string | null {
   if (!isBlocked(session)) return null;
   const reason = session.blockedReason?.trim() ?? '';
   return reason.length > 0 ? reason : 'Blocked: it needs you to carry on.';
+}
+
+export type QuotaBadge = {
+  state: 'blocked' | 'waiting';
+  /** Compact remaining countdown (`45s`, `13m`, `1h 20m`); null when reset time is unknown or already past. */
+  label: string | null;
+};
+
+/**
+ * Formats remaining time until a quota reset (`45s`, `13m`, `1h`, `1h 20m`), matching desktop
+ * `apps/desktop/src/app/native_sidebar/status.rs` `quota_countdown_badge`. Returns null when absent,
+ * unparseable, or already past reset.
+ */
+export function formatQuotaCountdown(quotaResetsAt: string | undefined, nowMs: number): string | null {
+  if (quotaResetsAt === undefined || quotaResetsAt.length === 0) return null;
+  const resetMs = Date.parse(quotaResetsAt);
+  if (Number.isNaN(resetMs)) return null;
+  const remaining = resetMs - nowMs;
+  if (remaining <= 0) return null;
+  const secs = Math.ceil(remaining / 1000);
+  if (secs < 60) return `${secs}s`;
+  if (secs < 3600) return `${Math.ceil(secs / 60)}m`;
+  const hours = Math.floor(secs / 3600);
+  const mins = Math.floor((secs % 3600) / 60);
+  return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+}
+
+/**
+ * Compact amber clock + countdown badge for a session on a quota limit (Antigravity CLI or Autopilot
+ * pool wait). Shown beside the red dot while `blocked` (when a future reset time is known), and alone
+ * while `waiting`. Returns null on older computers that omit `quotaWaitState`.
+ */
+export function quotaCountdownBadge(
+  session: Pick<GhostexSession, 'quotaResetsAt' | 'quotaWaitState'>,
+  nowMs: number,
+): QuotaBadge | null {
+  const state = session.quotaWaitState;
+  if (state !== 'blocked' && state !== 'waiting') return null;
+  const label = formatQuotaCountdown(session.quotaResetsAt, nowMs);
+  if (state === 'blocked' && label === null) return null;
+  return { state, label };
+}
+
+export function quotaBadgeAccessibilityLabel(badge: QuotaBadge): string {
+  if (badge.state === 'waiting') {
+    return badge.label !== null ? `Waiting for quota reset in ${badge.label}` : 'Waiting for quota reset';
+  }
+  return badge.label !== null ? `Quota reached, resets in ${badge.label}` : 'Quota reached';
 }
 
 /** packages/gx-core/src/sidebar_view/rows.rs `has_background_work`. */
@@ -71,10 +123,12 @@ export function hasBackgroundWork(session: RowSession): boolean {
 /**
  * apps/desktop/src/app/native_sidebar/status.rs `activity_indicator`: working,
  * then attention, then the grey background-work dot on an otherwise idle row.
- * Lifecycle (sleeping, stopped, error) draws no dot.
+ * Lifecycle (sleeping, stopped, error) draws no dot. A session in `quotaWaitState === 'waiting'`
+ * replaces its status dot with the calm amber clock + countdown badge (desktop sessions.rs).
  */
 export function rowActivityIndicator(session: RowSession): RowActivityIndicator {
   if (isAwaitingApproval(session)) return 'approval';
+  if (session.quotaWaitState === 'waiting') return null;
   // CDXC:SessionStatus 2026-10-15 DECISION: User (Q118): the phone shows the same red dot as the desktop when a session's program reports an error (OSC 7501, while its reports drive the status); it wins over the other dots and lasts until the user has seen it (the session leaves attention).
   if (session.programStatusFailed && session.activity === 'attention') return 'failed';
   if (isBlocked(session)) return 'failed';
@@ -202,8 +256,8 @@ export function rowTimeLabel(
     isAwaitingApproval(session) ||
     hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer)
   ) return null;
-  // The desktop row draws no time beside a failed dot (apps/desktop/src/app/native_sidebar/sessions.rs).
-  if (isBlocked(session)) return null;
+  // The desktop row draws no time beside a failed dot or while waiting for a quota reset (apps/desktop/src/app/native_sidebar/sessions.rs).
+  if (isBlocked(session) || session.quotaWaitState === 'waiting') return null;
   const timer = timerTrailingLabel(session, nowMs);
   if (timer !== null) return timer;
   if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {
@@ -215,7 +269,8 @@ export function rowTimeLabel(
 /**
  * packages/gx-core/src/sidebar_view/session_text.rs `next_label_deadline`: the
  * next moment the row's time reads differently, so a countdown ticks every
- * second and a relative time wakes only when its digit changes. `null` when the
+ * second, a quota countdown wakes on minute boundaries above 60s and every second
+ * below 60s, and a relative time wakes only when its digit changes. `null` when the
  * row draws no time or one that never moves.
  */
 export function nextLabelDeadline(session: RowSession, nowMs: number): number | null {
@@ -235,7 +290,21 @@ export function nextLabelDeadline(session: RowSession, nowMs: number): number | 
     const next = deadline - Math.floor((deadline - nowMs - 1) / 1000) * 1000;
     countdown = countdown === null ? next : Math.min(countdown, next);
   }
+  if (
+    (session.quotaWaitState === 'blocked' || session.quotaWaitState === 'waiting') &&
+    session.quotaResetsAt !== undefined &&
+    session.quotaResetsAt.length > 0
+  ) {
+    const deadline = Date.parse(session.quotaResetsAt);
+    if (!Number.isNaN(deadline) && deadline > nowMs) {
+      const remaining = deadline - nowMs;
+      const step = remaining > 60_000 ? 60_000 : 1_000;
+      const next = deadline - Math.floor((remaining - 1) / step) * step;
+      countdown = countdown === null ? next : Math.min(countdown, next);
+    }
+  }
   if (countdown !== null) return Math.max(countdown, nowMs + 1);
+  if (isBlocked(session) || session.quotaWaitState === 'waiting') return null;
   if (timerTrailingLabel(session, nowMs) !== null) return null;
   if (session.activity === 'working' || session.activity === 'attention' || hasBackgroundWork(session)) {
     return null;

@@ -5,9 +5,14 @@
  * apps/desktop/src/app/native_sidebar/unified/threads.rs).
  */
 
+import { StyleSheet, View } from 'react-native';
+
 import type { GhostexSession } from '../../../contract/mobileSummary';
 import type { UnifiedRow } from '../../../contract/unified/build';
 import { CoordinatorBadgeView, FoldedStatusIndicator } from '../CoordinatorBadgeView';
+import { QuotaCountdownBadge } from '../QuotaCountdownBadge';
+import { ds } from '../rows';
+import { quotaCountdownBadge } from '../sessionStatus';
 
 /** The crew count of a row with threads under it: grey while none works or waits, with how many threads it has. `null` for a row with none. */
 export function UnifiedCrewCount({ row }: { row: UnifiedRow<GhostexSession> }) {
@@ -30,9 +35,35 @@ export function showsFoldedStatus(row: UnifiedRow<GhostexSession>): boolean {
 }
 
 /** The dots of everything under a card, with its own status ([`showsFoldedStatus`]). */
-export function UnifiedFoldedStatus({ row, ringColor }: { row: UnifiedRow<GhostexSession>; ringColor: string }) {
+export function UnifiedFoldedStatus({
+  row,
+  ringColor,
+  nowMs,
+}: {
+  row: UnifiedRow<GhostexSession>;
+  ringColor: string;
+  nowMs?: number;
+}) {
   if (row.crew === null || !showsFoldedStatus(row)) return null;
-  return (
+  const session = row.session.source;
+  const quotaBadge = session !== undefined ? quotaCountdownBadge(session, nowMs ?? Date.now()) : null;
+  const indicator = (
     <FoldedStatusIndicator status={row.crew.open ? row.crew.teamStatus : row.crew.foldedStatus} ringColor={ringColor} />
   );
+  if (quotaBadge === null) return indicator;
+  return (
+    <View style={styles.foldedRow}>
+      <QuotaCountdownBadge badge={quotaBadge} />
+      {indicator}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  foldedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(4),
+    flexShrink: 0,
+  },
+});

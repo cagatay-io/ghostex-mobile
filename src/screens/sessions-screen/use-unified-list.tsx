@@ -319,11 +319,22 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     () => unifiedListOf(computers, unifiedSettings, filter, nowMs, folds, focusedSession),
     [computers, unifiedSettings, filter, nowMs, folds, focusedSession],
   );
+  const quotaSubMinute = (row: UnifiedRow<GhostexSession>): boolean => {
+    const state = row.session.quotaWaitState;
+    const resetsAt = row.session.quotaResetsAt;
+    if ((state !== 'blocked' && state !== 'waiting') || resetsAt === undefined || resetsAt.length === 0) return false;
+    const deadline = Date.parse(resetsAt);
+    if (Number.isNaN(deadline)) return false;
+    const remaining = deadline - nowMs;
+    return remaining > 0 && remaining <= 65_000;
+  };
   const working =
-    view.working.length > 0 ||
+    view.working.some((row) => row.status === 'Working') ||
     view.active.some((row) => row.status === 'Working') ||
-    [...view.drafts, ...view.pinned, ...view.active, ...view.snoozed, ...view.parked].some((row) =>
-      drawnLines(row).some((line) => line.kind === 'thread' && line.row.status === 'Working'),
+    [...view.drafts, ...view.pinned, ...view.active, ...view.working, ...view.snoozed, ...view.parked].some(
+      (row) =>
+        quotaSubMinute(row) ||
+        drawnLines(row).some((line) => line.kind === 'thread' && (line.row.status === 'Working' || quotaSubMinute(line.row))),
     );
   /**
    * Opening a session brings it on screen, from the list, a coordinator's Workers sheet, a notification or a link, as

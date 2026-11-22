@@ -361,14 +361,28 @@ export function NoticeCard({
   // footer filled, and Switch account sits beside it as a secondary button (Q2978 A, notice.rs).
   const lead = collapsed ? undefined : arr(notice.actions).find((action) => obj(action)?.primary === true);
   if (lead !== undefined) {
-    actions.push(
-      <ToneButton
-        key={`action:${str(lead, 'id')}`}
-        kind="primary"
-        label={str(lead, 'label')}
-        onPress={() => dispatch({ type: 'answer', answer: asJson(obj(lead)?.answer) })}
-      />,
-    );
+    if (str(lead, 'kind') === 'openModelPicker') {
+      if (onHostAction) {
+        actions.push(
+          <ToneButton
+            key={`action:${str(lead, 'id')}`}
+            kind="primary"
+            icon="switch-horizontal"
+            label={str(lead, 'label')}
+            onPress={() => onHostAction('pickModel')}
+          />,
+        );
+      }
+    } else {
+      actions.push(
+        <ToneButton
+          key={`action:${str(lead, 'id')}`}
+          kind="primary"
+          label={str(lead, 'label')}
+          onPress={() => dispatch({ type: 'answer', answer: asJson(obj(lead)?.answer) })}
+        />,
+      );
+    }
   }
   // Only sign-in and usage-limit notices offer the account panel (notice.rs).
   const kind = str(notice, 'kind');
@@ -400,6 +414,20 @@ export function NoticeCard({
             icon="terminal-2"
             label="Terminal view"
             onPress={() => onHostAction('terminalView')}
+          />,
+        );
+      }
+      continue;
+    }
+    if (str(action, 'kind') === 'openModelPicker') {
+      if (onHostAction) {
+        actions.push(
+          <ToneButton
+            key={`action:${str(action, 'id')}`}
+            kind="secondary"
+            icon="switch-horizontal"
+            label={str(action, 'label')}
+            onPress={() => onHostAction('pickModel')}
           />,
         );
       }

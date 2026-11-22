@@ -13,7 +13,7 @@ import type {
   GhostexSessionLinks,
   GhostexSessionWork,
 } from './model';
-import type { GhostexAttentionKind, GhostexSession } from './session';
+import type { GhostexAttentionKind, GhostexQuotaWaitState, GhostexSession } from './session';
 import {
   deriveIsLive,
   normalizeStatusToken,
@@ -204,6 +204,8 @@ export function parseSession(value: unknown): GhostexSession | null {
   const attention = isObject(value.attention) ? value.attention : null;
   const rawSortOrder = value.sortOrder;
   const rawSidebarOrder = value.sidebarOrder;
+  const quotaWaitState = quotaWaitStateOf(value);
+  const quotaResetsAt = quotaResetsAtOf(value);
 
   return {
     alias,
@@ -303,9 +305,12 @@ export function parseSession(value: unknown): GhostexSession | null {
     modelSelectionFailed:
       trimmedValue(value, 'modelSelectionFailure').length > 0 ||
       trimmedValue(value, 'sendFailure').length > 0 ||
-      trimmedValue(value, 'blockedSince').length > 0,
+      trimmedValue(value, 'blockedSince').length > 0 ||
+      quotaWaitState === 'blocked',
     blockedSince: trimmedValue(value, 'blockedSince') || undefined,
     blockedReason: trimmedValue(value, 'blockedSince') ? trimmedValue(value, 'blockedReason') || undefined : undefined,
+    quotaResetsAt,
+    quotaWaitState,
     snoozedUntil: trimmedValue(value, 'snoozedUntil'),
     isSleeping: legacySleeping && !isLive,
     isLive,
@@ -329,6 +334,25 @@ export function parseSession(value: unknown): GhostexSession | null {
 function attentionKindOf(attention: JsonObject): GhostexAttentionKind {
   const kind = trimmedValue(attention, 'kind');
   return kind === 'finished' || kind === 'needsInput' ? kind : '';
+}
+
+/** `quotaWaitState` as gxserver emits it (`blocked` or `waiting`); undefined on older computers or unknown values. */
+function quotaWaitStateOf(record: JsonObject): GhostexQuotaWaitState | undefined {
+  const state = trimmedValue(record, 'quotaWaitState');
+  return state === 'blocked' || state === 'waiting' ? state : undefined;
+}
+
+/** `quotaResetsAt` as gxserver emits it (RFC3339 string, or epoch ms defensively); undefined when absent. */
+function quotaResetsAtOf(record: JsonObject): string | undefined {
+  const raw = record.quotaResetsAt;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return new Date(raw).toISOString();
+  }
+  return undefined;
 }
 
 function parseGbotsChat(value: unknown): GhostexGbotsChat | undefined {

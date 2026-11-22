@@ -69,6 +69,10 @@ export type UnifiedSessionInput = {
   isCoordinator?: boolean;
   /** Working with no output for long enough to count as stuck. */
   stuck?: boolean;
+  /** Active quota wait state (`blocked` or `waiting`); absent otherwise. */
+  quotaWaitState?: 'blocked' | 'waiting';
+  /** RFC3339 timestamp when an active quota limit resets; absent otherwise. */
+  quotaResetsAt?: string;
   /** The session the phone has open, and one shown elsewhere: never tucked behind an older-threads row. */
   isFocused?: boolean;
   isVisible?: boolean;
@@ -236,7 +240,15 @@ export type UnifiedView<S = unknown> = {
 export function unifiedStatus(session: UnifiedSessionInput): UnifiedStatus | null {
   if (session.awaitingApproval) return 'Approval';
   if (session.hasQuestion) return 'Question';
-  if (session.modelSelectionFailed || session.programStatusFailed || session.stuck === true) return 'Failed';
+  if (
+    session.modelSelectionFailed ||
+    session.programStatusFailed ||
+    session.stuck === true ||
+    session.quotaWaitState === 'blocked'
+  ) {
+    return 'Failed';
+  }
+  if (session.quotaWaitState === 'waiting') return 'Waiting';
   if (session.activity === 'working') return 'Working';
   if (session.activity === 'attention') return 'Done';
   if (session.hasBackgroundWork) return 'Waiting';

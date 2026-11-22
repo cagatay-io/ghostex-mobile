@@ -692,6 +692,7 @@ export function countTileStatus(
   for (const session of sessions) {
     const failed =
       (session.blockedSince ?? '').length > 0 ||
+      session.quotaWaitState === 'blocked' ||
       session.stuckSince.length > 0 ||
       (session.programStatusFailed && session.activity === 'attention');
     if (session.awaitingApproval) counts.approvalCount++;

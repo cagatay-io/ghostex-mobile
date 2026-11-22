@@ -145,6 +145,10 @@ export type MobileSummaryWireSession = {
   blockedSince?: string;
   /** Why it is blocked, in the user's words; absent while it is not blocked. */
   blockedReason?: string;
+  /** When an active usage quota resets (RFC3339, e.g. Antigravity CLI or Autopilot pool wait); absent otherwise. */
+  quotaResetsAt?: string | number | null;
+  /** Active quota wait state (`blocked` or `waiting`); absent otherwise. */
+  quotaWaitState?: 'blocked' | 'waiting' | null;
   /** When a snoozed session wakes; absent when it is not snoozed. */
   snoozedUntil?: string;
   actions?: Partial<GhostexSessionActions>;

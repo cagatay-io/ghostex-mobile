@@ -35,7 +35,13 @@ export type {
   QuickActionScope,
 } from './model';
 export { NO_SUMMARY_CAPABILITIES, hasQuestion, visibleSessions } from './session';
-export type { GhostexAttentionKind, GhostexMobileSummary, GhostexSession, GhostexSummaryCapabilities } from './session';
+export type {
+  GhostexAttentionKind,
+  GhostexMobileSummary,
+  GhostexQuotaWaitState,
+  GhostexSession,
+  GhostexSummaryCapabilities,
+} from './session';
 export { displayStatus, normalizeStatusToken } from './status';
 export { formatLastActive } from './recency';
 export {

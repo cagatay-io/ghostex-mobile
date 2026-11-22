@@ -74,6 +74,8 @@ export function unifiedSessionInput(
     threadState: session.coordinatorThreadState,
     isCoordinator: session.isCoordinator,
     stuck: session.stuckSince.length > 0,
+    quotaWaitState: session.quotaWaitState,
+    quotaResetsAt: session.quotaResetsAt,
     globalRef: session.globalRef,
     remoteThreads: session.coordinatorRemoteThreads,
     createdMs: millis(session.createdAt),

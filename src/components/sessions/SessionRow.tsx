@@ -89,6 +89,7 @@ import {
   COMPLETION_FLASH_PROGRESS,
   isAwaitingApproval,
   nextLabelDeadline,
+  quotaCountdownBadge,
   rowActivityIndicator,
   rowClockKind,
   rowTimeLabel,
@@ -96,6 +97,7 @@ import {
   shouldStartCompletionFlash,
   shownFoldedStatus,
 } from './sessionStatus';
+import { QuotaCountdownBadge } from './QuotaCountdownBadge';
 
 /** session_list.rs SESSION_SPACING: the gap under every row. */
 const ROW_SPACING = ds(1);
@@ -483,6 +485,8 @@ export default function SessionRow({
     hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
     foldedStatus === undefined &&
     !approval;
+  const quotaBadge =
+    !question && foldedStatus === undefined && !approval ? quotaCountdownBadge(session, nowMs) : null;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
   // Settings › Experience's Sessions list (src/settings/experience.ts): without last-active times a row keeps only
   // its countdowns (Delayed Send, Close After Done); without agent icons the leading slot keeps only its marks.
@@ -717,6 +721,7 @@ export default function SessionRow({
           {/* sessions.rs: the status dot, then the time, each 6dp after the one before; or the question indicator alone. */}
           {question ||
           foldedStatus !== undefined ||
+          quotaBadge !== null ||
           indicator !== null ||
           timeLabel !== null ||
           shownCoordinatorBadge !== undefined ||
@@ -771,7 +776,12 @@ export default function SessionRow({
               {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
               {/* Its computer's icon last before the status, as the desktop's row (computer_mark.rs); while it shows, the status and the time sit in a slot of one width so the icons line up down the list (CDXC:RemoteMachines 2026-11-12 in the desktop's native_sidebar/status.rs). */}
               {computerIcon !== null ? <ComputerIconGlyph drawing={computerIcon} size={ds(12)} color={ink.muted} /> : null}
-              {question || foldedStatus !== undefined || indicator !== null || timeLabel !== null || computerIcon !== null ? (
+              {question ||
+              foldedStatus !== undefined ||
+              quotaBadge !== null ||
+              indicator !== null ||
+              timeLabel !== null ||
+              computerIcon !== null ? (
                 <View style={[styles.trailingSlot, computerIcon !== null ? styles.trailingSlotFixed : null]}>
                   {question ? (
                     <QuestionIndicator
@@ -785,6 +795,7 @@ export default function SessionRow({
                       ringColor={active ? activeBackground : expandedGroupSurface}
                     />
                   ) : null}
+                  {quotaBadge !== null ? <QuotaCountdownBadge badge={quotaBadge} /> : null}
                   {indicator !== null ? <ActivityDot kind={indicator} /> : null}
                   {timeLabel !== null ? (
                     <Text style={[styles.trailingText, session.isSleeping ? inkStyle.timeSleeping : inkStyle.time]}>

@@ -43,7 +43,8 @@ import {
   useSidebarInk,
   type SidebarInk,
 } from '../rows';
-import { lastInteractionLabel } from '../sessionStatus';
+import { lastInteractionLabel, quotaBadgeAccessibilityLabel, quotaCountdownBadge } from '../sessionStatus';
+import { QuotaCountdownBadge } from '../QuotaCountdownBadge';
 import type { UnifiedSwipeAction } from '../../../contract/unified/strip';
 import {
   AlarmGlyph,
@@ -147,6 +148,16 @@ export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; no
   const ink = useSidebarInk();
   const styles = unifiedStyles(ink);
   const { status } = row;
+  const session = row.session.source;
+  const quotaBadge = session !== undefined ? quotaCountdownBadge(session, nowMs) : null;
+  // Calm amber clock + countdown alone once the user chose Wait for reset (red dot dismissed).
+  if (status === 'Waiting' && session?.quotaWaitState === 'waiting' && quotaBadge !== null) {
+    return (
+      <View style={styles.status} accessibilityLabel={quotaBadgeAccessibilityLabel(quotaBadge)}>
+        <QuotaCountdownBadge badge={quotaBadge} />
+      </View>
+    );
+  }
   // Settings › Experience's Sessions list: without last-active times a card shows no age (src/settings/experience.ts).
   const showLastActive = useSettingsStore((state) => state.settings.sessionsShowLastActive);
   if (status === null) {
@@ -162,6 +173,7 @@ export function StatusSlot({ row, nowMs }: { row: UnifiedRow<GhostexSession>; no
   // status word; the icon sits on the card's edge and the timer grows leftward from it (cards.rs).
   return (
     <View style={styles.status} accessibilityLabel={status}>
+      {status === 'Failed' && quotaBadge !== null ? <QuotaCountdownBadge badge={quotaBadge} /> : null}
       {timer !== null ? <Text style={[styles.statusTimer, { color }]}>{timer}</Text> : null}
       <View style={styles.rightColumn}>{status === 'Working' ? <SpinningGlyph>{glyph}</SpinningGlyph> : glyph}</View>
     </View>
@@ -297,7 +309,7 @@ export function UnifiedCard({
   // Settings > Advanced > Bold coordinator title (CDXC:Coordinators 2026-11-15, issue #618 Q3275; SessionRow.tsx).
   const boldCoordinatorTitle = useSettingsStore((state) => state.settings.sessionsBoldCoordinatorTitle);
   const status = showsFoldedStatus(row) ? (
-    <UnifiedFoldedStatus row={row} ringColor={ringColor} />
+    <UnifiedFoldedStatus row={row} ringColor={ringColor} nowMs={nowMs} />
   ) : (
     <StatusSlot row={row} nowMs={nowMs} />
   );
@@ -481,7 +493,11 @@ export function UnifiedSlimRow({
             {title}
           </Text>
           <UnifiedCrewCount row={row} />
-          <UnifiedFoldedStatus row={row} ringColor={active ? selectedFill(sidebarBackground, ink) : sidebarBackground} />
+          <UnifiedFoldedStatus
+            row={row}
+            ringColor={active ? selectedFill(sidebarBackground, ink) : sidebarBackground}
+            nowMs={nowMs}
+          />
           {wake !== null ? (
             <View style={styles.status}>
               <AlarmGlyph size={ds(13)} color={DONE_COLOR} />

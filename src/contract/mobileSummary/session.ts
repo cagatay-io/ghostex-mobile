@@ -235,6 +235,10 @@ export type GhostexSession = {
    */
   blockedSince?: string;
   blockedReason?: string;
+  /** RFC3339 timestamp when an active usage quota resets (Antigravity CLI or Autopilot pool wait); absent otherwise. */
+  quotaResetsAt?: string;
+  /** Active quota wait state: `blocked` (red dot + amber countdown) or `waiting` (calm amber clock + countdown). */
+  quotaWaitState?: GhostexQuotaWaitState;
   /** When a snoozed session wakes ('' when it is not snoozed): the Unified list's Snoozed shelf. */
   snoozedUntil?: string;
   /** Normalized so a live session is never marked sleeping (isSleeping && !isLive). */
@@ -281,6 +285,8 @@ export type GhostexSession = {
 
 /** `attention.kind`: a finished turn or a wait for the user; a bell counts as `needsInput`. */
 export type GhostexAttentionKind = '' | 'finished' | 'needsInput';
+/** `quotaWaitState`: `blocked` shows the red dot with countdown, `waiting` shows the calm amber clock and countdown alone. */
+export type GhostexQuotaWaitState = 'blocked' | 'waiting';
 /**
  * The summary fields a computer announces in its `capabilities` object. A flag that is not `true`, or an absent
  * object, marks a computer whose summary lacks the field: there, the field's absence says nothing.

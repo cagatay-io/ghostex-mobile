@@ -18,7 +18,14 @@ import type { MenuAnchor } from '../../components/sessions/ContextMenu';
 import { CoordinatorGlyph, CrownGlyph } from '../../components/sessions/icons';
 import { STATUS_DOT_SIZE, useSidebarInk } from '../../components/sessions/rows';
 import { useRowLabelClock, WorktreeBadge } from '../../components/sessions/SessionRow';
-import { COMPLETION_FLASH_MS, rowTimeLabel, shownFoldedStatus } from '../../components/sessions/sessionStatus';
+import { QuotaCountdownBadge } from '../../components/sessions/QuotaCountdownBadge';
+import {
+  COMPLETION_FLASH_MS,
+  quotaBadgeAccessibilityLabel,
+  quotaCountdownBadge,
+  rowTimeLabel,
+  shownFoldedStatus,
+} from '../../components/sessions/sessionStatus';
 import { OverlappedDots } from '../../components/sessions/StatusDotStack';
 import type { SessionItem } from '../../contract/grouping';
 import { agentIconTint, resolveAgentIconId, type GhostexSession } from '../../contract/mobileSummary';
@@ -48,6 +55,10 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
   // A coordinator whose threads are folded shows its row's stack in place of its own dot and time.
   const foldedStatus = shownFoldedStatus(session, item.nesting?.foldedStatus);
   const badge = statusBadge(session, capabilities, foldedStatus);
+  const quotaBadge =
+    foldedStatus !== undefined || badge?.kind === 'approval' || badge?.kind === 'question'
+      ? null
+      : quotaCountdownBadge(session, nowMs);
   const timeLabel = foldedStatus !== undefined ? null : rowTimeLabel(session, capabilities, nowMs);
   // The ring takes the colour of the badge's front dot (the status the session changed to).
   const ring = useChangeRing(badge?.kind ?? null, badge?.dots.at(-1) ?? null);
@@ -60,13 +71,13 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
       session={session}
       sessionKey={sessionKey}
       appearance={appearance}
-      statusWord={badge?.label ?? timeLabel}
+      statusWord={badge?.label ?? (quotaBadge !== null ? quotaBadgeAccessibilityLabel(quotaBadge) : timeLabel)}
       worktree={worktree}
       ring={ring}
       onPress={onPress}
       onMenu={onMenu}
     >
-      {badge !== null || timeLabel !== null || worktree !== undefined ? (
+      {badge !== null || quotaBadge !== null || timeLabel !== null || worktree !== undefined ? (
         <View style={styles.status}>
           {badge !== null ? (
             <View style={[styles.badge, { backgroundColor: neutralButtonFills(ink.light).rest }]}>
@@ -74,6 +85,7 @@ export default function SessionTile({ item, sessionKey, appearance, onPress, onM
               <Text style={[styles.badgeLabel, { color: appearance.foreground }]}>{badge.label}</Text>
             </View>
           ) : null}
+          {quotaBadge !== null ? <QuotaCountdownBadge badge={quotaBadge} /> : null}
           {timeLabel !== null ? <Text style={[styles.time, { color: ink.time }]}>{timeLabel}</Text> : null}
           {worktree !== undefined ? <WorktreeBadge label={worktree} /> : null}
         </View>
