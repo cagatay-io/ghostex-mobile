@@ -1,13 +1,19 @@
 /**
- * Context details (`context_editor/`): which context rows show under the meter, and which are
- * starred onto the status line. Every change is the action desktop sends (`contextQuery`,
- * `contextShown`, `contextStar`, `contextReorder`, `contextReset`, `contextSave`, `contextCancel`);
- * the core keeps the edit until Save. Dragging a row's grip, or a status line chip, moves it onto
- * the row or chip it is dropped on (`contextReorder`), as desktop's drag and drop does.
+ * Customize session details (`context_editor/`): which rows are starred onto the Chat Status Line.
+ * Every change is the action desktop sends (`contextQuery`, `contextStar`, `contextReorder`,
+ * `contextMore`, `contextReset`, `contextSave`, `contextCancel`); the core keeps the edit until Save.
+ *
+ * CDXC:SessionChat 2026-11-22 DECISION: no per-row show switch (every row with a value shows in
+ * Session details), and the core's More group (the rows the Ghostex UI already shows, `toggle` set)
+ * draws folded behind a header with its subtitle, a tap on the header unfolding it, as the desktop's
+ * `folding_group_header` in context_editor/render.rs does.
+ *
+ * Dragging a row's grip, or a status line chip, moves it onto the row or chip it is dropped on
+ * (`contextReorder`), as desktop's drag and drop does.
  */
 
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import { Glyph } from './icons';
@@ -35,7 +41,12 @@ export function ContextEditorSheet({
   const error = str(editor, 'error');
   const [dragging, setDragging] = useState(false);
   return (
-    <Sheet visible={open} onClose={() => dispatch({ type: 'contextCancel' })} title="Context details" maxHeight="90%">
+    <Sheet
+      visible={open}
+      onClose={() => dispatch({ type: 'contextCancel' })}
+      title="Customize session details"
+      maxHeight="90%"
+    >
       <View style={styles.search}>
         <Glyph name="search" size={16} color={P.muted} />
         <TextInput
@@ -54,61 +65,79 @@ export function ContextEditorSheet({
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} scrollEnabled={!dragging}>
         <DragLockContext.Provider value={setDragging}>
           <Text style={styles.description}>{str(editor, 'description')}</Text>
-          {arr(editor?.groups).map((group) => (
-            <View key={str(group, 'id')} style={styles.group}>
-              <Text style={styles.groupLabel}>{str(group, 'label').toUpperCase()}</Text>
-              <ReorderList
-                ids={arr(obj(group)?.rows).map((row) => str(row, 'id'))}
-                disabled={saving}
-                onMove={(from, to) => dispatch({ type: 'contextReorder', group: str(group, 'id'), from, to })}
-              >
-                {arr(obj(group)?.rows).map((row) => {
-                  const id = str(row, 'id');
-                  const label = str(row, 'label');
-                  const starredRow = isTrue(row, 'starred');
-                  const shown = isTrue(row, 'shown');
-                  return (
-                    <ReorderItem key={id} id={id} label={label} style={styles.row}>
-                      <View style={styles.rowText}>
-                        <Text style={styles.rowLabel} numberOfLines={1}>
-                          {label}
-                        </Text>
-                        <Text style={styles.rowDescription} numberOfLines={2}>
-                          {str(row, 'description')}
-                        </Text>
-                      </View>
-                      <Text style={styles.sample} numberOfLines={1}>
-                        {str(row, 'sample') || '—'}
-                      </Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${starredRow ? 'Unstar' : 'Star'} ${label}`}
-                        disabled={saving}
-                        hitSlop={6}
-                        onPress={() => dispatch({ type: 'contextStar', id })}
-                        style={styles.star}
-                      >
-                        <Glyph
-                          name={starredRow ? 'star-filled' : 'star'}
-                          size={17}
-                          color={starredRow ? P.star : P.muted}
-                        />
-                      </Pressable>
-                      <Switch
-                        accessibilityLabel={`Show ${label}`}
-                        value={shown}
-                        disabled={saving}
-                        onValueChange={(next) => dispatch({ type: 'contextShown', id, shown: next })}
-                      />
-                    </ReorderItem>
-                  );
-                })}
-              </ReorderList>
-            </View>
-          ))}
+          {arr(editor?.groups).map((group) => {
+            const toggle = obj(obj(group)?.toggle);
+            const collapsed = toggle !== null && isTrue(group, 'collapsed');
+            return (
+              <View key={str(group, 'id')} style={styles.group}>
+                {toggle !== null ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={str(group, 'label')}
+                    accessibilityState={{ expanded: !collapsed, disabled: saving }}
+                    disabled={saving}
+                    onPress={() => dispatch(toggle as UserAction)}
+                    style={({ pressed }) => [styles.foldHeader, pressed ? styles.foldHeaderPressed : null]}
+                  >
+                    <Glyph name={collapsed ? 'chevron-right' : 'chevron-down'} size={13} color={P.muted} />
+                    <View style={styles.rowText}>
+                      <Text style={styles.groupLabel}>{str(group, 'label').toUpperCase()}</Text>
+                      {str(group, 'subtitle').length > 0 ? (
+                        <Text style={styles.rowDescription}>{str(group, 'subtitle')}</Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ) : (
+                  <Text style={styles.groupLabel}>{str(group, 'label').toUpperCase()}</Text>
+                )}
+                {collapsed ? null : (
+                  <ReorderList
+                    ids={arr(obj(group)?.rows).map((row) => str(row, 'id'))}
+                    disabled={saving}
+                    onMove={(from, to) => dispatch({ type: 'contextReorder', group: str(group, 'id'), from, to })}
+                  >
+                    {arr(obj(group)?.rows).map((row) => {
+                      const id = str(row, 'id');
+                      const label = str(row, 'label');
+                      const starredRow = isTrue(row, 'starred');
+                      return (
+                        <ReorderItem key={id} id={id} label={label} style={styles.row}>
+                          <View style={styles.rowText}>
+                            <Text style={styles.rowLabel} numberOfLines={1}>
+                              {label}
+                            </Text>
+                            <Text style={styles.rowDescription} numberOfLines={2}>
+                              {str(row, 'description')}
+                            </Text>
+                          </View>
+                          <Text style={styles.sample} numberOfLines={1}>
+                            {str(row, 'sample') || '—'}
+                          </Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`${starredRow ? 'Unstar' : 'Star'} ${label}`}
+                            disabled={saving}
+                            hitSlop={6}
+                            onPress={() => dispatch({ type: 'contextStar', id })}
+                            style={styles.star}
+                          >
+                            <Glyph
+                              name={starredRow ? 'star-filled' : 'star'}
+                              size={17}
+                              color={starredRow ? P.star : P.muted}
+                            />
+                          </Pressable>
+                        </ReorderItem>
+                      );
+                    })}
+                  </ReorderList>
+                )}
+              </View>
+            );
+          })}
           <View style={styles.statusLine}>
             <View style={styles.statusHeader}>
-              <Text style={styles.groupLabel}>STATUS LINE</Text>
+              <Text style={styles.groupLabel}>CHAT STATUS LINE</Text>
               <Text style={styles.rowDescription}>
                 {starred.length === 0 ? 'Star rows above to show them under the chat box.' : ''}
               </Text>
@@ -321,6 +350,15 @@ const useStyles = themedStyles((P) => ({
   group: { gap: 2 },
   groupLabel: { color: P.mutedInk(0.75), fontSize: 11, fontWeight: '600', letterSpacing: 0.6, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  foldHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    borderRadius: 6,
+  },
+  foldHeaderPressed: { backgroundColor: P.neutralFillPressed },
   rowText: { flex: 1, minWidth: 0 },
   rowLabel: { color: P.foreground, fontSize: 14 },
   rowDescription: { color: P.muted, fontSize: 12 },

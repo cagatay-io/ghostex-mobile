@@ -811,8 +811,12 @@ function ChangesBody({ section, act }: { section: JsonRecord; act: Act }) {
   const buttonAction = obj(button?.action);
   // Commit and Create PR open the desktop's Git menu; the phone's Changes view is read-only.
   const drawButton = button !== null && buttonAction !== null && str(buttonAction, 'target') === 'url';
+  // The branch reads above the diff it belongs to (CDXC:SessionDetails 2026-11-22 in gx-chat-core's
+  // session_details/document.rs `changes`); an older core sends no rows and keeps it in Environment.
+  const rows = arr(section.rows);
   return (
     <View style={styles.rows}>
+      {rows.length > 0 ? <PlainRows rows={rows} act={act} /> : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Review the changes"

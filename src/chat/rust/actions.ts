@@ -340,6 +340,8 @@ export type ActionFields = {
   contextQuery: { query: string };
   contextShown: { id: string; shown: boolean };
   contextStar: { id: string };
+  /** Folds or unfolds Customize session details' More group. */
+  contextMore: {};
   /** Move row `from` onto row `to` (both row ids) in `group`, or `starred` for the status line order. */
   contextReorder: { group: string; from: string; to: string };
   contextReset: {};
