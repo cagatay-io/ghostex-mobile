@@ -30,10 +30,13 @@ export type TerminalPalette = {
 };
 
 /**
- * The desktop's default palettes (packages/settings-catalog/src/data/defaults.rs). A name the phone does not carry
- * takes the colours of its mode's default (terminalColours.ts).
+ * The desktop's default palettes (`packages/settings-catalog/src/data/defaults.rs` since 5ce4a5f7d).
+ * A name the phone does not carry takes the colours of its mode's default (`terminalColours.ts`).
  */
-export const DEFAULT_TERMINAL_PALETTE = { dark: 'GitHub Dark', light: 'GitHub Light Default' } as const;
+export const DEFAULT_TERMINAL_PALETTE = { dark: 'Ghostex Nord', light: 'Ghostex Everforest Light' } as const;
+
+/** Earlier default palettes, kept only to recognise untouched pre-5ce4a5f7d phone settings on upgrade. */
+export const LEGACY_DEFAULT_TERMINAL_PALETTE = { dark: 'GitHub Dark', light: 'GitHub Light Default' } as const;
 
 const PALETTES: ReadonlyMap<string, TerminalPalette> = new Map<string, TerminalPalette>([
   ...Object.entries(ghosttyThemes as Record<string, TerminalPalette>),

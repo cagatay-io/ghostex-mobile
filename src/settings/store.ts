@@ -44,10 +44,10 @@ import {
   sanitizeCommandPadPosition,
   type CommandPadPositions,
 } from './commandPad';
-import { DEFAULT_TERMINAL_PALETTE } from '../theme/terminalPalettes';
+import { DEFAULT_TERMINAL_PALETTE, LEGACY_DEFAULT_TERMINAL_PALETTE } from '../theme/terminalPalettes';
 import { sanitizeImportedTerminalPalettes, type ImportedTerminalPalette } from '../theme/importGhostty';
 import { sanitizeWindowArt } from '../theme/artworks';
-import { sanitizeThemeRoles, type ThemeRolesByAppearance } from '../theme/themeRoles';
+import { defaultThemeRoles, sanitizeThemeRoles, type ThemeRolesByAppearance } from '../theme/themeRoles';
 
 const SETTINGS_STORAGE_KEY = 'settings.v1';
 
@@ -163,6 +163,12 @@ export type GhostexSettings = ThemeColourSettings & {
   windowLiveStyle: string;
   /** Show the still artwork backdrop behind the phone's screens (local phone switch). */
   showHeaderArtworkBackdrop: boolean;
+  /**
+   * Marker, always true once saved by a build whose default theme is Polar Night / Everforest Light
+   * (Ghostex 5ce4a5f7d). Lets an upgrade recognise a saved `settings.v1` where the user never changed
+   * any theme setting from the earlier Graphite/System defaults without touching customised themes.
+   */
+  polarDefaultThemeApplied: boolean;
   /** The terminal palettes per appearance (desktop `terminalGhosttyTheme` / `terminalGhosttyLightTheme`). */
   terminalGhosttyTheme: string;
   terminalGhosttyLightTheme: string;
@@ -370,25 +376,28 @@ export function defaultSettings(): GhostexSettings {
     bellBehavior: 'vibrate',
     sidebarBackgroundContrast: LEGACY_DEFAULT_CONTRAST,
     sidebarBackgroundTint: DEFAULT_THEME_TINT,
-    // The desktop's defaults (packages/settings-catalog/src/data/defaults.rs).
-    sidebarTheme: 'system',
-    darkThemePreset: 'gray',
-    lightThemePreset: 'gray',
-    customSidebarTitlebarBackgroundTintColor: DEFAULT_THEME_TINT,
-    customSidebarTitlebarLightBackgroundTintColor: DEFAULT_THEME_TINT,
-    customSidebarTitlebarBackgroundDarknessPercent: DEFAULT_THEME_DEPTH,
-    customSidebarTitlebarLightBackgroundLightnessPercent: DEFAULT_THEME_DEPTH,
+    // The desktop's built-in default theme (packages/settings-catalog/src/data/defaults.rs at 5ce4a5f7d):
+    // Dark mode with Polar Night colours & artwork, Everforest Light colours & Gruvbox Material Light artwork
+    // in light mode, Ghostex Nord / Ghostex Everforest Light terminal palettes and Follow theme terminal background.
+    sidebarTheme: 'dark-2',
+    darkThemePreset: 'custom',
+    lightThemePreset: 'custom',
+    customSidebarTitlebarBackgroundTintColor: '#404e78',
+    customSidebarTitlebarLightBackgroundTintColor: '#fcf3da',
+    customSidebarTitlebarBackgroundDarknessPercent: 96,
+    customSidebarTitlebarLightBackgroundLightnessPercent: 97,
     themeSidebarContrast: 0,
     themeWorkAreaContrast: 0,
-    themeRoles: {},
-    windowArt: 'none',
-    windowArtLight: 'none',
+    themeRoles: defaultThemeRoles(),
+    windowArt: 'polar-night',
+    windowArtLight: 'gm-light',
     windowArtDim: 45,
     windowLiveStyle: 'none',
     showHeaderArtworkBackdrop: true,
+    polarDefaultThemeApplied: true,
     terminalGhosttyTheme: DEFAULT_TERMINAL_PALETTE.dark,
     terminalGhosttyLightTheme: DEFAULT_TERMINAL_PALETTE.light,
-    terminalBackgroundMode: 'pure',
+    terminalBackgroundMode: 'theme',
     workspaceBackgroundColor: '',
     terminalColorScheme: 'app',
     sidebarGroupsOpacityPercent: SIDEBAR_SURFACE_OPACITY_MIN,
@@ -463,6 +472,7 @@ type ColourModelKey =
   | 'windowArtDim'
   | 'windowLiveStyle'
   | 'showHeaderArtworkBackdrop'
+  | 'polarDefaultThemeApplied'
   | 'sidebarTheme'
   | 'terminalGhosttyTheme'
   | 'terminalGhosttyLightTheme'
@@ -490,6 +500,7 @@ const COLOUR_MODEL_STORED_KEYS = Object.keys({
   windowArtDim: true,
   windowLiveStyle: true,
   showHeaderArtworkBackdrop: true,
+  polarDefaultThemeApplied: true,
   terminalGhosttyTheme: true,
   terminalGhosttyLightTheme: true,
   terminalBackgroundMode: true,
@@ -509,12 +520,88 @@ const COLOUR_MODEL_STORED_KEYS = Object.keys({
  * Both areas' Colourfulness is `depth - 96`, where the desktop's Colourfulness slider writes that depth. The
  * phone was dark only, so its appearance stays Dark. A desktop default (Graphite at 96) stays the `gray` square.
  */
+/**
+ * True when an upgraded `settings.v1` (saved before `polarDefaultThemeApplied` existed) still holds only
+ * the earlier untouched theme defaults, meaning the user never changed theme settings on this phone.
+ */
+function isUntouchedPrePolarTheme(
+  record: Record<string, unknown>,
+  legacyTint: string,
+  legacyContrast: number,
+): boolean {
+  if (Object.hasOwn(record, 'polarDefaultThemeApplied')) return false;
+  const hasAnyColourKey = COLOUR_MODEL_STORED_KEYS.some((key) => Object.hasOwn(record, key));
+  if (!hasAnyColourKey) {
+    return (legacyTint === '#ffffff' || legacyTint === DEFAULT_THEME_TINT) && legacyContrast === LEGACY_DEFAULT_CONTRAST;
+  }
+  const roles = sanitizeThemeRoles(record.themeRoles);
+  const rolesEmpty =
+    Object.keys(roles.dark ?? {}).length === 0 && Object.keys(roles.light ?? {}).length === 0;
+  const strOr = (key: string, fallback: string) =>
+    typeof record[key] === 'string' && record[key].trim() !== '' ? record[key].trim() : fallback;
+  const numOr = (key: string, fallback: number) =>
+    typeof record[key] === 'number' && Number.isFinite(record[key]) ? record[key] : fallback;
+  const tintMatchesLegacy = (key: string) =>
+    !Object.hasOwn(record, key) || normalizeHexColor(record[key], DEFAULT_THEME_TINT) === DEFAULT_THEME_TINT;
+  return (
+    (!Object.hasOwn(record, 'sidebarTheme') || record.sidebarTheme === 'system') &&
+    (!Object.hasOwn(record, 'darkThemePreset') || record.darkThemePreset === 'gray') &&
+    (!Object.hasOwn(record, 'lightThemePreset') || record.lightThemePreset === 'gray') &&
+    tintMatchesLegacy('customSidebarTitlebarBackgroundTintColor') &&
+    tintMatchesLegacy('customSidebarTitlebarLightBackgroundTintColor') &&
+    numOr('customSidebarTitlebarBackgroundDarknessPercent', DEFAULT_THEME_DEPTH) === DEFAULT_THEME_DEPTH &&
+    numOr('customSidebarTitlebarLightBackgroundLightnessPercent', DEFAULT_THEME_DEPTH) === DEFAULT_THEME_DEPTH &&
+    numOr('themeSidebarContrast', 0) === 0 &&
+    numOr('themeWorkAreaContrast', 0) === 0 &&
+    rolesEmpty &&
+    sanitizeWindowArt(record.windowArt, 'none') === 'none' &&
+    sanitizeWindowArt(record.windowArtLight, 'none') === 'none' &&
+    strOr('windowLiveStyle', 'none').toLowerCase() === 'none' &&
+    strOr('terminalGhosttyTheme', LEGACY_DEFAULT_TERMINAL_PALETTE.dark) === LEGACY_DEFAULT_TERMINAL_PALETTE.dark &&
+    strOr('terminalGhosttyLightTheme', LEGACY_DEFAULT_TERMINAL_PALETTE.light) === LEGACY_DEFAULT_TERMINAL_PALETTE.light &&
+    (!Object.hasOwn(record, 'terminalBackgroundMode') || record.terminalBackgroundMode === 'pure') &&
+    (!Object.hasOwn(record, 'workspaceBackgroundColor') ||
+      record.workspaceBackgroundColor === '' ||
+      record.workspaceBackgroundColor === '#010101') &&
+    (!Object.hasOwn(record, 'terminalColorScheme') || record.terminalColorScheme === 'app') &&
+    (!Object.hasOwn(record, 'sessionChatTheme') || record.sessionChatTheme === 'app')
+  );
+}
+
 function themeSettingsFromRecord(
   record: Record<string, unknown>,
   legacyTint: string,
   legacyContrast: number,
   defaults: GhostexSettings,
 ): Pick<GhostexSettings, ColourModelKey> {
+  if (isUntouchedPrePolarTheme(record, legacyTint, legacyContrast)) {
+    return {
+      sidebarTheme: defaults.sidebarTheme,
+      darkThemePreset: defaults.darkThemePreset,
+      lightThemePreset: defaults.lightThemePreset,
+      customSidebarTitlebarBackgroundTintColor: defaults.customSidebarTitlebarBackgroundTintColor,
+      customSidebarTitlebarLightBackgroundTintColor: defaults.customSidebarTitlebarLightBackgroundTintColor,
+      customSidebarTitlebarBackgroundDarknessPercent: defaults.customSidebarTitlebarBackgroundDarknessPercent,
+      customSidebarTitlebarLightBackgroundLightnessPercent: defaults.customSidebarTitlebarLightBackgroundLightnessPercent,
+      themeSidebarContrast: defaults.themeSidebarContrast,
+      themeWorkAreaContrast: defaults.themeWorkAreaContrast,
+      themeRoles: defaultThemeRoles(),
+      windowArt: defaults.windowArt,
+      windowArtLight: defaults.windowArtLight,
+      windowArtDim: defaults.windowArtDim,
+      windowLiveStyle: defaults.windowLiveStyle,
+      showHeaderArtworkBackdrop:
+        typeof record.showHeaderArtworkBackdrop === 'boolean'
+          ? record.showHeaderArtworkBackdrop
+          : defaults.showHeaderArtworkBackdrop,
+      polarDefaultThemeApplied: true,
+      terminalGhosttyTheme: defaults.terminalGhosttyTheme,
+      terminalGhosttyLightTheme: defaults.terminalGhosttyLightTheme,
+      terminalBackgroundMode: defaults.terminalBackgroundMode,
+      workspaceBackgroundColor: defaults.workspaceBackgroundColor,
+      terminalColorScheme: defaults.terminalColorScheme,
+    };
+  }
   const number = (key: string): number | undefined => {
     const value = record[key];
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -533,37 +620,37 @@ function themeSettingsFromRecord(
     const value = number(key);
     return value === undefined ? legacyDepth - DEFAULT_THEME_DEPTH : roundThemeContrastPoints(value);
   };
-  // The desktop's rule for a missing preset: custom colours tuned away from Graphite at 96 stay in force.
+  // For an existing customised theme saved before newer keys existed, absent keys fall back to neutral
+  // values rather than injecting Polar Night art or roles on top of the user's saved theme.
   const darkDefault = darkDepth === DEFAULT_THEME_DEPTH && darkTint === DEFAULT_THEME_TINT;
   return {
     sidebarTheme: oneOf('sidebarTheme', SIDEBAR_THEME_OPTIONS) ?? 'dark-2',
     darkThemePreset: oneOf<DarkThemePreset>('darkThemePreset', DARK_THEME_PRESETS) ?? (darkDefault ? 'gray' : 'custom'),
-    lightThemePreset: oneOf<LightThemePreset>('lightThemePreset', LIGHT_THEME_PRESETS) ?? defaults.lightThemePreset,
+    lightThemePreset: oneOf<LightThemePreset>('lightThemePreset', LIGHT_THEME_PRESETS) ?? 'gray',
     customSidebarTitlebarBackgroundTintColor: darkTint,
     customSidebarTitlebarLightBackgroundTintColor: normalizeHexColor(
       record.customSidebarTitlebarLightBackgroundTintColor,
-      defaults.customSidebarTitlebarLightBackgroundTintColor,
+      DEFAULT_THEME_TINT,
     ),
     customSidebarTitlebarBackgroundDarknessPercent: darkDepth,
     customSidebarTitlebarLightBackgroundLightnessPercent: clampLightThemeDepth(
-      number('customSidebarTitlebarLightBackgroundLightnessPercent') ??
-        defaults.customSidebarTitlebarLightBackgroundLightnessPercent,
+      number('customSidebarTitlebarLightBackgroundLightnessPercent') ?? DEFAULT_THEME_DEPTH,
     ),
     themeSidebarContrast: contrast('themeSidebarContrast'),
     themeWorkAreaContrast: contrast('themeWorkAreaContrast'),
     themeRoles: sanitizeThemeRoles(record.themeRoles),
-    windowArt: sanitizeWindowArt(record.windowArt, defaults.windowArt),
-    windowArtLight: sanitizeWindowArt(record.windowArtLight, defaults.windowArtLight),
+    windowArt: sanitizeWindowArt(record.windowArt, 'none'),
+    windowArtLight: sanitizeWindowArt(record.windowArtLight, 'none'),
     windowArtDim: Math.min(100, Math.max(0, Math.round(number('windowArtDim') ?? defaults.windowArtDim))),
-    windowLiveStyle: name('windowLiveStyle', defaults.windowLiveStyle).trim().toLowerCase(),
+    windowLiveStyle: name('windowLiveStyle', 'none').trim().toLowerCase(),
     showHeaderArtworkBackdrop:
       typeof record.showHeaderArtworkBackdrop === 'boolean'
         ? record.showHeaderArtworkBackdrop
         : defaults.showHeaderArtworkBackdrop,
-    terminalGhosttyTheme: name('terminalGhosttyTheme', defaults.terminalGhosttyTheme),
-    terminalGhosttyLightTheme: name('terminalGhosttyLightTheme', defaults.terminalGhosttyLightTheme),
-    terminalBackgroundMode:
-      oneOf('terminalBackgroundMode', TERMINAL_BACKGROUND_MODES) ?? defaults.terminalBackgroundMode,
+    polarDefaultThemeApplied: true,
+    terminalGhosttyTheme: name('terminalGhosttyTheme', LEGACY_DEFAULT_TERMINAL_PALETTE.dark),
+    terminalGhosttyLightTheme: name('terminalGhosttyLightTheme', LEGACY_DEFAULT_TERMINAL_PALETTE.light),
+    terminalBackgroundMode: oneOf('terminalBackgroundMode', TERMINAL_BACKGROUND_MODES) ?? 'pure',
     workspaceBackgroundColor: normalizeHexColor(record.workspaceBackgroundColor, defaults.workspaceBackgroundColor),
     terminalColorScheme: oneOf('terminalColorScheme', CONTENT_COLOR_SCHEMES) ?? defaults.terminalColorScheme,
   };

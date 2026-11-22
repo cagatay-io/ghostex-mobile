@@ -10,9 +10,9 @@
  */
 
 import type { GhostexSettings } from '../settings/store';
-import { DEFAULT_THEME_DEPTH, DEFAULT_THEME_TINT, THEME_CONTRAST_FULL_POINTS } from './sidebarAppearance';
+import { THEME_CONTRAST_FULL_POINTS } from './sidebarAppearance';
 import { DEFAULT_TERMINAL_PALETTE } from './terminalPalettes';
-import type { ThemeRoleMap, ThemeRolesByAppearance } from './themeRoles';
+import { defaultThemeRoles, type ThemeRoleMap, type ThemeRolesByAppearance } from './themeRoles';
 
 /** Static 3-stop gradient palette representing a legacy desktop Live shader style cleanly with zero GPU drain. */
 export type LiveGradientSpec = {
@@ -215,36 +215,37 @@ export const DEFAULT_THEME_LOOK: ThemeLook = {
   name: 'Default',
   label: 'Default',
   kind: 'default',
-  badge: 'Default · Subtle',
-  artId: null,
+  badge: 'Default · Polar',
+  artId: 'polar-night',
   preview: {
-    sidebar: '#141518',
-    work: '#17181c',
-    accent: '#7dd3fc',
+    sidebar: '#141c2e',
+    work: '#1a2335',
+    accent: '#5581a9',
+    gradient: ['#141c2e', '#1f2d47', '#101624'],
   },
-  matchTint: null,
-  matchAccent: null,
+  matchTint: '#404e78',
+  matchAccent: '#5581a9',
   patch: {
-    sidebarTheme: 'system',
-    darkThemePreset: 'gray',
-    lightThemePreset: 'gray',
-    customSidebarTitlebarBackgroundTintColor: DEFAULT_THEME_TINT,
-    customSidebarTitlebarLightBackgroundTintColor: DEFAULT_THEME_TINT,
-    customSidebarTitlebarBackgroundDarknessPercent: DEFAULT_THEME_DEPTH,
-    customSidebarTitlebarLightBackgroundLightnessPercent: DEFAULT_THEME_DEPTH,
+    sidebarTheme: 'dark-2',
+    darkThemePreset: 'custom',
+    lightThemePreset: 'custom',
+    customSidebarTitlebarBackgroundTintColor: '#404e78',
+    customSidebarTitlebarLightBackgroundTintColor: '#fcf3da',
+    customSidebarTitlebarBackgroundDarknessPercent: 96,
+    customSidebarTitlebarLightBackgroundLightnessPercent: 97,
     themeSidebarContrast: 0,
     themeWorkAreaContrast: 0,
     terminalGhosttyTheme: DEFAULT_TERMINAL_PALETTE.dark,
     terminalGhosttyLightTheme: DEFAULT_TERMINAL_PALETTE.light,
-    terminalBackgroundMode: 'pure',
+    terminalBackgroundMode: 'theme',
     workspaceBackgroundColor: '',
     sessionChatTheme: 'app',
     terminalColorScheme: 'app',
-    windowArt: 'none',
-    windowArtLight: 'none',
+    windowArt: 'polar-night',
+    windowArtLight: 'gm-light',
     windowArtDim: 45,
     windowLiveStyle: 'none',
-    themeRoles: {},
+    themeRoles: defaultThemeRoles(),
   },
 };
 
@@ -452,18 +453,13 @@ export function themeLookMatches(
   look: ThemeLook,
 ): boolean {
   if (look.kind === 'default') {
-    const darkRolesEmpty = Object.keys(settings.themeRoles?.dark ?? {}).length === 0;
-    const lightRolesEmpty = Object.keys(settings.themeRoles?.light ?? {}).length === 0;
+    const accent = settings.themeRoles?.dark?.accent?.trim().toLowerCase();
     return (
-      settings.darkThemePreset === 'gray' &&
-      settings.lightThemePreset === 'gray' &&
+      settings.darkThemePreset === 'custom' &&
+      settings.customSidebarTitlebarBackgroundTintColor.trim().toLowerCase() === '#404e78' &&
       settings.themeSidebarContrast === 0 &&
       settings.themeWorkAreaContrast === 0 &&
-      settings.windowArt === 'none' &&
-      settings.windowArtLight === 'none' &&
-      settings.windowLiveStyle === 'none' &&
-      darkRolesEmpty &&
-      lightRolesEmpty
+      accent === '#5581a9'
     );
   }
   const tintMatches =
@@ -472,19 +468,16 @@ export function themeLookMatches(
   if (!tintMatches) return false;
   const accent = settings.themeRoles?.dark?.accent?.trim().toLowerCase();
   if (look.id === 'polar-night') {
-    // Match both Polar's crisp ice-blue accent (#7cb8f7) and desktop's built-in default Polar blue (#5581a9).
-    return (
-      accent === look.matchAccent ||
-      accent === '#5581a9' ||
-      settings.windowArt === 'polar-night'
-    );
+    return accent === look.matchAccent;
   }
   return accent === look.matchAccent || settings.windowArt === look.artId;
 }
 
 /** Builds a clean patch that applies `look` while preserving any light-mode role overrides. */
 export function themeLookPatch(look: ThemeLook, currentRoles: ThemeRolesByAppearance): Partial<GhostexSettings> {
-  if (look.kind === 'default') return { ...look.patch };
+  if (look.kind === 'default') {
+    return { ...look.patch, themeRoles: defaultThemeRoles() };
+  }
   const nextRoles: ThemeRolesByAppearance = {
     ...(currentRoles.light !== undefined && Object.keys(currentRoles.light).length > 0
       ? { light: { ...currentRoles.light } }
@@ -497,10 +490,11 @@ export function themeLookPatch(look: ThemeLook, currentRoles: ThemeRolesByAppear
   };
 }
 
-/** Resets every theme-related phone setting back to clean defaults without touching SSH/connection/chat behaviour. */
+/** Resets every theme-related phone setting back to Ghostex's built-in default without touching SSH/connection/chat behaviour. */
 export function resetThemeToDefaultPatch(): Partial<GhostexSettings> {
   return {
     ...DEFAULT_THEME_LOOK.patch,
+    themeRoles: defaultThemeRoles(),
     showHeaderArtworkBackdrop: true,
   };
 }

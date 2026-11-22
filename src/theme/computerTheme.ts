@@ -42,50 +42,17 @@ import {
 import { artworkById, isKnownArtworkId, sanitizeWindowArt } from './artworks';
 import { ALL_THEME_LOOKS, liveGradientForStyle, themeLookMatches } from './themeLooks';
 import {
+  DEFAULT_DARK_THEME_ROLES,
+  DEFAULT_LIGHT_THEME_ROLES,
   resolveRoleOverBase,
   rolesForAppearance,
   sanitizeThemeRoles,
   STAGE1_PRESET_TINTS,
-  type ThemeRoleMap,
 } from './themeRoles';
 
 const READ_TIMEOUT_MS = 10_000;
 const SSH_LIST_TIMEOUT_MS = 14_000;
 const SSH_GET_TIMEOUT_MS = 6_000;
-
-/** Desktop built-in default dark `themeRoles` (`defaults.rs` at 5ce4a5f7d / 67eb86437: Polar Night). */
-const DESKTOP_DEFAULT_DARK_ROLES: ThemeRoleMap = {
-  accent: '#5581a9',
-  focusRing: '#5581a9',
-  border: '8%',
-  divider: '6%',
-  text: '#e6e4de',
-  mutedText: '#8c95a3',
-  userMessage: 'base+12%',
-  chatBox: 'base+6%/80%',
-  surface: 'base+8%/80%',
-  control: 'base+10%/80%',
-  menu: 'base+6%/95%',
-  selection: '9%',
-  hover: '5%',
-  success: '#a3c48e',
-  warning: '#dcbd7a',
-  danger: '#d9827c',
-};
-
-const DESKTOP_DEFAULT_LIGHT_ROLES: ThemeRoleMap = {
-  text: '#5c6a72',
-  mutedText: '#939f91',
-  accent: '#8da101',
-  focusRing: '#8da101',
-  link: '#3a94c5',
-  success: '#8da101',
-  warning: '#dfa000',
-  danger: '#f85552',
-  userMessage: '#efebd4',
-  codeBlock: '#f4f0d9',
-  selection: '#eaedc8',
-};
 
 const DESKTOP_DEFAULT_DARK_TINT = '#404e78';
 const DESKTOP_DEFAULT_LIGHT_TINT = '#fcf3da';
@@ -236,7 +203,7 @@ export function parseComputerThemeSettings(
   // Desktop `theme_roles.rs` falls back to catalog default `themeRoles` when `themeRoles` is absent.
   const themeRoles = Object.prototype.hasOwnProperty.call(raw, 'themeRoles')
     ? sanitizeThemeRoles(raw.themeRoles)
-    : { dark: { ...DESKTOP_DEFAULT_DARK_ROLES }, light: { ...DESKTOP_DEFAULT_LIGHT_ROLES } };
+    : { dark: { ...DEFAULT_DARK_THEME_ROLES }, light: { ...DEFAULT_LIGHT_THEME_ROLES } };
 
   const windowArt = Object.prototype.hasOwnProperty.call(raw, 'windowArt')
     ? sanitizeWindowArt(raw.windowArt, 'none')

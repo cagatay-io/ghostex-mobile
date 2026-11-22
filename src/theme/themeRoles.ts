@@ -275,6 +275,55 @@ export function countThemeRoleOverrides(roles: ThemeRolesByAppearance | undefine
 }
 
 /**
+ * Built-in default dark `themeRoles` matching desktop `packages/settings-catalog/src/data/defaults.rs`
+ * (5ce4a5f7d / 67eb86437: Polar Night).
+ */
+export const DEFAULT_DARK_THEME_ROLES: ThemeRoleMap = {
+  accent: '#5581a9',
+  focusRing: '#5581a9',
+  border: '8%',
+  divider: '6%',
+  text: '#e6e4de',
+  mutedText: '#8c95a3',
+  userMessage: 'base+12%',
+  chatBox: 'base+6%/80%',
+  surface: 'base+8%/80%',
+  control: 'base+10%/80%',
+  menu: 'base+6%/95%',
+  selection: '9%',
+  hover: '5%',
+  success: '#a3c48e',
+  warning: '#dcbd7a',
+  danger: '#d9827c',
+};
+
+/**
+ * Built-in default light `themeRoles` matching desktop `packages/settings-catalog/src/data/defaults.rs`
+ * (5ce4a5f7d: Everforest Light).
+ */
+export const DEFAULT_LIGHT_THEME_ROLES: ThemeRoleMap = {
+  text: '#5c6a72',
+  mutedText: '#939f91',
+  accent: '#8da101',
+  focusRing: '#8da101',
+  link: '#3a94c5',
+  success: '#8da101',
+  warning: '#dfa000',
+  danger: '#f85552',
+  userMessage: '#efebd4',
+  codeBlock: '#f4f0d9',
+  selection: '#eaedc8',
+};
+
+/** Fresh copy of Ghostex's built-in default `themeRoles` for dark (Polar Night) and light (Everforest Light). */
+export function defaultThemeRoles(): ThemeRolesByAppearance {
+  return {
+    dark: { ...DEFAULT_DARK_THEME_ROLES },
+    light: { ...DEFAULT_LIGHT_THEME_ROLES },
+  };
+}
+
+/**
  * Desktop Stage 1 (`packages/settings-catalog/src/data/preset_roles.rs`):
  * per-preset text, accent, semantic, and relative fill (`base+N%` / `base-N%`) role maps.
  */
