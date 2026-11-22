@@ -87,6 +87,7 @@ import SshAccessHelpScreen from './src/screens/SshAccessHelpScreen';
 import UsageScreen from './src/screens/UsageScreen';
 import AccountsScreen from './src/accounts/AccountsScreen';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
+import AutomationsScreen from './src/screens/AutomationsScreen';
 import SshPairingNotices from './src/components/security/SshPairingNotices';
 import EasyConnectFallbackAsk from './src/components/security/EasyConnectFallbackAsk';
 import ApprovalAlerts from './src/components/security/ApprovalAlerts';
@@ -95,6 +96,7 @@ import { useWebPreviewStore } from './src/webPreview/store';
 import {
   AddProjectCopy,
   ApprovalsCopy,
+  AutomationsCopy,
   BeadsCopy,
   ChangesCopy,
   ConnectStartCopy,
@@ -332,6 +334,11 @@ export default function App() {
                     name="Bead"
                     getComponent={() => require('./src/screens/BeadScreen').default}
                     options={{ title: '' }}
+                  />
+                  <Stack.Screen
+                    name="Automations"
+                    component={AutomationsScreen}
+                    options={{ title: AutomationsCopy.title }}
                   />
                   <Stack.Screen
                     name="AttentionList"

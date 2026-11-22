@@ -68,9 +68,11 @@ function UpdatesNoticeRow({ onPress, selected }: { onPress: () => void; selected
 export function SettingsPageList({
   selected,
   onOpen,
+  onOpenScreen,
 }: {
   selected?: SettingsPageId;
   onOpen: (page: SettingsPageId, focus?: SettingsSearchFocus) => void;
+  onOpenScreen?: (route: 'Automations') => void;
 }) {
   // Rows report a selection only beside an open page; the one-column list has none.
   const rowSelected = (page: SettingsPageId): boolean | undefined =>
@@ -84,7 +86,7 @@ export function SettingsPageList({
   return (
     <>
       <SettingsSearchField />
-      {searching ? <SettingsSearchResults pages={pages} onOpen={onOpen} /> : null}
+      {searching ? <SettingsSearchResults pages={pages} onOpen={onOpen} onOpenScreen={onOpenScreen} /> : null}
       {searching ? null : pages.map((page) => {
         const open = () => onOpen(page);
         if (page === 'updates') {
@@ -150,12 +152,14 @@ function SettingsListScroll({
   start,
   selected,
   onOpen,
+  onOpenScreen,
   style,
   contentContainerStyle,
 }: {
   start: number;
   selected: SettingsPageId;
   onOpen: (page: SettingsPageId, listOffset: number, focus?: SettingsSearchFocus) => void;
+  onOpenScreen?: (route: 'Automations') => void;
   style: StyleProp<ViewStyle>;
   contentContainerStyle: StyleProp<ViewStyle>;
 }) {
@@ -178,7 +182,7 @@ function SettingsListScroll({
       scrollEventThrottle={16}
       onScroll={onScroll}
     >
-      <SettingsPageList selected={selected} onOpen={openHere} />
+      <SettingsPageList selected={selected} onOpen={openHere} onOpenScreen={onOpenScreen} />
     </ScrollView>
   );
 }
@@ -272,6 +276,7 @@ export function SettingsColumnsFrame({
             start={carriedListOffset(route.params)}
             selected={columns.selected}
             onOpen={open}
+            onOpenScreen={(screen) => navigation.navigate(screen)}
             style={listEdges.scroll}
             contentContainerStyle={[settingsStyles.list, listEdges.content, { paddingBottom: bottom }]}
           />

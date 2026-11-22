@@ -31,7 +31,10 @@ export default function SettingsScreen() {
       trailing={DEFAULT_SETTINGS_PAGE === 'theme' ? <ThemeResetHeaderButton /> : undefined}
       single={
         <SettingsScreenLayout>
-          <SettingsPageList onOpen={(page, focus) => navigation.navigate('SettingsPage', { page, focus })} />
+          <SettingsPageList
+            onOpen={(page, focus) => navigation.navigate('SettingsPage', { page, focus })}
+            onOpenScreen={(screen) => navigation.navigate(screen)}
+          />
         </SettingsScreenLayout>
       }
     >

@@ -102,7 +102,7 @@ import {
   type GhostexAgentLauncher,
   type GhostexSession,
 } from '../../contract/mobileSummary';
-import { ConnectionsCopy, DocsCopy, FeedbackCopy, LinksCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
+import { AutomationsCopy, ConnectionsCopy, DocsCopy, FeedbackCopy, LinksCopy, ProgressCopy, StripCopy, WebPreviewCopy } from '../../copy';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
 import {
@@ -982,6 +982,15 @@ export function useSessionsScreenMenus({
           projectPath: header.projectPath,
         });
         return;
+      case 'automations':
+        setOverlay(NONE);
+        navigation.navigate('Automations', {
+          machineId: ctx.machine.id,
+          projectId: header.projectId,
+          projectName: header.title,
+          projectPath: header.projectPath,
+        });
+        return;
       case 'projectDetails':
         setOverlay({ kind: 'projectDetails', ctx });
         return;
@@ -1017,6 +1026,7 @@ export function useSessionsScreenMenus({
     const own: ProjectOwnAction[] = ['newTerminal', 'projectDetails', 'moveProjectUp', 'moveProjectDown', 'refreshSessions'];
     if (actionsEntryOf(ctx) !== null) own.push('projectActions');
     if (header.projectId.length > 0 && header.projectPath.length > 0) own.push('files');
+    if (header.projectId.length > 0) own.push('automations');
     const ownDisabled: ProjectOwnAction[] = [];
     if (!order.canMoveUp) ownDisabled.push('moveProjectUp');
     if (!order.canMoveDown) ownDisabled.push('moveProjectDown');
@@ -1470,6 +1480,16 @@ export function useSessionsScreenMenus({
       },
       {
         kind: 'item',
+        key: 'automations',
+        label: AutomationsCopy.menuLabel,
+        icon: <ClockGlyph size={14} color={menuIconColor} />,
+        onPress: () => {
+          setOverlay(NONE);
+          navigation.navigate('Automations', { machineId: target.id });
+        },
+      },
+      {
+        kind: 'item',
         key: 'web-preview',
         label: WebPreviewCopy.menuLabel,
         icon: <WorldGlyph size={14} color={menuIconColor} />,
@@ -1489,6 +1509,7 @@ export function useSessionsScreenMenus({
    * closes the app and its live connections, which only Android lets an app do.
    */
   const appMenuItems = (target: MachineRecord | null): ContextMenuItem[] => {
+    const automationsTarget = target ?? enabledMachines(useMachinesStore.getState())[0] ?? null;
     const items: ContextMenuItem[] = [
       {
         kind: 'item',
@@ -1500,6 +1521,18 @@ export function useSessionsScreenMenus({
           if (target === null) return;
           setOverlay(NONE);
           navigation.navigate('FindPrompts', { machineId: target.id });
+        },
+      },
+      {
+        kind: 'item',
+        key: 'automations',
+        label: AutomationsCopy.menuLabel,
+        icon: <ClockGlyph size={14} color={menuIconColor} />,
+        disabled: automationsTarget === null,
+        onPress: () => {
+          if (automationsTarget === null) return;
+          setOverlay(NONE);
+          navigation.navigate('Automations', { machineId: automationsTarget.id });
         },
       },
     ];

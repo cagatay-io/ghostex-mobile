@@ -1271,3 +1271,58 @@ export function previousSessionsCommand(options: {
 export function restorePreviousSessionCommand(projectId: string, sessionId: string): string {
   return `ghostex restore-previous-session --project-id ${shellQuote(requirePositional(projectId, 'project id'))} --session-id ${shellQuote(requirePositional(sessionId, 'session id'))} --json`;
 }
+
+/*
+ * Scheduled automations over SSH (fallback when a computer has no warm gxserver HTTP forward).
+ * These verbs already exist on gxserver (server/src/ghostex_cli/automations.rs).
+ */
+
+function automationProjectFlags(project?: { projectId?: string; projectPath?: string }): string {
+  const parts: string[] = [];
+  const projectId = project?.projectId?.trim() ?? '';
+  const projectPath = project?.projectPath?.trim() ?? '';
+  if (projectId.length > 0) parts.push(`--project-id ${shellQuote(projectId)}`);
+  if (projectPath.length > 0) parts.push(`--project-path ${shellQuote(projectPath)}`);
+  return parts.length > 0 ? ` ${parts.join(' ')}` : '';
+}
+
+/** `ghostex automation-state [--project-id <id>] [--project-path <path>]` */
+export function automationStateCommand(project?: { projectId?: string; projectPath?: string }): string {
+  return `ghostex automation-state${automationProjectFlags(project)}`;
+}
+
+/** `ghostex automation-set-enabled --automation-id <id> --enabled <true|false> [--project-id <id>] [--project-path <path>]` */
+export function automationSetEnabledCommand(
+  automationId: string,
+  enabled: boolean,
+  project?: { projectId?: string; projectPath?: string },
+): string {
+  return (
+    `ghostex automation-set-enabled --automation-id ${shellQuote(requireId(automationId, 'automation id'))}` +
+    ` --enabled ${enabled ? 'true' : 'false'}${automationProjectFlags(project)}`
+  );
+}
+
+/** `ghostex automation-run-now --automation-id <id> [--project-id <id>] [--project-path <path>]` */
+export function automationRunNowCommand(
+  automationId: string,
+  project?: { projectId?: string; projectPath?: string },
+): string {
+  return `ghostex automation-run-now --automation-id ${shellQuote(requireId(automationId, 'automation id'))}${automationProjectFlags(project)}`;
+}
+
+/** `ghostex automation-mark-run-read --run-id <id> [--project-id <id>] [--project-path <path>]` */
+export function automationMarkRunReadCommand(
+  runId: string,
+  project?: { projectId?: string; projectPath?: string },
+): string {
+  return `ghostex automation-mark-run-read --run-id ${shellQuote(requireId(runId, 'run id'))}${automationProjectFlags(project)}`;
+}
+
+/** `ghostex automation-archive-run --run-id <id> --remove-worktree false [--project-id <id>] [--project-path <path>]` */
+export function automationArchiveRunCommand(
+  runId: string,
+  project?: { projectId?: string; projectPath?: string },
+): string {
+  return `ghostex automation-archive-run --run-id ${shellQuote(requireId(runId, 'run id'))} --remove-worktree false${automationProjectFlags(project)}`;
+}

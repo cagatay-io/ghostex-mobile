@@ -103,9 +103,11 @@ function ResultRow({ result, onPress }: { result: SettingsSearchResult; onPress:
 export function SettingsSearchResults({
   pages,
   onOpen,
+  onOpenScreen,
 }: {
   pages: readonly SettingsPageId[];
   onOpen: (page: SettingsPageId, focus?: SettingsSearchFocus) => void;
+  onOpenScreen?: (route: 'Automations') => void;
 }) {
   const styles = useSettingsStyles();
   const query = useSettingsSearchStore((state) => state.query);
@@ -130,7 +132,13 @@ export function SettingsSearchResults({
           result={result}
           onPress={() => {
             Keyboard.dismiss();
-            onOpen(result.page, result.focus === undefined ? undefined : { ...result.focus, at: Date.now() });
+            if (result.route !== undefined) {
+              onOpenScreen?.(result.route);
+              return;
+            }
+            if (result.page !== undefined) {
+              onOpen(result.page, result.focus === undefined ? undefined : { ...result.focus, at: Date.now() });
+            }
           }}
         />
       ))}

@@ -99,6 +99,18 @@ export type RootStackParamList = {
   /** One bead of that project, full screen; back returns to the list where it was. */
   Bead: { machineId: string; projectId: string; projectPath: string; beadId: string };
   /**
+   * Automations (GitHub #708): scheduled automations, Runs and Triage on a connected computer,
+   * optionally scoped to one project (opened from a project menu) or all projects (main menu / Settings search).
+   */
+  Automations:
+    | {
+        machineId?: string;
+        projectId?: string;
+        projectName?: string;
+        projectPath?: string;
+      }
+    | undefined;
+  /**
    * One file from the computer, by absolute path. `fragment` scrolls to an anchor
    * (a link such as `other.md#setup`). Files uses the same viewer for rendered documents, source and metadata.
    */

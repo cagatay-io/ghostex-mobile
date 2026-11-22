@@ -122,6 +122,7 @@ const READ_ONLY_METHODS = new Set([
   'listStashedPrompts',
   'browseProjectDirectories',
   'readSharedSettings',
+  'readAutomationState',
 ]);
 /** The sends gxserver delivers at most once per `sendRequestId` (`session_chat_send_requests.rs`). */
 const LEDGER_SEND_METHODS = new Set(['sendSessionChatMessage', 'queueSessionChatPrompt', 'answerSessionChatPrompt']);

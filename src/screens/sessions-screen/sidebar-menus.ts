@@ -1068,6 +1068,7 @@ export type ProjectOwnAction =
   | 'newTerminal'
   | 'projectActions'
   | 'files'
+  | 'automations'
   | 'projectDetails'
   | 'moveProjectUp'
   | 'moveProjectDown'
@@ -1161,10 +1162,25 @@ export function buildProjectMenu(input: ProjectMenuInput, layout: SessionMenuLay
   const hasInactive = input.sessions.some(isInactiveSession);
   const fill = (id: string): SidebarMenuItem[] => {
     switch (id) {
+      case 'projectDetails': {
+        const rows: SidebarMenuItem[] = [];
+        if (input.own.includes('automations')) {
+          rows.push({
+            ...row('Automations', 'clock', { type: 'projectOwn', action: 'automations' }),
+            disabled: input.ownDisabled.includes('automations'),
+          });
+        }
+        if (input.own.includes('projectDetails')) {
+          rows.push({
+            ...layoutRow(layout, 'projectDetails', { type: 'projectOwn', action: 'projectDetails' }),
+            disabled: input.ownDisabled.includes('projectDetails'),
+          });
+        }
+        return rows;
+      }
       case 'newTerminal':
       case 'projectActions':
       case 'files':
-      case 'projectDetails':
       case 'moveProjectUp':
       case 'moveProjectDown':
       case 'refreshSessions': {

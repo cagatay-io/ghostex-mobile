@@ -11,7 +11,7 @@
  * Kept free of React Native components: the lists below are plain data.
  */
 
-import { CommandPadCopy, LiveActivityCopy, NotificationChoicesCopy, NotificationsCopy } from '../../../copy';
+import { AutomationsCopy, CommandPadCopy, LiveActivityCopy, NotificationChoicesCopy, NotificationsCopy } from '../../../copy';
 import { CrashReportsSettingsCopy } from '../../../copy/crashReports';
 import { CRASH_REPORTS_IN_SETTINGS } from '../../../feedback/crashReports';
 import { LIVE_ACTIVITY_PUSH_SUPPORTED } from '../../../notifications/liveActivityPushStore';
@@ -1048,10 +1048,34 @@ export type SettingsSearchResult = {
   /** Where it is: the page, then the group, as "Chat › Messages"; "Settings" for a page. */
   readonly breadcrumb: string;
   readonly description: string;
-  readonly page: SettingsPageId;
+  /** Opens a Settings page when `route` is absent. */
+  readonly page?: SettingsPageId;
+  /** Opens a top-level phone screen directly (e.g. Automations from Settings search). */
+  readonly route?: 'Automations';
   /** Undefined for a page result: the page opens at its top. */
   readonly focus?: Omit<SettingsSearchFocus, 'at'>;
 };
+
+type SettingsSearchScreenEntry = {
+  readonly key: string;
+  readonly route: 'Automations';
+  readonly title: string;
+  readonly breadcrumb: string;
+  readonly description: string;
+  readonly keywords: readonly string[];
+};
+
+/** Non-settings screens discoverable from Settings search so searching "automation" finds Automations. */
+const SETTINGS_SEARCH_SCREENS: readonly SettingsSearchScreenEntry[] = [
+  {
+    key: 'screen:automations',
+    route: 'Automations',
+    title: AutomationsCopy.title,
+    breadcrumb: AutomationsCopy.settingsSearchBreadcrumb,
+    description: AutomationsCopy.settingsSearchDescription,
+    keywords: ['automation', 'automations', 'automate', 'schedule', 'scheduled', 'cron', 'runs', 'triage', 'pause', 'resume', 'run now'],
+  },
+];
 
 function pageTrail(page: SettingsPageId): string {
   const parent = SUB_PAGE_PARENT[page];
@@ -1143,6 +1167,22 @@ export function searchSettings(query: string, pages: readonly SettingsPageId[]):
       },
       rank: score,
       order: pageOrder * 1000 + index,
+    });
+  });
+
+  SETTINGS_SEARCH_SCREENS.forEach((screen, index) => {
+    const score = rank(trimmed, pattern, [screen.title], screen.keywords, [screen.description]);
+    if (score === null) return;
+    ranked.push({
+      result: {
+        key: screen.key,
+        title: screen.title,
+        breadcrumb: screen.breadcrumb,
+        description: screen.description,
+        route: screen.route,
+      },
+      rank: score,
+      order: -1000 + index,
     });
   });
 
