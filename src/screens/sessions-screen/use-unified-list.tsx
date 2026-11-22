@@ -165,6 +165,8 @@ export type UnifiedListDeps = {
   /** Whether the Sessions screen is in front; its clock stops behind another screen. */
   focused: boolean;
   setOverlay: (overlay: Overlay) => void;
+  /** Opens Ask Ghostex AI's long-press menu (New Chat, Earlier Chats, Change Agent, then `more` session options). */
+  openChiefMenu?: (target: MachineRecord, session: GhostexSession, more: () => void) => void;
   attach: (target: MachineRecord, session: GhostexSession) => Promise<void>;
   runBulkSessionActions: (target: MachineRecord, actions: readonly BulkSessionAction[]) => Promise<void>;
   snoozeSession: (target: MachineRecord, session: GhostexSession, wakeAt: Date | null) => Promise<void>;
@@ -222,6 +224,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     sidebarBackground,
     focused,
     setOverlay,
+    openChiefMenu,
     attach,
     runBulkSessionActions,
     snoozeSession,
@@ -586,11 +589,19 @@ export function useUnifiedList(deps: UnifiedListDeps) {
   const openMenu = (row: UnifiedRow<GhostexSession>): void => {
     const target = machineById(row.machine);
     if (target === null) return;
-    setOverlay({
-      kind: 'sessionMenu',
-      ctx: { machine: target, item: sessionItemOf(target.id, row.session.source!, summaryOf(target.id)), unified: true },
-      menuPath: [],
-    });
+    const session = row.session.source!;
+    const sessionOptions = (): void =>
+      setOverlay({
+        kind: 'sessionMenu',
+        ctx: { machine: target, item: sessionItemOf(target.id, session, summaryOf(target.id)), unified: true },
+        menuPath: [],
+      });
+    // Ask Ghostex AI's row opens its own menu first (New Chat, Earlier Chats, Change Agent), as in Project View.
+    if (session.isChief && openChiefMenu !== undefined) {
+      openChiefMenu(target, session, sessionOptions);
+      return;
+    }
+    sessionOptions();
   };
 
   const swipeActions = unifiedSwipeActions(

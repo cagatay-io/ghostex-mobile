@@ -825,6 +825,12 @@ export default function SessionsScreen({ navigation }: Props) {
     sidebarBackground: sidebarAppearance.background,
     focused: isFocused,
     setOverlay,
+    openChiefMenu: (target, session, more) =>
+      void openChiefMenu(
+        target,
+        { machineId: target.id, machineLabel: machineDisplayLabel(target), session },
+        more,
+      ),
     attach: (target, session) => attach(target, session),
     runBulkSessionActions,
     snoozeSession,
