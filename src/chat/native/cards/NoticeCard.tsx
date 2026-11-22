@@ -443,12 +443,22 @@ export function NoticeCard({
       />,
     );
   }
-  // A card with rows or a dialog is answered, not closed, until an answer on it is refused (`dismiss_notice` in the
-  // chat core's questions/actions.rs, GitHub #458).
+  // A card with rows or a dialog is answered, not closed, until an answer on it is refused or it is
+  // an unacknowledged every-account-full usage-limit wait (Q4472; `dismiss_notice` in gx-chat-core's
+  // questions/actions.rs, GitHub #458).
+  const accountWait = obj(notice.accountWait);
+  const unacknowledgedPoolWait =
+    kind === 'usageLimit' &&
+    accountWait !== null &&
+    typeof accountWait.provider === 'string' &&
+    accountWait.provider.length > 0 &&
+    typeof accountWait.mode !== 'string' &&
+    typeof accountWait.acknowledgedAt !== 'string';
   if (
     ((notice.choices === null || notice.choices === undefined) &&
       (notice.dialog === null || notice.dialog === undefined)) ||
-    typeof document.noticeError === 'string'
+    typeof document.noticeError === 'string' ||
+    unacknowledgedPoolWait
   ) {
     footerEnd.push(
       <ToneButton key="dismiss" kind="secondary" label="Dismiss" onPress={() => dispatch({ type: 'dismissNotice' })} />,

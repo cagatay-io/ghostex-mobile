@@ -23,6 +23,7 @@
 import { readPairingCode } from '../machines/pairingCodes';
 
 const SESSION_LINK = 'ghostex://session';
+const ACCOUNTS_LINK = 'ghostex://accounts';
 
 export type SessionLinkView = 'question';
 
@@ -34,6 +35,22 @@ export type SessionLink = {
   /** `notification`: a row of the Android persistent notification, which opens the session as the bell's row does. */
   source: 'notification' | null;
 };
+
+/** The link that opens the Accounts & usage screen (for a specific computer when `machineId` is given). */
+export function accountsDeepLink(machineId?: string): string {
+  return machineId !== undefined && machineId.length > 0
+    ? `${ACCOUNTS_LINK}?machineId=${encodeURIComponent(machineId)}`
+    : ACCOUNTS_LINK;
+}
+
+/** Parses `ghostex://accounts[?machineId=...]`, or null for any other link. */
+export function parseAccountsLink(url: string): { machineId: string | null } | null {
+  if (url !== ACCOUNTS_LINK && !url.startsWith(`${ACCOUNTS_LINK}?`) && !url.startsWith(`${ACCOUNTS_LINK}/`)) {
+    return null;
+  }
+  const machineId = queryParam(url, 'machineId');
+  return { machineId: machineId !== null && machineId.length > 0 ? machineId : null };
+}
 
 /** The link that opens a session (and, for `view: 'question'`, its question card). */
 export function sessionDeepLink(link: {
@@ -130,9 +147,15 @@ export type DeepLinkDeps = {
    * the screens are ready checks it again before it runs.
    */
   navigate(
-    route: { name: 'Terminal'; params: TerminalRoute } | { name: 'Voice' } | { name: 'ScanCode'; url: string },
+    route:
+      | { name: 'Terminal'; params: TerminalRoute }
+      | { name: 'Voice' }
+      | { name: 'Accounts'; params: { machineId: string } }
+      | { name: 'ScanCode'; url: string },
     current?: () => boolean,
   ): void;
+  /** The computer to show when `ghostex://accounts` carries no `machineId` (selected or first enabled computer). */
+  defaultMachineId?(): string | undefined;
   /** Runs `retry` again shortly (stores hydrate within moments of launch). */
   later(retry: () => void): void;
   /**
@@ -192,6 +215,22 @@ function openSession(link: SessionLink, deps: DeepLinkDeps, current: (() => bool
     });
 }
 
+function openAccounts(
+  link: { machineId: string | null },
+  deps: DeepLinkDeps,
+  current: (() => boolean) | undefined,
+): void {
+  if (current?.() === false) return;
+  if (!deps.storesReady()) {
+    deps.later(() => openAccounts(link, deps, current));
+    return;
+  }
+  const requested = link.machineId !== null && deps.machine(link.machineId) !== undefined ? link.machineId : undefined;
+  const machineId = requested ?? deps.defaultMachineId?.();
+  if (machineId === undefined || machineId.length === 0) return;
+  deps.navigate({ name: 'Accounts', params: { machineId } }, current);
+}
+
 /**
  * Handles one incoming link (cold start or while running); links the app does not own are ignored. `current`: see
  * `openSession` (a tapped notification's opening); links from outside the app and attention-list rows have none.
@@ -202,13 +241,18 @@ export function handleDeepLink(url: string | null, deps: DeepLinkDeps, current?:
     deps.navigate({ name: 'Voice' });
     return;
   }
+  const accounts = parseAccountsLink(url);
+  if (accounts !== null) {
+    openAccounts(accounts, deps, current);
+    return;
+  }
   const pairing = readPairingCode(url);
   if (pairing !== null && pairing.kind !== 'legacyAddress') {
     deps.navigate({ name: 'ScanCode', url });
     return;
   }
   const link = parseSessionLink(url);
-  if (link === null) return;
+  if (link === null || link.sessionId.startsWith('account:')) return;
   if (link.source === 'notification') deps.markOpened(link.machineId, link.sessionId);
   openSession(link, deps, current);
 }

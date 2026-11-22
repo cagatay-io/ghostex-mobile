@@ -40,7 +40,7 @@ import {
 import { longestWaitFirst, waitsForUser } from '../screens/triage/model';
 import type { ClosedSession } from '../sessions/sessionSearch';
 import { sessionFacts, type SessionFacts } from './events';
-import { isAccountRow, isSessionlessRow, type FeedRow } from './feedContract';
+import { isAccountPoolRow, isAccountRow, isSessionlessRow, type FeedRow } from './feedContract';
 
 export type InboxSection = 'needsYou' | 'failed' | 'done' | 'accounts';
 
@@ -368,7 +368,14 @@ export function buildAttentionList(
     }
 
     for (const row of feed.rows) {
-      if (!isAccountRow(row) || (row.kind !== 'resetExpiring' && row.kind !== 'resetRedeemed')) continue;
+      if (
+        !isAccountRow(row) ||
+        (row.kind !== 'resetExpiring' &&
+          row.kind !== 'resetRedeemed' &&
+          !(row.kind === 'failed' && isAccountPoolRow(row)))
+      ) {
+        continue;
+      }
       inbox.accounts.push({
         key: `${feed.machineId}\n${row.id}`,
         id: row.id,

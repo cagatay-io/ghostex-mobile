@@ -20,7 +20,7 @@
  */
 
 import { NotificationsCopy } from '../copy';
-import { isAccountRow, isSecurityRow, type FeedKind, type FeedRow } from './feedContract';
+import { isAccountPoolRow, isAccountRow, isSecurityRow, type FeedKind, type FeedRow } from './feedContract';
 
 /** One computer's feed as the store holds it. */
 export type PanelMachineFeed = {
@@ -114,9 +114,14 @@ export function feedRowTitle(row: FeedRow): string {
   return row.title.length === 0 ? NotificationsCopy.untitledSession : row.title;
 }
 
-/** A row with no session to open (an account or a security row): a tap only marks it read, as on a remote computer. */
+/** An exhausted-pool account row (`account:pool:<provider>`): a tap marks it read and opens Accounts. */
+export function feedRowOpensAccounts(row: FeedRow): boolean {
+  return isAccountPoolRow(row);
+}
+
+/** A row with no screen to open (banked-reset account or security row): a tap only marks it read. */
 export function feedRowOpensNothing(row: FeedRow): boolean {
-  return isAccountRow(row) || isSecurityRow(row);
+  return (isAccountRow(row) && !isAccountPoolRow(row)) || isSecurityRow(row);
 }
 
 /**

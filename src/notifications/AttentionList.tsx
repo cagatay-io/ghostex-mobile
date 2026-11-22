@@ -42,6 +42,8 @@ import {
   type ViewInstance,
 } from 'react-native';
 
+import { accountsDeepLink } from '../app/deepLinkHandler';
+import { openDeepLink } from '../app/deepLinks';
 import { AGENT_ICONS } from '../assets/agentIcons.generated';
 import BottomSheet from '../components/common/BottomSheet';
 import ContextMenu, { type ContextMenuItem, type MenuAnchor } from '../components/sessions/ContextMenu';
@@ -77,6 +79,7 @@ import {
   feedRelativeTime,
   feedRowCanBeDone,
   feedRowMeta,
+  feedRowOpensAccounts,
   feedRowOpensNothing,
   feedRowTitle,
   feedRowUrgent,
@@ -339,7 +342,13 @@ const Row = memo(function Row({
       ref={ref}
       accessibilityRole="button"
       accessibilityLabel={rowLabel(row, now)}
-      accessibilityHint={feedRowOpensNothing(row) ? undefined : NotificationsCopy.openSession}
+      accessibilityHint={
+        feedRowOpensNothing(row)
+          ? undefined
+          : feedRowOpensAccounts(row)
+            ? NotificationsCopy.openAccounts
+            : NotificationsCopy.openSession
+      }
       testID={`attention-row-${row.id}`}
       onPress={() => onOpen(row)}
       onLongPress={() => measureInWindow(ref, (frame) => onMenu(row, frame))}
@@ -636,11 +645,15 @@ export default function AttentionList({
     [report],
   );
 
-  /** A tap: the card is marked read on its computer, then its session opens (as a click on the desktop). */
+  /** A tap: the card is marked read on its computer, then its session (or Accounts for a pool row) opens. */
   const open = useCallback(
     (row: PanelRow, questionSessions: Set<string> = questions) => {
       setMenu(null);
       if (!row.read && feedRowCanBeDone(row)) change(row, 'markRead');
+      if (feedRowOpensAccounts(row)) {
+        openDeepLink(accountsDeepLink(row.machineId));
+        return;
+      }
       if (feedRowOpensNothing(row)) return;
       const ended = closed[row.machineId]?.find((session) => session.sessionId === row.sessionId);
       if (ended !== undefined) {
@@ -713,7 +726,8 @@ export default function AttentionList({
       },
     });
     const items: ContextMenuItem[] = [];
-    if (!feedRowOpensNothing(row)) items.push(item('open', NotificationsCopy.openSession, () => open(row)));
+    if (feedRowOpensAccounts(row)) items.push(item('open', NotificationsCopy.openAccounts, () => open(row)));
+    else if (!feedRowOpensNothing(row)) items.push(item('open', NotificationsCopy.openSession, () => open(row)));
     if (feedRowCanBeDone(row)) {
       items.push(
         row.read

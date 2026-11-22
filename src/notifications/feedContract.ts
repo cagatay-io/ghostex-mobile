@@ -46,8 +46,11 @@ export type FeedKind = (typeof FEED_KINDS)[number];
  */
 export const FEED_RETENTION_ROWS = 40;
 
-/** Account rows (banked usage resets) belong to no session: their `sessionId` is this prefix plus the account id. */
+/** Account rows (banked usage resets and exhausted account pools) belong to no session: their `sessionId` starts with this prefix. */
 export const ACCOUNT_SESSION_PREFIX = 'account:';
+
+/** Per-provider exhausted account pool rows (`account:pool:<provider>`): tapping opens Accounts. */
+export const ACCOUNT_POOL_SESSION_PREFIX = 'account:pool:';
 
 /** Security rows belong to no session: their `sessionId` is this prefix plus the security log entry. */
 export const SECURITY_SESSION_PREFIX = 'security:';
@@ -158,9 +161,17 @@ export function parseFeedState(value: unknown): FeedSnapshot | null {
   return { rows };
 }
 
-/** An account row: no session behind it, never an OS notification, a tap only marks it read. */
+/** An account row: no session behind it, never an OS notification (pool-limit rows open Accounts on tap). */
 export function isAccountRow(row: FeedRow): boolean {
   return row.accountId !== undefined || row.sessionId.startsWith(ACCOUNT_SESSION_PREFIX);
+}
+
+/** A per-provider exhausted account pool row (`account:pool:<provider>`): no session behind it; tapping opens Accounts. */
+export function isAccountPoolRow(row: Pick<FeedRow, 'sessionId' | 'accountId'>): boolean {
+  return (
+    row.sessionId.startsWith(ACCOUNT_POOL_SESSION_PREFIX) ||
+    (row.accountId !== undefined && row.accountId.startsWith('pool:'))
+  );
 }
 
 /** A security log row: no session behind it, never an OS notification, a tap only marks it read. */

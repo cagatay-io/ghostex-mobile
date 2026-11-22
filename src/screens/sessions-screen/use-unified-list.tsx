@@ -326,7 +326,8 @@ export function useUnifiedList(deps: UnifiedListDeps) {
     const deadline = Date.parse(resetsAt);
     if (Number.isNaN(deadline)) return false;
     const remaining = deadline - nowMs;
-    return remaining > 0 && remaining <= 65_000;
+    // Stay on the 1s clock before crossing 60s so the 30s idle interval never stalls `2m -> 59s`.
+    return remaining > 0 && remaining <= 95_000;
   };
   const working =
     view.working.some((row) => row.status === 'Working') ||
@@ -675,7 +676,7 @@ export function useUnifiedList(deps: UnifiedListDeps) {
                     ) : null}
                     <UnifiedCrewCount row={row} />
                     {folded ? (
-                      <UnifiedFoldedStatus row={row} ringColor={wall.appearance.card} />
+                      <UnifiedFoldedStatus row={row} ringColor={wall.appearance.card} nowMs={nowMs} />
                     ) : (
                       <StatusSlot row={row} nowMs={nowMs} />
                     )}

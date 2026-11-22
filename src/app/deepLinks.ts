@@ -138,12 +138,19 @@ const appDeps: DeepLinkDeps = {
     usePaneStore.getState().setQuestionHold(sessionKey);
   },
   attachSession: (machine, session, current) => useTerminalStore.getState().attachSession(machine, session, { current }),
+  defaultMachineId: () => {
+    const state = useMachinesStore.getState();
+    const enabled = state.machines.filter((machine) => machine.disabled !== true);
+    const selected = enabled.find((machine) => machine.id === state.selectedMachineId);
+    return selected?.id ?? enabled[0]?.id;
+  },
   navigate: (route, current) =>
     navigateWhenReady(() => {
       // A tapped notification's opening that was superseded while the screens got ready navigates nothing.
       if (current?.() === false) return;
       if (route.name === 'Terminal') navigationRef.navigate('Terminal', route.params);
       else if (route.name === 'Voice') navigationRef.navigate('Voice');
+      else if (route.name === 'Accounts') navigationRef.navigate('Accounts', route.params);
       else
         navigationRef.navigate({
           name: 'ScanCode',

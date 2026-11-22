@@ -2140,6 +2140,7 @@ export const NotificationsCopy = {
   menuSubtitle: 'Read state is shared with the bell on your computer',
   clearDone: 'Clear Done',
   openSession: 'Open Session',
+  openAccounts: 'Open Accounts',
   markDone: 'Mark as Done',
   markRead: 'Mark as Read',
   markUnread: 'Mark as Unread',

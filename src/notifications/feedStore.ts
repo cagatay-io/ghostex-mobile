@@ -38,7 +38,7 @@ import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import { logAppEvent } from '../app/appLog';
-import { sessionDeepLink } from '../app/deepLinkHandler';
+import { accountsDeepLink, parseAccountsLink, sessionDeepLink } from '../app/deepLinkHandler';
 import { openDeepLink, personNavigations, setSessionOpenedMarker, tapOpens } from '../app/deepLinks';
 import { chatMachineLink } from '../chat/rust/machine-link';
 import { hasQuestion } from '../contract/mobileSummary';
@@ -59,7 +59,7 @@ import {
 import { HOST_EVENT_KINDS, hostEventFromFeedRow, sessionFacts, type HostEvent } from './events';
 import { FeedEventSource, FeedUnavailableError, type FeedReadFailure } from './eventSource';
 import { FeedRequestError, markRowsRead, readFeed, updateFeed, updateWholeFeed, type FeedRpc, type FeedUpdate } from './feedClient';
-import { isAccountRow, isSessionlessRow, type FeedRow, type FeedSnapshot } from './feedContract';
+import { ACCOUNT_SESSION_PREFIX, isAccountRow, isSessionlessRow, type FeedRow, type FeedSnapshot } from './feedContract';
 import { NOTIFICATION_STREAM_CAPABILITY, openFeedStream } from './feedStream';
 import { noteApprovalFrame } from '../security/approvalAlerts';
 import { redialAfterServerStop } from '../app/autoReconnect';
@@ -375,6 +375,12 @@ function takeForegroundPush(data: unknown): boolean {
     return machineId !== null && sessionOnScreen(machineId, push.sessionId);
   }
   if (!NOTIFYING_KINDS.has(push.kind)) return true;
+  // A per-pool account push (`account:pool:<provider>`) belongs to no session, so let iOS display
+  // the server's push banner as sent (when failed alerts are enabled) instead of dropping it in `mapEvent`.
+  if (push.sessionId.startsWith(ACCOUNT_SESSION_PREFIX)) {
+    const settings = useSettingsStore.getState().settings.notifications;
+    return !settings.enabled || alertChoiceFor('failed', settings) === 'off';
+  }
   const event = pushHostEvent(push);
   if (event === null) return false;
   void notifyHostEvents(event.machineId, [event], 'push', null).catch((error: unknown) => {
@@ -910,10 +916,14 @@ function openTapped(data: Partial<NotificationData>): void {
   if (machineId === undefined || sessionId === undefined) return;
   taps += 1;
   const tap = taps;
-  tapOpens(machineId, sessionId);
+  const isAccount = sessionId.startsWith(ACCOUNT_SESSION_PREFIX);
+  const isAccountsUrl = data.url !== undefined && parseAccountsLink(data.url) !== null;
+  if (!isAccount && !isAccountsUrl) tapOpens(machineId, sessionId);
   const navigations = personNavigations();
   const current = (): boolean => tap === taps && personNavigations() === navigations;
-  if (data.url !== undefined) openDeepLink(data.url, current);
+  if (isAccountsUrl) openDeepLink(accountsDeepLink(machineId), current);
+  else if (data.url !== undefined) openDeepLink(data.url, current);
+  else if (isAccount) openDeepLink(accountsDeepLink(machineId), current);
   else if (data.kind === 'needsInput') whenComputersLoaded(() => void openWaitingPush(machineId, sessionId, current));
   else openDeepLink(sessionDeepLink({ machineId, sessionId }), current);
   if (notificationId !== undefined && notificationId.length > 0) {
