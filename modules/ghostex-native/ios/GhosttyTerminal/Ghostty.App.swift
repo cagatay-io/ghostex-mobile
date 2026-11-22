@@ -413,11 +413,16 @@ extension Ghostty {
             terminalView.pendingPasteText = nil
             // The user's paste without a link is counted for the not-sent sign and finished empty: nothing is typed
             // later, and no unsafe-paste question is asked for text that cannot be sent.
-            let text = userPaste && !terminalView.admitsPaste() ? "" : clipboardString
+            let notSent = userPaste && !terminalView.pasteHasLink()
+            if notSent { _ = terminalView.admitsPaste() }
+            terminalView.pasteQuestionAsked = false
 
-            text.withCString { ptr in
+            (notSent ? "" : clipboardString).withCString { ptr in
                 ghostty_surface_complete_clipboard_request(surface, ptr, state, false)
             }
+            // Ghostty wrote a safe paste at once (it asked nothing): it went on, so an earlier sign can go. One it asks
+            // about goes on only with Paste, below.
+            if userPaste && !notSent && !terminalView.pasteQuestionAsked { _ = terminalView.admitsPaste() }
         }
 
         /// CDXC:Clipboard 2026-10-17 DECISION: the user: "Yes, ask first like the desktop". Ghostty asks here before a paste it calls unsafe (several lines into a program that has not turned on bracketed paste, which could run a pasted line as a command); the phone shows the desktop's "Paste potentially unsafe text?" question and pastes only on Paste. Supersedes 2026-10-16, when the phone pasted these without asking. Only the user's own paste is asked about; a program asking to read the clipboard (OSC 52) stays unanswered, so it gets nothing.
@@ -433,15 +438,19 @@ extension Ghostty {
             guard let surface = terminalView.surface?.unsafeCValue else { return }
             // Ghostty lends `string` only for this call.
             let text = String(cString: string)
-            // The link the paste would go to, as the question opens.
+            // The link the paste would go to, and the session's report of a lost paste, as the question opens: the
+            // question can outlive this view (a reattach tears it down and clears its callbacks).
             let link = terminalView.linkIdentity?()
+            let reportLost = terminalView.reportsUnsentKeys
+            terminalView.pasteQuestionAsked = true
             terminalView.askBeforeUnsafePaste { confirmed in
                 let sameSurface = terminalView.surface?.unsafeCValue == surface
                 let sameLink = link != nil && terminalView.linkIdentity?() == link
-                // Paste answered after the link went, was replaced, or the surface was replaced while the question was
-                // open: counted for the not-sent sign and sent nowhere, never into a new link. Cancel counts nothing.
+                // Paste answered after the link went, was replaced, or the view or its surface was replaced while the
+                // question was open: counted for the not-sent sign and sent nowhere, never into a new link. Cancel
+                // counts nothing.
                 if confirmed && !(sameSurface && sameLink) {
-                    terminalView.reportsUnsentKeys?(GhostexTerminalUnsentKeys(item: .paste))
+                    reportLost?(GhostexTerminalUnsentKeys(item: .paste))
                 }
                 // A reconnect replaces the surface, and the old one's request went with it.
                 guard sameSurface else { return }

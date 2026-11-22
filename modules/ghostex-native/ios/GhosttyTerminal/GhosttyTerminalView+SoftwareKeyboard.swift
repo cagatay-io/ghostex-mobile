@@ -32,6 +32,11 @@ extension GhosttyTerminalView {
         admits(GhostexTerminalUnsentKeys(item: .paste))
     }
 
+    /// Whether a paste could go on now, asking nothing else: no count, and no "sent" that takes an earlier sign down.
+    func pasteHasLink() -> Bool {
+        admits(GhostexTerminalUnsentKeys())
+    }
+
     func sendTerminalInputText(_ text: String) {
         guard canRouteTerminalInput else { return }
         let normalized = text.precomposedStringWithCanonicalMapping

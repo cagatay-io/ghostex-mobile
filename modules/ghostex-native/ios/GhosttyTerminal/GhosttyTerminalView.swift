@@ -530,6 +530,9 @@ class GhosttyTerminalView: UIView {
     /// The terminal's current link (its shell channel), nil without one; a paste's question compares it when answered.
     var linkIdentity: (() -> String?)?
 
+    /// Set when Ghostty asks the unsafe-paste question for the paste being completed (Ghostty.App.swift).
+    var pasteQuestionAsked = false
+
     /// The software keyboard's operations at the not-sent boundary, before `textInputModel` takes them.
     var softwareInputGate = GhostexSoftwareInputGate()
 }

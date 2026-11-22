@@ -78,7 +78,11 @@ let installed = false;
 export function initNotSentKeys(): void {
   if (installed) return;
   installed = true;
-  GhostexNative.addListener('onTerminalInputNotSent', (event) => noteKeysNotSent(event.sessionKey, event));
+  GhostexNative.addListener('onTerminalInputNotSent', (event) => {
+    // A paste answered after its tab was closed makes no sign, neither now nor on a tab opened later for the session.
+    if (!useTerminalStore.getState().tabs.some((tab) => tab.sessionKey === event.sessionKey)) return;
+    noteKeysNotSent(event.sessionKey, event);
+  });
   GhostexNative.addListener('onTerminalInputSent', (event) => clearKeysNotSent(event.sessionKey));
   // A closed tab takes its sign along, so the same session opened later starts without one.
   useTerminalStore.subscribe((state, previous) => {
