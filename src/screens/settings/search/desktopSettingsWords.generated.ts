@@ -566,8 +566,8 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "keywords": []
   },
   "sidebarActiveProjects": {
-    "title": "Active projects",
-    "subtitle": "Show a star before your Spaces that lists the projects you are working on from every Space in one list: any project with a session working or waiting on you, or used in the last 8 hours. Click a session there to open it without switching Spaces. On by default; right-click the star to remove it.",
+    "title": "Show the Active projects star in the Spaces bar",
+    "subtitle": "Add a star tab at the start of the Spaces bar that pulls together every project you are currently working on across all Spaces (any project with a busy or waiting session, or used in the last 8 hours), so you can switch between them without changing Spaces. Right-click the star to hide it.",
     "options": [],
     "keywords": []
   },
@@ -648,7 +648,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "sidebarSpacesEnabled": {
     "title": "Spaces",
-    "subtitle": "Group projects into Spaces and switch between them from a row of icons at the top of the sidebar, or by swiping. Off by default; your saved Spaces are kept while it is off.",
+    "subtitle": "Group projects into Spaces and switch between them from a row of icons at the top of the sidebar, or by swiping. On by default; your saved Spaces are kept while it is off.",
     "options": [],
     "keywords": []
   },
@@ -1818,8 +1818,8 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "keywords": []
   },
   "unifiedWorkingSection": {
-    "title": "Moving section",
-    "subtitle": "Fold sessions whose agent is working or still running something in the background into a Moving section at the bottom of the list. They return to the top of the list when they need you. Shown while the Unified sidebar is selected.",
+    "title": "Group busy sessions in a Moving section",
+    "subtitle": "In the Unified sidebar, move sessions whose agent is currently working (or running background tasks) into a collapsible Moving section at the bottom, so the top stays focused on sessions that need you. They jump back up when done or waiting for you. Shown while the Unified sidebar is selected.",
     "options": [],
     "keywords": []
   },
