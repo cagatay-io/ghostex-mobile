@@ -98,36 +98,6 @@ export function toneColor(tone: string): string | null {
   }
 }
 
-/** Synthesizes a waiting action tag if a row carries `waiting` without an existing `action` tag. */
-function waitingActionTag(row: unknown, fallbackCommand: Record<string, unknown> | null): Record<string, unknown> | null {
-  const waiting = str(row, 'waiting');
-  if (waiting.length === 0) return null;
-  const open =
-    obj(obj(row)?.openThread) ??
-    obj(obj(row)?.open) ??
-    fallbackCommand ??
-    (str(row, 'projectId').length > 0 && str(row, 'sessionId').length > 0
-      ? {
-          type: 'openCoordinatorThread',
-          serverId: str(row, 'serverId'),
-          projectId: str(row, 'projectId'),
-          sessionId: str(row, 'sessionId'),
-        }
-      : null);
-  switch (waiting) {
-    case 'approval':
-      return { kind: 'action', label: 'Approve in thread', tone: 'bad', command: open };
-    case 'signIn':
-      return { kind: 'action', label: 'Sign in in thread', tone: 'warn', command: open };
-    case 'usageLimit':
-      return { kind: 'action', label: 'Open thread', tone: 'warn', command: open };
-    case 'question':
-      return { kind: 'action', label: 'Answer in thread', tone: 'question', command: open };
-    default:
-      return null;
-  }
-}
-
 /** The leading icon on a thread-wait Needs you card (desktop `work_cards.rs` `row_mark`). */
 function ThreadWaitMark({ waitKind, needsApproval }: { waitKind: string; needsApproval: boolean }) {
   if (waitKind === 'approval' || (waitKind !== 'signIn' && waitKind !== 'usageLimit' && needsApproval)) {
@@ -677,6 +647,22 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
     chat.dispatch(asJson(command) as unknown as UserAction);
     onDone();
   };
+  // Route navigation/open actions from expanded card controls through `run` so the Work sheet
+  // closes and remote-worker `serverId` checks still run, while in-sheet actions stay open.
+  const dispatchFromLine = (action: unknown) => {
+    const type = str(action, 'type');
+    if (
+      type === 'openCoordinatorThread' ||
+      type === 'openExternalUrl' ||
+      type === 'openResource' ||
+      type === 'jumpToQuestion' ||
+      type === 'openWorkAsk'
+    ) {
+      run(action);
+      return;
+    }
+    chat.dispatch(asJson(action) as unknown as UserAction);
+  };
   return (
     // "Work" over the coordinator's work items (gx-chat-core `work_panel.rs`), "Board" from an older gxserver.
     <View accessibilityLabel={str(board, 'title') || 'Board'} style={styles.menu}>
@@ -744,11 +730,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                 const dock = obj(obj(row)?.dock);
                 const key = str(row, 'key') || String(index);
                 const restore = obj(obj(row)?.restore);
-                const rawTags = arr(obj(row)?.tags);
-                const fallbackWaitingTag = rawTags.some((tag) => str(tag, 'kind') === 'action')
-                  ? null
-                  : waitingActionTag(row, obj(dock?.open));
-                const tags = fallbackWaitingTag !== null ? [fallbackWaitingTag, ...rawTags] : rawTags;
+                const tags = arr(obj(row)?.tags);
                 const answers = arr(obj(row)?.answers);
                 // The dock's actions for it (gx-chat-core `panel_actions`): Reply among its answers,
                 // Show in chat, Dismiss and Snooze at the top of its menu, which also holds the
@@ -908,7 +890,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                         </Text>
                       ) : null}
                     </View>
-                    {isThreadWait && threadWaitPreview.length > 0 ? (
+                    {isThreadWait && relayed === null && threadWaitPreview.length > 0 ? (
                       <Text style={[styles.cardLine, styles.threadWaitIndent]} numberOfLines={2}>
                         {threadWaitPreview}
                       </Text>
@@ -1085,7 +1067,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           initialChoosing={chooseFor === key}
                           pills={pills}
                           scope={scope}
-                          dispatch={chat.dispatch as never}
+                          dispatch={dispatchFromLine as never}
                           before={(kind) => (kind === 'reply' ? onDone() : undefined)}
                           context={obj(actions?.context)}
                         />
