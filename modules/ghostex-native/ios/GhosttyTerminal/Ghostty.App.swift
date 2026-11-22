@@ -433,12 +433,20 @@ extension Ghostty {
             guard let surface = terminalView.surface?.unsafeCValue else { return }
             // Ghostty lends `string` only for this call.
             let text = String(cString: string)
+            // The link the paste would go to, as the question opens.
+            let link = terminalView.linkIdentity?()
             terminalView.askBeforeUnsafePaste { confirmed in
+                let sameSurface = terminalView.surface?.unsafeCValue == surface
+                let sameLink = link != nil && terminalView.linkIdentity?() == link
+                // Paste answered after the link went, was replaced, or the surface was replaced while the question was
+                // open: counted for the not-sent sign and sent nowhere, never into a new link. Cancel counts nothing.
+                if confirmed && !(sameSurface && sameLink) {
+                    terminalView.reportsUnsentKeys?(GhostexTerminalUnsentKeys(item: .paste))
+                }
                 // A reconnect replaces the surface, and the old one's request went with it.
-                guard terminalView.surface?.unsafeCValue == surface else { return }
-                // An empty paste finishes a cancelled request without typing anything. Paste after the link went while
-                // the question was open is counted for the not-sent sign instead.
-                let pasted = confirmed && terminalView.admitsPaste()
+                guard sameSurface else { return }
+                // An empty paste finishes a cancelled or not sent request without typing anything.
+                let pasted = confirmed && sameLink && terminalView.admitsPaste()
                 ghostty_surface_complete_clipboard_request(surface, pasted ? text : "", state, true)
             }
         }

@@ -619,6 +619,9 @@ public class GhostexNativeModule: Module {
                         self.reportNotSent(report, sessionKey)
                     }
                 }
+                view.linkIdentity = { [weak entry] in
+                    MainActor.assumeIsolated { entry?.shellId.map { "\($0)" } }
+                }
                 self.notSent.opened(sessionKey)
 
                 registry.register(entry)
