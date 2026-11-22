@@ -917,12 +917,12 @@ function openTapped(data: Partial<NotificationData>): void {
   taps += 1;
   const tap = taps;
   const isAccount = sessionId.startsWith(ACCOUNT_SESSION_PREFIX);
-  const isAccountsUrl = data.url !== undefined && parseAccountsLink(data.url) !== null;
-  if (!isAccount && !isAccountsUrl) tapOpens(machineId, sessionId);
+  const accountsLink = typeof data.url === 'string' ? parseAccountsLink(data.url) : null;
+  if (!isAccount && accountsLink === null) tapOpens(machineId, sessionId);
   const navigations = personNavigations();
   const current = (): boolean => tap === taps && personNavigations() === navigations;
-  if (isAccountsUrl) openDeepLink(accountsDeepLink(machineId), current);
-  else if (data.url !== undefined) openDeepLink(data.url, current);
+  if (accountsLink !== null) openDeepLink(accountsDeepLink(accountsLink.machineId ?? machineId), current);
+  else if (typeof data.url === 'string') openDeepLink(data.url, current);
   else if (isAccount) openDeepLink(accountsDeepLink(machineId), current);
   else if (data.kind === 'needsInput') whenComputersLoaded(() => void openWaitingPush(machineId, sessionId, current));
   else openDeepLink(sessionDeepLink({ machineId, sessionId }), current);
