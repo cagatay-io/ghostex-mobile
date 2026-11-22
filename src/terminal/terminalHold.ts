@@ -28,7 +28,8 @@ import { useTerminalStore } from './sessions';
 
 /**
  * `held`: the held tabs. `chatShown`: tabs whose hold the Chat/Terminal toggle ended where the saved view is the
- * terminal: they show their Chat View until the next toggle, a new opening or their closing, without saving it.
+ * terminal: they show their Chat View until the next toggle, a side's Terminal View (`saveTerminalView`), a new opening
+ * or their closing, without saving it.
  */
 const useHoldStore = create<{ held: readonly string[]; chatShown: readonly string[] }>()(() => ({
   held: [],
@@ -101,6 +102,18 @@ export function toggleSessionView(sessionKey: string, panes: boolean): 'chat' | 
   if (chatShown.includes(sessionKey)) return 'terminal';
   store.toggleChatMode(sessionKey);
   return store.chatModeArmed(sessionKey) ? 'chat' : 'terminal';
+}
+
+/**
+ * A side's Terminal View with the tabs side by side, once the sides merged: saves the Terminal View for `sessionKey`,
+ * as before, and ends a Chat View the toggle showed for it, so its terminal shows (with its failure and Retry where its
+ * attach failed). A hold stays: it shows that terminal already.
+ */
+export function saveTerminalView(sessionKey: string): void {
+  const { chatShown } = useHoldStore.getState();
+  if (chatShown.includes(sessionKey))
+    useHoldStore.setState({ chatShown: chatShown.filter((key) => key !== sessionKey) });
+  useTerminalStore.getState().setSessionViewMode(sessionKey, 'terminal');
 }
 
 function chatViewShown(

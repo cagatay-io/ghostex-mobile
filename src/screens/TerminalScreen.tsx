@@ -120,7 +120,7 @@ import { FORK_AGENT_ICONS, renameInitialTitle } from '../sessions/sessionCommand
 import { useSettingsStore } from '../settings/store';
 import { acknowledgeSessionAttention } from '../terminal/attention';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
-import { toggleSessionView, useSavedChatView } from '../terminal/terminalHold';
+import { saveTerminalView, toggleSessionView, useSavedChatView } from '../terminal/terminalHold';
 import { setChatGridSessionKey } from '../terminal/chatGridClaim';
 import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { colorWithOpacity, GhostexPalette } from '../theme/palette';
@@ -1010,12 +1010,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const tabDrag = useTabDrag({ canSplit: canSplitTab, onDrop: handleTabDrop });
   // The split's handle: one bar again, the selected tab kept.
   const mergeTabs = useCallback((): void => useTerminalStore.getState().mergeTabs(), []);
-  // A side's chat asks for its terminal: that needs the whole screen, so the sides merge first.
+  // A side's chat asks for its terminal, which needs the whole screen: the sides merge, then `saveTerminalView`.
   const showSplitTabTerminal = useCallback((sessionKey: string): void => {
     const store = useTerminalStore.getState();
     store.mergeTabs();
     store.selectTab(sessionKey);
-    store.setSessionViewMode(sessionKey, 'terminal');
+    saveTerminalView(sessionKey);
   }, []);
   // A touch in a side's chat: that side's tab is the selected one, quietly (no tap, the chat keeps its place).
   const focusSplitTab = useCallback((sessionKey: string): void => {
