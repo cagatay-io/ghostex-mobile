@@ -86,6 +86,8 @@ export function toneColor(tone: string): string | null {
       return '#c68a06';
     case 'good':
       return '#2fa865';
+    case 'hold':
+      return '#7fa1c4';
     case 'held':
     case 'merged':
       return '#8b78f0';
@@ -94,6 +96,47 @@ export function toneColor(tone: string): string | null {
     default:
       return null;
   }
+}
+
+/** Synthesizes a waiting action tag if a row carries `waiting` without an existing `action` tag. */
+function waitingActionTag(row: unknown, fallbackCommand: Record<string, unknown> | null): Record<string, unknown> | null {
+  const waiting = str(row, 'waiting');
+  if (waiting.length === 0) return null;
+  const open =
+    obj(obj(row)?.openThread) ??
+    obj(obj(row)?.open) ??
+    fallbackCommand ??
+    (str(row, 'projectId').length > 0 && str(row, 'sessionId').length > 0
+      ? {
+          type: 'openCoordinatorThread',
+          serverId: str(row, 'serverId'),
+          projectId: str(row, 'projectId'),
+          sessionId: str(row, 'sessionId'),
+        }
+      : null);
+  switch (waiting) {
+    case 'approval':
+      return { kind: 'action', label: 'Approve in thread', tone: 'bad', command: open };
+    case 'signIn':
+      return { kind: 'action', label: 'Sign in in thread', tone: 'warn', command: open };
+    case 'usageLimit':
+      return { kind: 'action', label: 'Open thread', tone: 'warn', command: open };
+    case 'question':
+      return { kind: 'action', label: 'Answer in thread', tone: 'question', command: open };
+    default:
+      return null;
+  }
+}
+
+/** The leading icon on a thread-wait Needs you card (desktop `work_cards.rs` `row_mark`). */
+function ThreadWaitMark({ waitKind, needsApproval }: { waitKind: string; needsApproval: boolean }) {
+  if (waitKind === 'approval' || (waitKind !== 'signIn' && waitKind !== 'usageLimit' && needsApproval)) {
+    return <Glyph name="shield-check" size={14} color={SidebarPalette.ROW_APPROVAL} />;
+  }
+  if (waitKind === 'signIn' || waitKind === 'usageLimit') {
+    return <Glyph name="alert-triangle" size={14} color="#c68a06" />;
+  }
+  return <GroupMarker group="needs" />;
 }
 
 /** The group's marker: a ring with a dot, a filled disc, a dashed ring or a check. */
@@ -698,9 +741,14 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                 const command = obj(obj(row)?.command);
                 const toggle = obj(obj(row)?.toggle);
                 const openThread = obj(obj(row)?.openThread);
+                const dock = obj(obj(row)?.dock);
                 const key = str(row, 'key') || String(index);
                 const restore = obj(obj(row)?.restore);
-                const tags = arr(obj(row)?.tags);
+                const rawTags = arr(obj(row)?.tags);
+                const fallbackWaitingTag = rawTags.some((tag) => str(tag, 'kind') === 'action')
+                  ? null
+                  : waitingActionTag(row, obj(dock?.open));
+                const tags = fallbackWaitingTag !== null ? [fallbackWaitingTag, ...rawTags] : rawTags;
                 const answers = arr(obj(row)?.answers);
                 // The dock's actions for it (gx-chat-core `panel_actions`): Reply among its answers,
                 // Show in chat, Dismiss and Snooze at the top of its menu, which also holds the
@@ -709,28 +757,56 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                 const reply = obj(actions?.reply);
                 const workRows = workMenuRows(actions, '', '');
                 const menuRows = [...workRows, ...arr(obj(row)?.menu)];
-                const expanded = isTrue(row, 'expanded');
+                const isThreadWait = str(dock, 'kind') === 'threadWait' || isTrue(row, 'threadWait');
+                const waitKind =
+                  str(dock, 'waitKind') ||
+                  str(row, 'waitKind') ||
+                  (isTrue(dock, 'needsApproval') || isTrue(row, 'needsApproval') ? 'approval' : '');
+                const threadWaitOpen = obj(dock?.open) ?? obj(obj(row)?.open) ?? obj(obj(row)?.go);
+                const threadWaitPreview = str(dock, 'preview') || str(row, 'detail') || str(row, 'note');
+                const threadWaitButton =
+                  arr(dock?.buttons)
+                    .map(obj)
+                    .find(
+                      (button): button is Record<string, unknown> =>
+                        button !== null && str(button, 'label') !== 'Done',
+                    ) ?? null;
+                const threadWaitAction = obj(threadWaitButton?.command) ?? threadWaitOpen;
+                const threadWaitLabel =
+                  str(threadWaitButton, 'label') ||
+                  str(dock, 'openLabel') ||
+                  str(row, 'openLabel') ||
+                  (waitKind === 'approval' || isTrue(dock, 'needsApproval') || isTrue(row, 'needsApproval')
+                    ? 'Open approval'
+                    : 'Open thread');
+                const expanded = !isThreadWait && isTrue(row, 'expanded');
                 const description = str(row, 'body');
                 const answerRecords = answers
                   .map(obj)
                   .filter((answer): answer is Record<string, unknown> => answer !== null);
                 // A thread waiting on a relayed approval shows that card's buttons in place of its
-                // chips (desktop `board_relay_buttons`; the user's Q1297).
-                const relayed = openRelayedCardForThread(document, str(openThread, 'sessionId'));
+                // chips (desktop `board_relay_buttons`; the user's Q1297). Also match a thread-wait
+                // dock row's target thread (`dock.open.sessionId`) and `row.sessionId`.
+                const relayedSession =
+                  str(openThread, 'sessionId') || str(obj(dock?.open), 'sessionId') || str(row, 'sessionId');
+                const relayed = openRelayedCardForThread(document, relayedSession);
                 const reference = str(row, 'reference');
                 const note = str(row, 'note');
-                // A tap opens the card in place (one at a time: gx-chat-core `toggle`); a question's
-                // card jumps to its form instead.
+                // A tap opens the card in place (one at a time: gx-chat-core `toggle`); a thread-wait
+                // Needs you row opens its thread directly (Q4477), and a question's card jumps to its
+                // form instead.
                 const tapCard =
-                  toggle !== null
-                    ? () => {
-                        setMenuFor(null);
-                        setChooseFor(null);
-                        chat.dispatch(asJson(toggle) as unknown as UserAction);
-                      }
-                    : command !== null
-                      ? () => run(command)
-                      : undefined;
+                  isThreadWait && threadWaitOpen !== null
+                    ? () => run(threadWaitOpen)
+                    : toggle !== null
+                      ? () => {
+                          setMenuFor(null);
+                          setChooseFor(null);
+                          chat.dispatch(asJson(toggle) as unknown as UserAction);
+                        }
+                      : command !== null
+                        ? () => run(command)
+                        : undefined;
                 // At most two chips fit beside the age; the rest are counted in "+N" (desktop
                 // `fit_chips`), so a closed card keeps its two lines. An open card shows them all.
                 const shownTags = expanded ? tags : tags.slice(0, 2);
@@ -777,6 +853,14 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                         expanded && pressedKey === key && { backgroundColor: P.ink(0.06) },
                       ]}
                     >
+                      {isThreadWait ? (
+                        <View style={styles.threadWaitMark}>
+                          <ThreadWaitMark
+                            waitKind={waitKind}
+                            needsApproval={isTrue(dock, 'needsApproval') || isTrue(row, 'needsApproval')}
+                          />
+                        </View>
+                      ) : null}
                       {expanded ? (
                         <LinkWords
                           text={str(row, 'title')}
@@ -784,6 +868,10 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           color={P.foreground}
                           style={styles.rowTitleOpen}
                         />
+                      ) : isThreadWait ? (
+                        <Text style={styles.rowTitle} numberOfLines={2}>
+                          {str(row, 'title')}
+                        </Text>
                       ) : cardCount(row) !== '' ? (
                         // A page or form says how much is answered at the line's right end, quietly
                         // (gx-chat-core `page_count`: "0/1", "2/7"; desktop `dock_row_look`).
@@ -798,7 +886,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           {str(row, 'title')}
                         </Text>
                       )}
-                      {openThread !== null ? (
+                      {!isThreadWait && openThread !== null ? (
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={`Open the thread ${str(row, 'title')}`}
@@ -820,6 +908,11 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                         </Text>
                       ) : null}
                     </View>
+                    {isThreadWait && threadWaitPreview.length > 0 ? (
+                      <Text style={[styles.cardLine, styles.threadWaitIndent]} numberOfLines={2}>
+                        {threadWaitPreview}
+                      </Text>
+                    ) : null}
                     {/* A work ask's longer explanation under its short title, whole (desktop `ask_markdown`).
                         Opened, only the title line shuts the card: what is under it takes a tap
                         itself (`TextArea`), and a long press on the description offers Copy. */}
@@ -838,10 +931,33 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                     ) : null}
                     {/* An opened ask draws its answers below, so its chip line would be empty. */}
                     {expanded && answers.length > 0 && relayed === null ? null : (
-                      <ChipArea style={[styles.chipLine, expanded && styles.chipLineOpen]}>
+                      <ChipArea
+                        style={[
+                          styles.chipLine,
+                          isThreadWait && styles.threadWaitIndent,
+                          expanded && styles.chipLineOpen,
+                        ]}
+                      >
                         <View style={[styles.chips, expanded && styles.chipsOpen]}>
                           {relayed !== null ? (
                             <BoardRelayButtons card={relayed} dispatch={chat.dispatch} />
+                          ) : isThreadWait ? (
+                            threadWaitAction !== null ? (
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={threadWaitLabel}
+                                hitSlop={6}
+                                onPress={() => run(threadWaitAction)}
+                                style={({ pressed }) => [
+                                  styles.threadWaitButton,
+                                  pressed && { backgroundColor: P.neutralFillPressed },
+                                ]}
+                              >
+                                <Text style={styles.threadWaitButtonText} numberOfLines={1}>
+                                  {threadWaitLabel}
+                                </Text>
+                              </Pressable>
+                            ) : null
                           ) : answers.length > 0 && expanded ? null : answers.length > 0 &&
                             description.length > 0 &&
                             // A short description keeps the answers on the card (gx-chat-core
@@ -897,35 +1013,46 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                               {note.length > 0 ? note : 'No links yet'}
                             </Text>
                           ) : null}
-                          {(answers.length > 0 || relayed !== null ? [] : shownTags).map((tag, tagIndex) => {
-                            if (str(tag, 'kind') === 'userTag') {
-                              return <UserTagChip key={`userTag:${tagIndex}`} tag={tag} />;
-                            }
-                            const tint = toneColor(str(tag, 'tone'));
-                            const open = obj(obj(tag)?.command);
-                            const coloured = str(tag, 'kind') === 'release' || str(tag, 'kind') === 'question';
-                            return (
-                              <Pressable
-                                key={`${str(tag, 'kind')}:${tagIndex}`}
-                                accessibilityRole={open !== null ? 'link' : 'text'}
-                                accessibilityLabel={str(tag, 'title') || str(tag, 'label')}
-                                onPress={open !== null ? () => run(open) : undefined}
-                                style={[styles.tag, coloured && tint !== null && { borderColor: tint }]}
-                              >
-                                {!coloured ? (
-                                  <View style={[styles.tagDot, { backgroundColor: tint ?? P.cardMuted }]} />
-                                ) : null}
-                                <Text
-                                  style={[styles.tagText, coloured && tint !== null && { color: tint }]}
-                                  numberOfLines={1}
-                                  ellipsizeMode="tail"
+                          {(isThreadWait || answers.length > 0 || relayed !== null ? [] : shownTags).map(
+                            (tag, tagIndex) => {
+                              const tagKind = str(tag, 'kind');
+                              if (tagKind === 'userTag') {
+                                return <UserTagChip key={`userTag:${tagIndex}`} tag={tag} />;
+                              }
+                              const tint = toneColor(str(tag, 'tone'));
+                              const open = obj(obj(tag)?.command);
+                              const usageLimit = tagKind === 'usageLimit';
+                              const coloured = tagKind === 'release' || tagKind === 'question' || usageLimit;
+                              return (
+                                <Pressable
+                                  key={`${tagKind}:${tagIndex}`}
+                                  accessibilityRole={open !== null ? 'link' : 'text'}
+                                  accessibilityLabel={str(tag, 'title') || str(tag, 'label')}
+                                  onPress={open !== null ? () => run(open) : undefined}
+                                  style={[
+                                    styles.tag,
+                                    usageLimit && styles.usageLimitTag,
+                                    coloured &&
+                                      tint !== null && { borderColor: usageLimit ? `${tint}73` : tint },
+                                  ]}
                                 >
-                                  {chipLabel(str(tag, 'kind'), str(tag, 'label'))}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                          {answers.length === 0 && relayed === null && hiddenTags > 0 ? (
+                                  {usageLimit ? (
+                                    <Glyph name="clock" size={12} color={tint ?? P.cardMuted} />
+                                  ) : !coloured ? (
+                                    <View style={[styles.tagDot, { backgroundColor: tint ?? P.cardMuted }]} />
+                                  ) : null}
+                                  <Text
+                                    style={[styles.tagText, coloured && tint !== null && { color: tint }]}
+                                    numberOfLines={1}
+                                    ellipsizeMode="tail"
+                                  >
+                                    {chipLabel(tagKind, str(tag, 'label'))}
+                                  </Text>
+                                </Pressable>
+                              );
+                            },
+                          )}
+                          {!isThreadWait && answers.length === 0 && relayed === null && hiddenTags > 0 ? (
                             <View style={styles.tag}>
                               <Text style={styles.tagText}>{`+${hiddenTags}`}</Text>
                             </View>
@@ -949,7 +1076,8 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           answers={answerRecords}
                           reply={reply}
                           replied={str(row, 'replied')}
-                          open={obj(actions?.open)}
+                          open={obj(actions?.open) ?? obj(obj(row)?.open)}
+                          openLabel={str(row, 'openLabel') || 'Open'}
                           busy={false}
                           divider
                           room={-80}
@@ -1295,6 +1423,32 @@ const useStyles = themedStyles((P) => ({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: P.ink(0.12),
+  },
+  usageLimitTag: {
+    maxWidth: 240,
+  },
+  threadWaitMark: {
+    width: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  threadWaitIndent: {
+    paddingLeft: 22,
+  },
+  threadWaitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 28,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: P.neutralFill,
+  },
+  threadWaitButtonText: {
+    color: P.foreground,
+    fontSize: PROSE_SIZE - 1,
+    fontWeight: '500',
   },
   tagDot: {
     width: 6,

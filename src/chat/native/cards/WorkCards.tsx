@@ -95,6 +95,7 @@ const CHIP_ICON: Record<string, GlyphName> = {
   steps: 'checklist',
   item: 'stack',
   question: 'help-circle',
+  usageLimit: 'clock',
   link: 'link',
   file: 'note',
   wait: 'clock',
@@ -701,12 +702,15 @@ function DockRow({
   const P = useTranscriptTheme();
   const body = useBodyColor();
   const [menu, setMenu] = useState(false);
+  const kind = str(row, 'kind');
+  const isThreadWait = kind === 'threadWait';
+  const waitKind = str(row, 'waitKind');
   const page = isTrue(row, 'page') && obj(row.open) !== null;
   // Its answered/total count ("0/3") follows the page's draft while the row is drawn.
   usePageCountRefresh(chat.dispatch, page ? [str(row, 'pageId')] : []);
-  // A form's row opens the form at once, as a page's opens the page (gx-chat-core
-  // `details_fields`' decision): no sheet with only another Open in it.
-  const direct = page || (str(row, 'kind') === 'form' && obj(row.open) !== null);
+  // A form's or thread-wait row opens its target at once, as a page's opens the page (gx-chat-core
+  // `details_fields`, Q4477): no sheet with only another Open in it.
+  const direct = page || ((kind === 'form' || kind === 'thread' || isThreadWait) && obj(row.open) !== null);
   const opened = onClose !== undefined && !direct;
   // A question with details shows Details on its closed row, its answers only in its sheet under
   // the details. A computer too old to send `details` keeps today's row.
@@ -717,7 +721,7 @@ function DockRow({
   if (shownAt.current.key !== str(row, 'key')) shownAt.current = { key: str(row, 'key'), at: Date.now() };
   // A Collab message's row too: a guest chooses when it arrives (security review N5).
   const armed = () =>
-    !['approval', 'collab'].includes(str(row, 'kind')) || Date.now() - shownAt.current.at >= APPROVAL_ARM_MS;
+    !['approval', 'collab'].includes(kind) || Date.now() - shownAt.current.at >= APPROVAL_ARM_MS;
   // In the sheet, whatever a row's buttons send closes it first.
   const dispatch: RustChat['dispatch'] = ((action: never) => {
     if (!armed()) return;
@@ -734,9 +738,14 @@ function DockRow({
   // Why the agent flagged an approval ("Dangerous rm operation …"), on the row itself.
   const note = obj(row.note);
   const noteText = note === null ? '' : str(note, 'text');
-  const answers = arr(row.buttons)
+  const rawButtons = arr(row.buttons)
     .map(obj)
     .filter((button): button is JsonRecord => button !== null);
+  // A thread-wait row shows its single direct action button (Open approval / Open thread), never a
+  // bare Done button (gx-chat-core `thread_wait_dock_row`, Q4477).
+  const answers = isThreadWait
+    ? rawButtons.filter((button) => str(button, 'label') !== 'Done').slice(0, 1)
+    : rawButtons;
   const reply = obj(row.reply);
   const needs = isTrue(row, 'needs');
   const menuRows = workMenuRows(
@@ -788,8 +797,13 @@ function DockRow({
   // A question form that needs the reader is the visuals list's checklist in the need-you pink
   // (desktop `row_mark`; the user: "use this icon for this one when it's a question form (keep
   // pink color)"); a page its page, everything else its status's mark.
-  const questionForm = !page && str(row, 'kind') === 'form' && str(row, 'status') === 'needs';
+  const questionForm = !page && kind === 'form' && str(row, 'status') === 'needs';
   const markStatus = page && str(row, 'status') === 'needs' ? 'page' : questionForm ? 'form' : str(row, 'status');
+  const threadWaitApproval =
+    isThreadWait && (waitKind === 'approval' || (waitKind !== 'signIn' && waitKind !== 'usageLimit' && isTrue(row, 'needsApproval')));
+  const threadWaitWarn = isThreadWait && (waitKind === 'signIn' || waitKind === 'usageLimit');
+  const openLabel =
+    str(row, 'openLabel') || (threadWaitApproval ? 'Open approval' : isThreadWait ? 'Open thread' : 'Open');
   const answerLine =
     answers.length > 0 || (needs && (reply !== null || obj(row.open) !== null)) ? (
       <View style={opened ? styles.dockAnswersOpen : styles.dockAnswers}>
@@ -808,9 +822,9 @@ function DockRow({
           pills={pills}
           logos={logos}
           logosWidth={logosWidth}
-          openLabel={str(row, 'openLabel') === 'Answer' ? 'Answer' : 'Open'}
+          openLabel={openLabel}
           details={details}
-          iconOnly={!opened}
+          iconOnly={!opened && !isThreadWait}
           context={obj(row.context)}
           markRead={readButton}
         />
@@ -837,7 +851,13 @@ function DockRow({
       >
         <View style={styles.dockRow}>
           <View style={styles.dockIcon}>
-            {markStatus === 'page' ? (
+            {threadWaitApproval ? (
+              <Glyph name="shield-check" size={14} color={SidebarPalette.ROW_APPROVAL} />
+            ) : threadWaitWarn ? (
+              <Glyph name="alert-triangle" size={14} color={STATUS_COLOR.moving} />
+            ) : kind === 'thread' && str(row, 'agentIcon').length > 0 ? (
+              <AgentMark icon={str(row, 'agentIcon')} size={13} />
+            ) : markStatus === 'page' ? (
               <Glyph name="note" size={14} color={STATUS_COLOR.needs} />
             ) : markStatus === 'form' ? (
               <Glyph name="list-check" size={14} color={STATUS_COLOR.needs} />
@@ -1108,9 +1128,13 @@ function ItemChip({ chip, dispatch }: { chip: JsonRecord; dispatch: Dispatch }) 
   const command = obj(chip.command);
   const kind = str(chip, 'kind');
   const state = str(chip, 'state');
+  const stateColor = toneColor(str(chip, 'tone')) ?? P.muted;
+  const usageLimit = kind === 'usageLimit';
+  const tip = str(chip, 'title');
   return (
     <Pressable
       accessibilityRole={command !== null ? 'button' : undefined}
+      accessibilityLabel={tip || (state.length > 0 ? `${str(chip, 'label')}, ${state}` : str(chip, 'label'))}
       disabled={command === null}
       hitSlop={6}
       onPress={() => (command !== null ? dispatch(command as never) : undefined)}
@@ -1119,12 +1143,12 @@ function ItemChip({ chip, dispatch }: { chip: JsonRecord; dispatch: Dispatch }) 
       {kind === 'thread' && str(chip, 'agentIcon').length > 0 ? (
         <AgentMark icon={str(chip, 'agentIcon')} size={14} />
       ) : (
-        <Glyph name={CHIP_ICON[kind] ?? 'link'} size={14} color={P.muted} />
+        <Glyph name={CHIP_ICON[kind] ?? 'link'} size={14} color={usageLimit ? stateColor : P.muted} />
       )}
-      <Text style={[styles.chipText, command !== null ? styles.linkDots : null]}>{str(chip, 'label')}</Text>
-      {state.length > 0 ? (
-        <Text style={[styles.chipText, { color: toneColor(str(chip, 'tone')) ?? P.muted }]}>{state}</Text>
-      ) : null}
+      <Text style={[styles.chipText, usageLimit && { color: stateColor }, command !== null ? styles.linkDots : null]}>
+        {str(chip, 'label')}
+      </Text>
+      {state.length > 0 ? <Text style={[styles.chipText, { color: stateColor }]}>{state}</Text> : null}
     </Pressable>
   );
 }
@@ -1326,11 +1350,14 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
             const kind = str(chip, 'kind');
             const state = str(chip, 'state');
             const agent = str(chip, 'agentIcon');
+            const stateColor = toneColor(str(chip, 'tone')) ?? P.muted;
+            const usageLimit = kind === 'usageLimit';
+            const tip = str(chip, 'title');
             return (
               <Pressable
                 key={`chip:${index}`}
                 accessibilityRole={command !== null ? 'button' : undefined}
-                accessibilityLabel={state.length > 0 ? `${str(chip, 'label')}, ${state}` : str(chip, 'label')}
+                accessibilityLabel={tip || (state.length > 0 ? `${str(chip, 'label')}, ${state}` : str(chip, 'label'))}
                 disabled={command === null}
                 hitSlop={6}
                 onPress={() => (command !== null ? dispatch(command as never) : undefined)}
@@ -1339,14 +1366,20 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
                 {kind === 'thread' && agent.length > 0 ? (
                   <AgentMark icon={agent} size={14} />
                 ) : (
-                  <Glyph name={CHIP_ICON[kind] ?? 'clock'} size={14} color={P.muted} />
+                  <Glyph name={CHIP_ICON[kind] ?? 'clock'} size={14} color={usageLimit ? stateColor : P.muted} />
                 )}
                 {/* A part that opens something wears the faint dotted underline of a link in the chat
                     (`LinkWords.tsx`): the phone has no hover, so it shows at rest. */}
-                <Text style={[styles.chipText, command !== null ? styles.linkDots : null]}>{str(chip, 'label')}</Text>
-                {state.length > 0 ? (
-                  <Text style={[styles.chipText, { color: toneColor(str(chip, 'tone')) ?? P.muted }]}>{state}</Text>
-                ) : null}
+                <Text
+                  style={[
+                    styles.chipText,
+                    usageLimit && { color: stateColor },
+                    command !== null ? styles.linkDots : null,
+                  ]}
+                >
+                  {str(chip, 'label')}
+                </Text>
+                {state.length > 0 ? <Text style={[styles.chipText, { color: stateColor }]}>{state}</Text> : null}
               </Pressable>
             );
           })}

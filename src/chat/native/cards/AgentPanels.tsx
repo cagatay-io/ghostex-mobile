@@ -99,6 +99,8 @@ export function TaskRow({ row }: { row: unknown }) {
 
 /** The sidebar's working colour and the amber of the "Needs your approval" tag (desktop `coordinator_threads.rs`). */
 const THREAD_WORKING = '#c68a06';
+/** Calm blue-grey for threads paused on a usage limit (`HOLD_COLOR` on desktop). */
+const THREAD_PAUSED = '#7fa1c4';
 /**
  * A worker waiting for approval: its dot and its "Needs your approval" tag take the sidebar's red
  * approval dot, as the sheet's header does (desktop `coordinator_threads.rs`, the user's 2026-11-05
@@ -114,6 +116,7 @@ const THREAD_APPROVAL = SidebarPalette.ROW_APPROVAL;
 export function waitingColor(waiting: string): string | null {
   if (waiting === 'approval') return SidebarPalette.ROW_APPROVAL;
   if (waiting === 'question') return SidebarPalette.ROW_QUESTION;
+  if (waiting === 'signIn' || waiting === 'usageLimit') return THREAD_WORKING;
   return null;
 }
 
@@ -189,6 +192,8 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
   const branch = str(row, 'branch');
   // A worker on another computer: the phone cannot open it, so a tap says where it runs.
   const computer = remoteWorkerComputer(row);
+  const status = str(row, 'status');
+  const isPaused = status === 'paused' && !isTrue(row, 'working') && !isTrue(row, 'needsApproval');
   const openThread = () => {
     if (computer !== null) {
       const notice = remoteWorkerNotice(computer);
@@ -212,10 +217,14 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
       style={styles.threadRow}
     >
       <View style={styles.taskMarker}>
-        {isTrue(row, 'working') ? (
+        {status === 'working' || isTrue(row, 'working') ? (
           <View style={[styles.threadDot, { backgroundColor: THREAD_WORKING }]} />
-        ) : isTrue(row, 'needsApproval') ? (
+        ) : status === 'approval' || (!isPaused && isTrue(row, 'needsApproval')) ? (
           <View style={[styles.threadDot, { backgroundColor: THREAD_APPROVAL }]} />
+        ) : status === 'question' ? (
+          <View style={[styles.threadDot, { backgroundColor: SidebarPalette.ROW_QUESTION }]} />
+        ) : isPaused ? (
+          <Glyph name="player-pause" size={12} color={THREAD_PAUSED} />
         ) : (
           <View style={styles.pendingRing} />
         )}
@@ -223,7 +232,9 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
       <View style={styles.threadText}>
         <View style={styles.threadTitleLine}>
           <WorkerPill row={row} title={title} remote={computer !== null} />
-          {isTrue(row, 'needsApproval') ? <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text> : null}
+          {!isPaused && isTrue(row, 'needsApproval') ? (
+            <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text>
+          ) : null}
           <WorkItemRefs row={row} shown={itemShown} onToggle={setItemShown} />
         </View>
         <ThreadStats row={row} branch={branch} />
@@ -255,6 +266,9 @@ const STAT_GLYPHS: Record<string, GlyphName> = {
   thinking: 'bulb',
   approval: 'shield-check',
   question: 'help-circle',
+  signIn: 'alert-triangle',
+  usageLimit: 'clock',
+  waitingReset: 'clock',
   stalled: 'clock',
   untested: 'flask',
   delivered: 'circle-check',
