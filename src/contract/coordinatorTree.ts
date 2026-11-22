@@ -62,7 +62,12 @@ export function layOutTree<N>(
   threads.list.forEach((child, position) =>
     layOutTree(
       child,
-      { depth: Math.min(spot.depth + 1, MAX_THREAD_DEPTH), last: position + 1 === threads.drawn, passingLines: linesBelow, linesBelow: 0 },
+      {
+        depth: Math.min(spot.depth + 1, MAX_THREAD_DEPTH),
+        last: position + 1 === threads.drawn,
+        passingLines: linesBelow,
+        linesBelow: 0,
+      },
       children,
       visit,
     ),
@@ -269,6 +274,44 @@ function offerInBanner(thread: GhostexSession, coordinator: GhostexSession): boo
   return ref.length === 0 || !(coordinator.coordinatorRemoteThreads ?? []).some((remote) => remote.globalRef === ref);
 }
 
+/**
+ * The state a thread counts as on its coordinator's crew badge (gx-core threads.rs `tallied_state`). A session
+ * linked to a lead has no coordinator thread state, so its own activity stands in: working while it works, waiting
+ * while it waits on the user (gx-core `SessionRow::needs_you`: an approval, a question, or attention).
+ */
+function talliedState(session: GhostexSession, capabilities: GhostexSummaryCapabilities): string | undefined {
+  const state = session.coordinatorThreadState ?? undefined;
+  const leadLinked =
+    !((session.coordinatorProjectId ?? '').length > 0 && (session.coordinatorSessionId ?? '').length > 0) &&
+    (session.leadProjectId ?? '').length > 0 &&
+    (session.leadSessionId ?? '').length > 0;
+  if ((state !== undefined && state.length > 0) || !leadLinked) return state;
+  if (session.activity === 'working') return 'working';
+  const needsYou =
+    session.awaitingApproval ||
+    hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) ||
+    session.activity === 'attention';
+  return needsYou ? 'waiting' : undefined;
+}
+
+/**
+ * The crew badge a row draws: a coordinator's always, a lead's while its linked sessions nest under it (gx-core
+ * `SessionRow::folds_threads`, the desktop's sidebar_snapshot.rs); a list that draws the linked sessions as their own
+ * rows passes no nesting and the lead draws none.
+ *
+ * CDXC:LeadLinks 2026-11-22 DECISION: the user's decision on gx-core `folds_threads`: a lead's child count uses the
+ * coordinator's icon and style, and the link icon is kept for PR, issue and ticket links.
+ */
+export function crewBadgeOf(
+  session: GhostexSession,
+  badges: Map<string, CoordinatorBadge>,
+  nesting?: RowNesting,
+): CoordinatorBadge | undefined {
+  const lead = session.isLead === true && (nesting?.threadCount ?? 0) > 0;
+  if (!session.isCoordinator && !lead) return undefined;
+  return badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' };
+}
+
 /** Every coordinator's badge, from all of the machine's sessions (a worktree thread sits in another project). */
 export function coordinatorBadges(
   sessions: readonly GhostexSession[],
@@ -295,8 +338,9 @@ export function coordinatorBadges(
     if (session.awaitingApproval) approvals.push(parent);
     const tally = tallyOf(parent);
     if (isRecentThread(session, nowMs, capabilities)) tally.total += 1;
-    if (session.coordinatorThreadState === 'waiting') tally.waiting += 1;
-    if (session.coordinatorThreadState === 'working') tally.working += 1;
+    const state = talliedState(session, capabilities);
+    if (state === 'waiting') tally.waiting += 1;
+    if (state === 'working') tally.working += 1;
   }
   // A session waiting for approval counts on every orchestrator above it (gx-core `tally_threads`); the walk stops at
   // a loop or past any real depth.
@@ -396,10 +440,13 @@ export function nestCoordinatorThreads<S>(
   for (const [parent, list] of children) {
     children.set(parent, [...list.filter((child) => !isOlder[child]), ...list.filter((child) => isOlder[child])]);
   }
-  // A coordinator starts folded, on every launch and when a computer's sessions first appear; only
-  // the ones the user unfolded during this run (`expandedCoordinators`) are open. A lead has no fold.
+  // A coordinator, or a lead (gx-core `SessionRow::folds_threads`), starts folded, on every launch and when a
+  // computer's sessions first appear; only the ones the user unfolded during this run (`expandedCoordinators`) are open.
   const isCollapsed = sessions.map(
-    (session, index) => children.has(index) && session.isCoordinator && !expandedCoordinators.has(keys[index]),
+    (session, index) =>
+      children.has(index) &&
+      (session.isCoordinator || session.isLead === true) &&
+      !expandedCoordinators.has(keys[index]),
   );
   const teamStatus = (index: number): FoldedStatus | undefined => {
     if (!children.has(index)) return undefined;
@@ -419,11 +466,13 @@ export function nestCoordinatorThreads<S>(
       ? status
       : undefined;
   };
-  const foldedStatus = (index: number): FoldedStatus | undefined => (isCollapsed[index] ? teamStatus(index) : undefined);
+  const foldedStatus = (index: number): FoldedStatus | undefined =>
+    isCollapsed[index] ? teamStatus(index) : undefined;
   const result: NestedSessions<S> = { sessions: [], sections: new Map(), nesting: new Map() };
   const foldedOf = sessions.map(() => false);
   const sectionOfRow = [...baseSections];
-  // A lead (lead links) has no "N older threads" row or fold, so all its linked sessions stay listed (gx-core threads.rs).
+  // A lead (lead links) folds like a coordinator but has no "N older threads" row, so all its linked sessions stay
+  // listed while it is open (gx-core threads.rs).
   const leadParent = sessions.map((session) => session.isLead === true && !session.isCoordinator);
   // The coordinator banner's counts over its direct threads, folded or not (a lead has none).
   type Banner = {

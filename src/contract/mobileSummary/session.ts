@@ -167,7 +167,7 @@ export type GhostexSession = {
    */
   leadProjectId: string;
   leadSessionId: string;
-  /** The session leads others through lead links: its row shows the link icon and leadLinkCount. */
+  /** The session leads others through lead links: its linked sessions nest and fold under it like a coordinator's threads, with the crew badge (`crewBadgeOf`). */
   isLead: boolean;
   leadLinkCount: number;
   /** Working with no output for long enough to count as stuck ('' while it moves, or from an older computer). */

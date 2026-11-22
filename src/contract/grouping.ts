@@ -9,6 +9,7 @@ import { folderProblemOf, type FolderProblemView } from './folderProblem';
 import { SessionCopy } from '../copy';
 import {
   coordinatorBadges,
+  crewBadgeOf,
   coordinatorRowKey,
   nestCoordinatorThreads,
   type CoordinatorBadge,
@@ -708,8 +709,7 @@ export function countTileStatus(
 
 /** The tile's counts as lines, the most urgent first (desktop status.rs `TileCounts::tooltip_lines`). */
 export function tileStatusLines(counts: TileStatusCounts): string[] {
-  const line = (count: number, one: string, many: string) =>
-    count > 0 ? `${count} ${count === 1 ? one : many}` : '';
+  const line = (count: number, one: string, many: string) => (count > 0 ? `${count} ${count === 1 ? one : many}` : '');
   return [
     line(counts.approvalCount, 'waiting for approval', 'waiting for approval'),
     line(counts.failedCount, 'blocked or failed', 'blocked or failed'),
@@ -1006,14 +1006,20 @@ function foldCrossProjectThreads(
       if (parentProjectId.length === 0 || parentSessionId.length === 0) continue;
       if (session.projectId === parentProjectId) continue;
       if (projectById.get(session.projectId)?.worktreeParentProjectId === parentProjectId) continue;
-      const target = bucketOfCoordinator.get(coordinatorRowKey({ projectId: parentProjectId, sessionId: parentSessionId }));
+      const target = bucketOfCoordinator.get(
+        coordinatorRowKey({ projectId: parentProjectId, sessionId: parentSessionId }),
+      );
       if (target === undefined || target === bucketKey) continue;
       moves.push({ from: bucketKey, to: target, session });
     }
   }
   for (const { from, to, session } of moves) {
     const source = sessionsByProjectKey.get(from);
-    if (source !== undefined) sessionsByProjectKey.set(from, source.filter((listed) => listed !== session));
+    if (source !== undefined)
+      sessionsByProjectKey.set(
+        from,
+        source.filter((listed) => listed !== session),
+      );
     sessionsByProjectKey.get(to)?.push(session);
     moved.add(coordinatorRowKey(session));
   }
@@ -1034,7 +1040,8 @@ function withMovedThreads(
   for (const session of sessions) {
     if (!moved.has(coordinatorRowKey(session))) continue;
     const coordinatorInBucket = sessions.some(
-      (listed) => listed.projectId === session.coordinatorProjectId && listed.sessionId === session.coordinatorSessionId,
+      (listed) =>
+        listed.projectId === session.coordinatorProjectId && listed.sessionId === session.coordinatorSessionId,
     );
     const group = coordinatorInBucket
       ? groups.find((candidate) => candidate.sessionIds.includes(session.coordinatorSessionId))
@@ -1077,7 +1084,11 @@ function projectCopies(
   const listed = copies.map((project, index) => {
     const path = project.path ?? '';
     const others = copies.filter((_, other) => other !== index).map((other) => other.path ?? '');
-    return { projectId: project.projectId, path, label: distinguishingPath(path, others) || projectDisplayName(project) };
+    return {
+      projectId: project.projectId,
+      path,
+      label: distinguishingPath(path, others) || projectDisplayName(project),
+    };
   });
   let newest: GhostexSession | null = null;
   for (const session of sessions) {
@@ -1177,7 +1188,14 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     const icon: GhostexProjectIcon =
       project !== null
         ? project.icon
-        : { imageDataUrl: '', discoveredIconDataUrl: '', discoveredIconRef: '', glyph: '', glyphColor: '', isWorktree: false };
+        : {
+            imageDataUrl: '',
+            discoveredIconDataUrl: '',
+            discoveredIconRef: '',
+            glyph: '',
+            glyphColor: '',
+            isWorktree: false,
+          };
 
     const namedGroups = withMovedThreads(groupsForProject(summary, projectId), allProjectSessions, movedThreads);
     const groupedSessionIds = new Set(namedGroups.flatMap((group) => group.sessionIds));
@@ -1262,7 +1280,9 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       quickActions: projectId.length > 0 ? (summary.quickActionsByProject[projectId] ?? []) : [],
       ...(folders !== null ? { copies: folders.copies, defaultCopyProjectId: folders.defaultProjectId } : {}),
       folderProblem:
-        project !== null ? folderProblemOf(projectTitle, projectPath, project.pathState, project.pathProblem) : undefined,
+        project !== null
+          ? folderProblemOf(projectTitle, projectPath, project.pathState, project.pathProblem)
+          : undefined,
     });
     if (collapsed) return;
 
@@ -1295,9 +1315,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
           capabilities: summary.capabilities,
           collectionColor,
           nesting: nesting.get(coordinatorRowKey(session)),
-          coordinatorBadge: session.isCoordinator
-            ? (badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' })
-            : undefined,
+          coordinatorBadge: crewBadgeOf(session, badges, nesting.get(coordinatorRowKey(session))),
           worktree: worktree.label,
         };
       }
@@ -1319,9 +1337,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       capabilities: summary.capabilities,
       collectionColor,
       nesting: nesting.get(coordinatorRowKey(session)),
-      coordinatorBadge: session.isCoordinator
-        ? (badges.get(coordinatorRowKey(session)) ?? { count: 0, tone: 'idle' })
-        : undefined,
+      coordinatorBadge: crewBadgeOf(session, badges, nesting.get(coordinatorRowKey(session))),
     });
 
     /*

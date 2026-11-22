@@ -57,7 +57,7 @@ import CloudBoxBadge from './CloudBoxBadge';
 import { CoordinatorFold } from './CoordinatorFold';
 import { BranchGlyph } from './unified/glyphs';
 import StatusDotStack from './StatusDotStack';
-import { CoordinatorBadgeView, FoldedStatusIndicator, LeadBadgeView } from './CoordinatorBadgeView';
+import { CoordinatorBadgeView, FoldedStatusIndicator } from './CoordinatorBadgeView';
 import {
   BoxGlyph,
   ClockGlyph,
@@ -69,11 +69,7 @@ import {
   ServerGlyph,
 } from './icons';
 import { ComputerIconGlyph } from './ComputerIconGlyph';
-import WorkChips, {
-  ChipGlyph,
-  WORK_SESSION_ROW_HEIGHT,
-  type WorkChipActions,
-} from './WorkChips';
+import WorkChips, { ChipGlyph, WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
 import { workChips, type WorkChip } from './workChipModel';
 import {
   linkBadgeColor,
@@ -207,12 +203,12 @@ function ActivityDot({ kind }: { kind: 'approval' | 'failed' | 'working' | 'atte
           kind === 'approval'
             ? styles.approvalDot
             : kind === 'failed'
-            ? styles.failedDot
-            : kind === 'working'
-              ? styles.workingDot
-              : kind === 'attention'
-                ? styles.attentionDot
-                : styles.backgroundWorkDot
+              ? styles.failedDot
+              : kind === 'working'
+                ? styles.workingDot
+                : kind === 'attention'
+                  ? styles.attentionDot
+                  : styles.backgroundWorkDot
         }
       />
     </View>
@@ -348,7 +344,6 @@ function QuestionIndicator({ activity, ringColor }: { activity: string; ringColo
   );
 }
 
-
 /** A row's height: one line, or two while it draws its chip line (`sessionRowHasChipLine`). */
 function sessionRowHeight(chipLine: boolean): number {
   return TOUCH_ROW_HEIGHT + (chipLine ? ds(WORK_SESSION_ROW_HEIGHT - 34) : 0);
@@ -383,7 +378,9 @@ export function treeAnchorBelowRow(
   cleanupInBanner = false,
 ): number {
   return (
-    sessionRowHeight(sessionRowHasChipLine(session, display, hasActions, cleanupInBanner)) - TOUCH_ROW_HEIGHT / 2 + ROW_SPACING
+    sessionRowHeight(sessionRowHasChipLine(session, display, hasActions, cleanupInBanner)) -
+    TOUCH_ROW_HEIGHT / 2 +
+    ROW_SPACING
   );
 }
 
@@ -467,10 +464,7 @@ export default function SessionRow({
   const ink = useSidebarInk();
   const computerIcon = useSessionComputerIcon(machineId);
   const inkStyle = inkStyles(ink);
-  const iconId = resolveAgentArtId(
-    session.agentIcon,
-    session.agentName.length > 0 ? session.agentName : session.agent,
-  );
+  const iconId = resolveAgentArtId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   const iconSize = iconId === 'terminal' || iconId === 'browser' ? ds(15) : ds(13);
   const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
@@ -485,8 +479,7 @@ export default function SessionRow({
     hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer) &&
     foldedStatus === undefined &&
     !approval;
-  const quotaBadge =
-    !question && foldedStatus === undefined && !approval ? quotaCountdownBadge(session, nowMs) : null;
+  const quotaBadge = !question && foldedStatus === undefined && !approval ? quotaCountdownBadge(session, nowMs) : null;
   const indicator = question || foldedStatus !== undefined ? null : rowActivityIndicator(session);
   // Settings › Experience's Sessions list (src/settings/experience.ts): without last-active times a row keeps only
   // its countdowns (Delayed Send, Close After Done); without agent icons the leading slot keeps only its marks.
@@ -591,7 +584,9 @@ export default function SessionRow({
   };
 
   return (
-    <Animated.View style={[styles.rowGap, { opacity: flashOpacity }, dimSleeping && session.isSleeping ? styles.dimmed : null]}>
+    <Animated.View
+      style={[styles.rowGap, { opacity: flashOpacity }, dimSleeping && session.isSleeping ? styles.dimmed : null]}
+    >
       <Pressable
         ref={rowRef}
         accessibilityRole="button"
@@ -762,9 +757,6 @@ export default function SessionRow({
                 </View>
               ) : null}
               {shownCoordinatorBadge !== undefined ? <CoordinatorBadgeView badge={shownCoordinatorBadge} /> : null}
-              {session.isLead && !session.isCoordinator && session.leadLinkCount > 0 ? (
-                <LeadBadgeView count={session.leadLinkCount} />
-              ) : null}
               {voiceCall ? <VoiceCallBadge /> : null}
               {worktree !== undefined && worktree.length > 0 ? <WorktreeBadge label={worktree} /> : null}
               {openerTag !== undefined && openerTag.length > 0 ? (
@@ -775,7 +767,9 @@ export default function SessionRow({
               {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
               {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
               {/* Its computer's icon last before the status, as the desktop's row (computer_mark.rs); while it shows, the status and the time sit in a slot of one width so the icons line up down the list (CDXC:RemoteMachines 2026-11-12 in the desktop's native_sidebar/status.rs). */}
-              {computerIcon !== null ? <ComputerIconGlyph drawing={computerIcon} size={ds(12)} color={ink.muted} /> : null}
+              {computerIcon !== null ? (
+                <ComputerIconGlyph drawing={computerIcon} size={ds(12)} color={ink.muted} />
+              ) : null}
               {question ||
               foldedStatus !== undefined ||
               quotaBadge !== null ||
