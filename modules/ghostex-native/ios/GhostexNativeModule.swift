@@ -81,6 +81,13 @@ struct KeyModifiersRecord: Record {
     @Field var shiftLocked: Bool = false
 }
 
+/// What a `sendText` sends, for the not-sent sign: `kind` "text" (the pad's text editor) or "link" with the upload's
+/// `title`. A call without it is not counted.
+struct SentTextRecord: Record {
+    @Field var kind: String = ""
+    @Field var title: String?
+}
+
 /// What `voiceStart` opens (gxserver's `/api/voice`, GhostexVoice.swift).
 struct VoiceStartOptionsRecord: Record {
     @Field var mode: String = "conversation"
@@ -697,10 +704,21 @@ public class GhostexNativeModule: Module {
 
         // MARK: Input
 
-        AsyncFunction("sendText") { (sessionKey: String, text: String) async throws in
+        AsyncFunction("sendText") { (sessionKey: String, text: String, sent: SentTextRecord?) async throws in
             try await MainActor.run {
-                guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
-                      let view = entry.view else {
+                let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey)
+                // A text that says what it is (the pad's text editor, an upload's link) passes the not-sent boundary:
+                // without a link it is counted, kept from Ghostty and never sent later; the caller learns it was not
+                // sent.
+                if let sent, let item = GhostexTerminalUnsentKeys(sentText: sent.kind, title: sent.title) {
+                    let linked = entry?.view != nil && entry?.shellId != nil
+                    let (goesOn, report) = self.notSent.admit(item, sessionKey: sessionKey, linked: linked)
+                    if let report { self.reportNotSent(report, sessionKey) }
+                    guard goesOn else {
+                        throw GhostexException(code: .notConnected, reason: "Not sent: no link for session \(sessionKey)")
+                    }
+                }
+                guard let entry, let view = entry.view else {
                     throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
                 }
                 view.sendText(text)
@@ -785,6 +803,15 @@ public class GhostexNativeModule: Module {
             try await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
                       let view = entry.view else {
+                    // No terminal while its link is replaced: a paste of the clipboard's text is not sent either.
+                    if UIPasteboard.general.hasStrings {
+                        let (_, report) = self.notSent.admit(
+                            GhostexTerminalUnsentKeys(item: .paste),
+                            sessionKey: sessionKey,
+                            linked: false
+                        )
+                        if let report { self.reportNotSent(report, sessionKey) }
+                    }
                     throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
                 }
                 view.paste(nil)

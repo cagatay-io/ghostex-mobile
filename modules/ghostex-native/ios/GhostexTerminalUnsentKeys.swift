@@ -2,9 +2,10 @@
 //  GhostexTerminalUnsentKeys.swift
 //  GhostexNative
 //
-//  The "not sent" sign (`onTerminalInputNotSent`, `onTerminalInputSent`), decided where a typed key enters the
-//  terminal: the key paths (the module's sendKey, the view's terminal keys and character keys, the software keyboard's
-//  input, a hardware keyboard's keys) ask `GhostexTerminalNotSent.admit` before they hand a key to Ghostty. A key that
+//  The "not sent" sign (`onTerminalInputNotSent`, `onTerminalInputSent`), decided where a typed key or a sent text
+//  enters the terminal: the key paths (the module's sendKey, the view's terminal keys and character keys, the software
+//  keyboard's input, a hardware keyboard's keys) and the text paths (the module's sendText for the pad's text editor and
+//  an upload's link, the terminal's Paste) ask `GhostexTerminalNotSent.admit` before they hand it to Ghostty. What
 //  arrives while the terminal has no link is counted here and dropped, so it is never sent later. Bytes the terminal
 //  writes (typed keys already handed on, and the terminal's own replies) are never counted: they carry no sign of where
 //  they came from, because Ghostty encodes a key and writes it later from its own I/O thread. Foundation only, so it
@@ -13,8 +14,9 @@
 
 import Foundation
 
-/// Keys counted for the sign: Return, Backspace and Esc by name, every other key as one. Never the characters: only
-/// these four counts leave this type.
+/// What the sign counts: Return, Backspace and Esc by name, every other key as one; a text sent whole (the pad's text
+/// editor, a paste, an upload's link) as one item of its kind. Never the characters: only these counts and an upload's
+/// title ("Image #1", made by the app) leave this type.
 struct GhostexTerminalUnsentKeys: Equatable {
     /// What a key is, as far as the sign names it; a modifier key on its own (Shift, Control, Option, Command, Caps
     /// Lock) is not a typed key.
@@ -27,12 +29,25 @@ struct GhostexTerminalUnsentKeys: Equatable {
         case press, repeated, release
     }
 
+    /// A text sent whole rather than typed key by key.
+    enum TextItem: Equatable {
+        /// The pad's text editor's draft.
+        case text
+        /// The terminal's Paste.
+        case paste
+        /// An upload's `[Title](path)` reference, by its title.
+        case link(String)
+    }
+
     var keys = 0
     var returns = 0
     var backspaces = 0
     var escapes = 0
+    var texts = 0
+    var pastes = 0
+    var links: [String] = []
 
-    var isEmpty: Bool { keys + returns + backspaces + escapes == 0 }
+    var isEmpty: Bool { keys + returns + backspaces + escapes + texts + pastes == 0 && links.isEmpty }
 
     init() {}
 
@@ -58,6 +73,25 @@ struct GhostexTerminalUnsentKeys: Equatable {
         }
     }
 
+    /// One text sent whole.
+    init(item: TextItem) {
+        switch item {
+        case .text: texts = 1
+        case .paste: pastes = 1
+        case let .link(title): links = [title]
+        }
+    }
+
+    /// The item the module's `sendText` is told it sends: "text" (the pad's text editor) or "link" with its title (an
+    /// upload's reference); nil for anything else, which the sign does not count.
+    init?(sentText kind: String, title: String?) {
+        switch (kind, title) {
+        case ("text", _): self.init(item: .text)
+        case let ("link", title?) where !title.isEmpty: self.init(item: .link(title))
+        default: return nil
+        }
+    }
+
     /// Text the software keyboard typed: each character one key, a line break a Return.
     init(typed text: String) {
         for character in text {
@@ -70,7 +104,10 @@ struct GhostexTerminalUnsentKeys: Equatable {
     }
 
     func payload(sessionKey: String) -> [String: Any] {
-        ["sessionKey": sessionKey, "keys": keys, "returns": returns, "backspaces": backspaces, "escapes": escapes]
+        [
+            "sessionKey": sessionKey, "keys": keys, "returns": returns, "backspaces": backspaces, "escapes": escapes,
+            "texts": texts, "pastes": pastes, "links": links,
+        ]
     }
 }
 

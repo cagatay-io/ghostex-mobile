@@ -251,7 +251,7 @@ export type KeyModifiersConsumedEvent = {
   sessionKey: string;
 };
 
-/** Keys a terminal could not send while its link was replaced, counted; never the characters typed. */
+/** Keys and texts a terminal could not send while its link was replaced, counted; never the characters typed. */
 export type TerminalInputNotSentEvent = {
   sessionKey: string;
   /** Keys other than the three named below. */
@@ -259,7 +259,19 @@ export type TerminalInputNotSentEvent = {
   returns: number;
   backspaces: number;
   escapes: number;
+  /** The pad's text editor's sends (`SentText` kind "text"). */
+  texts: number;
+  /** The terminal's Paste. */
+  pastes: number;
+  /** Upload references by their title, e.g. "Image #1" (`SentText` kind "link"). */
+  links: string[];
 };
+
+/**
+ * iOS: what a `sendText` sends, for the not-sent sign. Without a link such a text is counted, not sent, and the call
+ * rejects; a call without it is not counted.
+ */
+export type SentText = { kind: 'text' } | { kind: 'link'; title: string };
 
 export type TerminalInputSentEvent = {
   sessionKey: string;

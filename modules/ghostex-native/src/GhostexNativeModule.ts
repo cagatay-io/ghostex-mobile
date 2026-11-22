@@ -13,6 +13,7 @@ import type {
   TerminalAlertSoundKind,
   TerminalGrid,
   TerminalKey,
+  SentText,
   TerminalRuntimeSettings,
   VoiceMode,
   VoiceStartOptions,
@@ -165,7 +166,8 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   closeTerminal(sessionKey: string): Promise<void>;
   listTerminals(): Promise<string[]>;
 
-  sendText(sessionKey: string, text: string): Promise<void>;
+  /** `sent` (iOS only; Android's sendText takes two arguments): see `SentText`. */
+  sendText(sessionKey: string, text: string, sent?: SentText): Promise<void>;
   /**
    * Write `text` to the session's stdin byte-for-byte: no bracketed-paste
    * wrapping, no newline or key translation. For in-band control sequences

@@ -1,7 +1,8 @@
 /**
  * The terminal's text editor, opened by the pen in the Befehlspad's ring and docked above
  * the software keyboard (`KeyBarDock`): a multiline draft with the full text keyboard (emoji, dictation,
- * suggestions) and Send. Send inserts the draft into the terminal and clears it; with an empty draft it sends
+ * suggestions) and Send. Send inserts the draft into the terminal and clears it; a draft the terminal could not send
+ * (no link to the computer: the not-sent sign says so) stays. With an empty draft Send sends
  * Enter. Return in the keyboard adds a newline to the draft. Backspace or Delete on an empty draft go to the
  * terminal (terminal-screen.md §2 "Text editor"). The draft belongs to its session and is kept in the terminal store
  * (`textEditorDraftBySessionKey`), in memory only: however the editor closes (the pen, the keyboard going away, the pad
@@ -28,6 +29,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { CommandPadCopy } from '../../copy';
 import { useTerminalStore } from '../../terminal/sessions';
+import { sendTextEditorDraft } from '../../terminal/notSentText';
 
 import { CommandPadCloseButton } from './CommandPadLayer';
 import { ArrowIcon, SendIcon } from './icons';
@@ -110,10 +112,16 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
   };
 
   const send = (): void => {
-    if (text.length === 0) void GhostexNative.sendKey(sessionKey, 'enter', {}).catch(ignoreClosedTerminal);
-    else void GhostexNative.sendText(sessionKey, text).catch(ignoreClosedTerminal);
-    setText('');
-    onSent?.();
+    if (text.length === 0) {
+      void GhostexNative.sendKey(sessionKey, 'enter', {}).catch(ignoreClosedTerminal);
+      onSent?.();
+      return;
+    }
+    void sendTextEditorDraft(sessionKey, text).then((sent) => {
+      if (!sent) return;
+      setShownText(useTerminalStore.getState().textEditorDraftBySessionKey[sessionKey] ?? '');
+      onSent?.();
+    });
   };
 
   const forwardEditingKey = (key: string): void => {

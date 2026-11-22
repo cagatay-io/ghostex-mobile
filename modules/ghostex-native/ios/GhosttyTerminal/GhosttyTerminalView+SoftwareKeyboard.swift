@@ -26,6 +26,12 @@ extension GhosttyTerminalView {
         requestRender()
     }
 
+    /// A user's paste at the not-sent boundary, where Ghostty is handed its text: after the clipboard read, and again
+    /// after the unsafe-paste question when Ghostty asks it (Ghostty.App.swift). False keeps it here, counted as a paste.
+    func admitsPaste() -> Bool {
+        admits(GhostexTerminalUnsentKeys(item: .paste))
+    }
+
     func sendTerminalInputText(_ text: String) {
         guard canRouteTerminalInput else { return }
         let normalized = text.precomposedStringWithCanonicalMapping

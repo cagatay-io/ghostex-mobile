@@ -408,10 +408,14 @@ extension Ghostty {
             guard let surface = terminalView.surface?.unsafeCValue else { return }
 
             // A paste already read the clipboard in `paste(_:)`; a second read could make iOS ask again.
+            let userPaste = terminalView.pendingPasteText != nil
             let clipboardString = terminalView.pendingPasteText ?? Clipboard.readString() ?? ""
             terminalView.pendingPasteText = nil
+            // The user's paste without a link is counted for the not-sent sign and finished empty: nothing is typed
+            // later, and no unsafe-paste question is asked for text that cannot be sent.
+            let text = userPaste && !terminalView.admitsPaste() ? "" : clipboardString
 
-            clipboardString.withCString { ptr in
+            text.withCString { ptr in
                 ghostty_surface_complete_clipboard_request(surface, ptr, state, false)
             }
         }
@@ -432,8 +436,10 @@ extension Ghostty {
             terminalView.askBeforeUnsafePaste { confirmed in
                 // A reconnect replaces the surface, and the old one's request went with it.
                 guard terminalView.surface?.unsafeCValue == surface else { return }
-                // An empty paste finishes a cancelled request without typing anything.
-                ghostty_surface_complete_clipboard_request(surface, confirmed ? text : "", state, true)
+                // An empty paste finishes a cancelled request without typing anything. Paste after the link went while
+                // the question was open is counted for the not-sent sign instead.
+                let pasted = confirmed && terminalView.admitsPaste()
+                ghostty_surface_complete_clipboard_request(surface, pasted ? text : "", state, true)
             }
         }
 

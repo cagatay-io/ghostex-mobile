@@ -1,10 +1,10 @@
 /**
  * The "not sent" sign: a frosted card above the keyboard, beside the command pad's toggle (or, without the pad, beside
- * the round buttons), naming how many keys typed while the terminal's link was replaced went nowhere: Return,
- * Backspace and Esc by name with their own counts, every other key only as a count, never what was typed
- * (notSentKeys.ts). It appears with the first such key, stays once the terminal is attached again and then has a
- * close button; the next key that is sent removes it. Opaque with Reduce Transparency on. VoiceOver reads it as a
- * status and hears it once as it appears.
+ * the round buttons), naming what went nowhere while the terminal's link was replaced: Return, Backspace and Esc by
+ * name with their own counts, every other key only as a count, the text editor's text, pastes and upload links as
+ * items, never what was typed (notSentKeys.ts). It appears with the first such key, stays once the terminal is attached
+ * again and then has a close button; the next key that is sent removes it. Opaque with Reduce Transparency on.
+ * VoiceOver reads it as a status and hears it once as it appears.
  */
 
 import { BlurView } from 'expo-blur';
@@ -42,11 +42,14 @@ export default function NotSentSign({ tab, computer, bottom, side, onHeight }: N
   const shown = counts !== undefined;
   const name = computer ?? NotSentCopy.computerFallback;
   const back = tab.state === 'open';
-  const body = back
-    ? NotSentCopy.back(name)
-    : tab.state === 'opening' || tab.state === 'detached'
-      ? NotSentCopy.reconnecting(name)
-      : NotSentCopy.waiting;
+  const body =
+    counts === undefined
+      ? ''
+      : back
+        ? NotSentCopy.back(name, counts)
+        : tab.state === 'opening' || tab.state === 'detached'
+          ? NotSentCopy.reconnecting(name, counts)
+          : NotSentCopy.waiting(name, counts);
   const title = counts === undefined ? '' : NotSentCopy.title(counts);
   const label = `${title}. ${body}`;
 
