@@ -387,7 +387,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
             : await remoteShellCommand(machine.id, tab.cwd);
         if (remoteCommand !== null) opts.command = remoteCommand;
         openStartedAt = Date.now();
-        await GhostexNative.openTerminal(tab.sessionKey, machine.id, { ...opts, tabToken: newTabToken(tab.sessionKey) });
+        await GhostexNative.openTerminal(tab.sessionKey, machine.id, {
+          ...opts,
+          tabToken: newTabToken(tab.sessionKey),
+        });
         if (!get().tabs.some((entry) => entry.sessionKey === tab.sessionKey)) {
           await GhostexNative.closeTerminal(tab.sessionKey);
         }
