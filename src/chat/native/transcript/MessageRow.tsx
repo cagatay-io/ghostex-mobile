@@ -515,7 +515,7 @@ function ThinkingLine({ id, body, message }: { id: string; body: string; message
   const live = card?.live === true;
   const preview = (card?.preview ?? '') || (message.thinkingRow?.preview ?? '');
   // A Codex reasoning summary is often its headline alone: there is nothing to open.
-  const expandable = card !== undefined || message.thinkingRow?.expandable !== false;
+  const expandable = live || message.thinkingRow?.expandable !== false;
   const title = live ? 'Thinking\u2026' : 'Thought';
   return (
     <View style={styles.thinkingLine}>
