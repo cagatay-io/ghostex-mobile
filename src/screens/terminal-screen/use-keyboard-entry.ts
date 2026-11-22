@@ -146,8 +146,9 @@ export function useKeyboardEntry({
   // User: no touch on a terminal brings the keyboard up. A touch that selects a pane's session is not an opening:
   // the startup keyboard is for a terminal that opens or attaches while selected, so the touch holds it back for its
   // own selection, the terminal open or opening as the touch found it, also for a pane that opened in the background
-  // and was never selected while open. An attach that starts after the touch (Terminal View on a chat whose terminal
-  // was not attached, a reattach, Retry) is an opening again and brings it, once, as before.
+  // and was never selected while open. The touch does not use up the session's turn: an attach that starts after the
+  // touch (Terminal View on a chat whose terminal was not attached, a reattach, Retry) is an opening again and brings
+  // it if the session has not had it this visit, once, as before; a session that already had it gets none again.
   const touchSelected = useCallback((sessionKey: string): void => {
     touchHoldRef.current = { sessionKey, seen: null };
   }, []);
