@@ -1,15 +1,14 @@
 /**
- * The where pill at the left end of the pill strip (`PillsStrip.tsx`): one pill split by a hairline,
- * the computer's own icon with the project on the left, the branch on the right (a fork in a
- * worktree). A tap or a long press opens its sheet: where the session runs, a tap on a value copies
- * it, and the Folder row has Copy path and Open folder (the project's Files browser, the phone's
- * stand-in for a folder window). gx-chat-core
- * words all of it (`wherePill`, packages/gx-chat-core/src/extras/where_pill.rs, where the user's
- * decision lives). Desktop: `where_pill.rs`.
+ * The where pill in the pill strip (`PillsStrip.tsx`): one pill split by a hairline, the
+ * computer's own icon with the project on the left, the branch on the right (a fork in a worktree).
+ * A tap or a long press opens its sheet: where the session runs, a tap on a value copies it, and
+ * the Folder row has Copy path and Open folder (the project's Files browser, the phone's stand-in
+ * for a folder window). gx-chat-core words all of it (`wherePill`,
+ * packages/gx-chat-core/src/extras/where_pill.rs, where the user's decision lives). Desktop:
+ * `where_pill.rs`.
  *
- * It counts in the strip's fit (`planStripWithWhere`): the panel pills drop their labels first, then
- * this pill shortens its texts (`short`), then drops the project (`icon`), and only then do panel
- * pills go into "+N".
+ * On the phone the strip scrolls horizontally, so the pill stays at its full tier and scrolls with
+ * the rest of the pills rather than staying pinned or dropping the project name.
  *
  * CDXC:SessionChat 2026-11-17 DECISION:
  * User (Q3825): the phone gets the where pill too, after checking it on the desktop. A phone has no
@@ -92,15 +91,15 @@ function useMachineDrawing(pill: WherePillState): string | null {
   return facts !== undefined ? computerIconDrawing(facts) : null;
 }
 
-/** The pill at `tier`. */
+/** The pill at `tier` (defaults to `full`). */
 export function WherePill({
   pill,
-  tier,
+  tier = 'full',
   open,
   onPress,
 }: {
   pill: WherePillState;
-  tier: WhereTier;
+  tier?: WhereTier;
   open: boolean;
   onPress?: () => void;
 }) {

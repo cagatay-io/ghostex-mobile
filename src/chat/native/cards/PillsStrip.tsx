@@ -1,32 +1,32 @@
 /**
  * The pill strip along the chat box's top edge (`NativeComposer.tsx` draws it inside the box): a
- * faintly tinted band with a hairline under it and the box's top corners, holding the chat's pills
- * on the right: the armed timers, the ? (a question waits), Resources, Workers, Links, Tasks,
- * Subagents and Background. The ↓ jump-to-bottom is never here: it floats over the transcript
+ * faintly tinted band with a hairline under it and the box's top corners, holding all of the
+ * chat's pills in one horizontal scrolling row with uniform spacing (`PILL_GAP`): the where pill
+ * (`WherePill.tsx`), the Saved draft pill (`SavedDraftPill.tsx`), view status chips ("Summary view"
+ * or "Detailed view"), armed timers, the ? (a question waits), hidden page pills, panel pills
+ * (Resources, Workers, Autopilot, Tasks, Subagents, Background, etc.), Boost, Links and the Session
+ * details ring. The ↓ jump-to-bottom is never here: it floats over the transcript
  * (`LoneScrollBottom` in `WorkingCard.tsx`, layout A of 2026-11-12).
- * Pills that don't fit drop their label, last first, then the last ones wait in one "+N" pill; nothing scrolls or
- * fades (`planStrip`). With no pill there is no strip; it grows in and shrinks away with the chat box's own ease (`composer-animation.json`).
- * Each pill opens its own sheet (`ChatPills.tsx`). Port of desktop `pills_strip.rs`.
  *
- * The band's left holds the view status chip ("Summary view" or "Detailed view"), pinned there while
- * the pills fit beside it. With no hover on a phone the chip's X always shows; a tap anywhere on the chip
- * goes back to Normal view, and its view's icon sits at its left as on the desktop (gx-chat-core extras/chat_pills.rs `view_chips` has the user's words).
- * Before it, while a draft saved elsewhere is offered, the Saved draft pill (`SavedDraftPill.tsx`),
- * which alone is enough to show the strip and opens its own sheet.
- * First of all, at the band's left end, the where pill of a running session (`WherePill.tsx`), which
- * alone is enough to show the strip and counts in the fit (`planStripWithWhere`). Desktop: `where_pill.rs`.
- *
- * A Ghostex page put aside with the page sheet's Hide shows as a pill of its own, first among the
- * panel pills (`PagePill`, `hiddenPages.ts`), and is enough to show the strip. It shrinks with the
- * others: icon and count once labels drop, icon and a dot only once every pill shown has dropped its
- * label (`planStripTiers`), then into "+N". Desktop: `minimized_pages.rs`.
+ * With no pill there is no strip; it grows in and shrinks away with the chat box's own ease
+ * (`composer-animation.json`). Each pill opens its own sheet (`ChatPills.tsx`, `WherePill.tsx`,
+ * `SavedDraftPill.tsx`, `Boosts.tsx`, `SessionDetailsSheet.tsx`).
  *
  * CDXC:SessionChat 2026-10-29 SEE-ALSO:
- * The user's words (option E) are on packages/gx-chat-core/src/extras/chat_pills.rs.
+ * The user's words (option E) are on packages/gx-chat-core/src/extras/chat_pills.rs. Desktop's
+ * `pills_strip.rs` keeps its own non-scrolling fit and pinned-left where pill for wide windows.
+ *
+ * CDXC:SessionChat 2026-11-22 DECISION:
+ * User (Android phone, where the pinned where pill plus uncollapsible Boost, Links and Session
+ * details ring overflowed the non-scrolling `PillsFit` box and clipped Boost under the where pill
+ * with no way to scroll): make the where pill a regular pill with the same shape and spacing as the
+ * others, and make the whole row scroll horizontally with a finger swipe through every pill.
+ * Supersedes the 2026-11-10 non-scrolling fit (`PillsFit` / "+N" overflow) and the 2026-11-17
+ * pinned-left where pill on the phone.
  */
 
-import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Platform, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import type { ChatDocument, ChatPill, ViewChip } from '../../rust/document';
@@ -38,21 +38,11 @@ import { Glyph as ComposerGlyph } from '../composer/icons';
 import { sessionLinksChatPill } from '../sessionLinks';
 import { SessionDetailsPill, sessionDetailsRingOf } from './SessionDetailsSheet';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import {
-  LinksPill,
-  OverflowPill,
-  OverflowPillRow,
-  PageOverflowRow,
-  PagePill,
-  Pill,
-  QuestionPill,
-  type PagePillTier,
-} from './ChatPills';
+import { LinksPill, PagePill, Pill, QuestionPill } from './ChatPills';
 import type { HiddenPage } from './hiddenPages';
-import { Sheet } from '../composer/Sheet';
 import { BoostPill, BoostSheet, registerBoostSheetOpener } from './Boosts';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
-import { WHERE_TIERS, WherePill, WhereSheet, type WhereTier } from './WherePill';
+import { WherePill, WhereSheet } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
 
 /** The session's links and the Links pill's tap, from the screen that knows the session (`TerminalScreen`). */
@@ -61,7 +51,7 @@ export type PillsStripLinks = { links: GhostexSessionLinks | undefined; onOpen: 
 /** The strip's band: a pill's 25 with 5 above and below; its hairline under it (desktop `STRIP_HEIGHT`). */
 const BAND = 25 + 5 * 2;
 const STRIP = BAND + 1;
-/** The gap between two pills, and the "+N" pill's width before it has been measured (desktop `PILL_GAP`, `OVERFLOW_ESTIMATE`). */
+/** The gap between two pills (desktop `PILL_GAP`). */
 const PILL_GAP = 6;
 /** The band's tint over the box's fill (desktop `STRIP_TINT`). */
 const STRIP_TINT = 0.035;
@@ -152,7 +142,7 @@ export function PillsStrip({
   document: ChatDocument;
   /** The chat's hidden pages, oldest first (`hiddenPages.ts`), drawn first among the panel pills. */
   hiddenPages?: readonly HiddenPage[];
-  /** A tap on a page's pill (or its "+N" row): the page opens again. */
+  /** A tap on a page's pill: the page opens again. */
   onShowPage?: (page: HiddenPage) => void;
   /** A long press on a page's pill: the page closes for good. */
   onClosePage?: (page: HiddenPage) => void;
@@ -174,12 +164,8 @@ export function PillsStrip({
   const reduceMotion = useReducedMotion();
   const savedDraft = document.savedDraftPill ?? null;
   const [draftOpen, setDraftOpen] = useState(false);
-  // The pills in the "+N" pill (`PillsFit`), its sheet, and the pill a row of it picked, pressed once the sheet is gone.
-  const [hiddenIds, setHiddenIds] = useState<readonly string[]>([]);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const afterDismiss = useRef<ChatPill | HiddenPage | null>(null);
   const closeDraft = useCallback(() => setDraftOpen(false), []);
-  // The where pill, its sheet, the tier the fit picked and its width at each tier, measured unseen.
+  // The where pill and its sheet (`WherePill.tsx`).
   const where = document.wherePill ?? null;
   // The Boost pill and its sheet (`Boosts.tsx`).
   const boosts = document.boosts ?? null;
@@ -204,19 +190,9 @@ export function PillsStrip({
   }, [boosts]);
   const [whereOpen, setWhereOpen] = useState(false);
   const closeWhere = useCallback(() => setWhereOpen(false), []);
-  const [whereTier, setWhereTier] = useState<WhereTier>('full');
-  const [whereWidths, setWhereWidths] = useState<Partial<Record<WhereTier, number>>>({});
   useEffect(() => {
     if (where === null) setWhereOpen(false);
   }, [where]);
-  const measureWhere = (tier: WhereTier) => (event: { nativeEvent: { layout: { width: number } } }) => {
-    const width = event.nativeEvent.layout.width;
-    setWhereWidths((was) => (Math.abs((was[tier] ?? -1) - width) < 0.5 ? was : { ...was, [tier]: width }));
-  };
-  const leadWidths =
-    where !== null && WHERE_TIERS.every((tier) => (whereWidths[tier] ?? 0) > 0)
-      ? (WHERE_TIERS.map((tier) => whereWidths[tier] ?? 0) as [number, number, number])
-      : null;
   // A draft answered or withdrawn elsewhere takes its sheet with it.
   useEffect(() => {
     if (savedDraft === null) setDraftOpen(false);
@@ -263,73 +239,16 @@ export function PillsStrip({
         : // The Work pill opens the Work sheet, collapsed dock or not, as the desktop's opens its Work
           // panel: a collapsed dock keeps its bar, whose tap opens it again (`WorkCards.tsx` `DockHeader`).
           onMenuChange(pill.id);
-  const pagePanel: FitPanel[] = hiddenPages.map((page) => ({
-    id: `page:${page.pageId}`,
-    tiny: true,
-    node: (tier: PagePillTier) => (
-      <PagePill
-        key={page.pageId}
-        page={page}
-        tier={tier}
-        onPress={() => onShowPage?.(page)}
-        onLongPress={() => onClosePage?.(page)}
-      />
-    ),
-  }));
-  const panel: FitPanel[] = [
-    ...pagePanel,
-    ...pills.map((pill) => ({
-      id: pill.id,
-      node: (tier: PagePillTier) => (
-        <Pill
-          key={pill.id}
-          pill={pill}
-          open={pill.id === menu}
-          collapsed={tier !== 'full'}
-          onPress={() => pressPill(pill)}
-        />
-      ),
-    })),
-  ];
-  // The Links pill is the last one (desktop `links_pill.rs` has the user's words).
-  const linksPillNode =
-    links && linksPill !== null ? <LinksPill key="links" pill={linksPill} onPress={links.onOpen} /> : null;
-  // The Boost pill sits after the panel pills, before Links, among the pills that always show (never in
-  // "+N", it is the one way in); desktop `boosts.rs`.
-  const linksNode =
-    boosts !== null ? (
-      <View style={styles.after}>
-        <BoostPill boosts={boosts} open={boostOpen} onPress={openBoosts} />
-        {linksPillNode}
-      </View>
-    ) : (
-      linksPillNode
-    );
   /*
    * CDXC:SessionDetails 2026-11-11 DECISION:
    * User, of the ring button in the phone's chat header: "Please move the new session details button
    * to the pills bar above the composer on mobile (keep in header on desktop)". The ring and its
-   * percentage close the strip, after Links, among the pills that always show, so it never goes
-   * into "+N". It stands for the context meter too: while the chat has the panel the meter's ring
-   * under the box steps aside (`OptionPills.tsx`), and the sheet's Context card carries Compact
-   * context; a computer that cannot serve the panel keeps the meter and its Context sheet.
+   * percentage close the strip, after Links. It stands for the context meter too: while the chat
+   * has the panel the meter's ring under the box steps aside (`OptionPills.tsx`), and the sheet's
+   * Context card carries Compact context; a computer that cannot serve the panel keeps the meter
+   * and its Context sheet.
    */
   const ring = onSessionDetailsPress !== undefined ? sessionDetailsRingOf(document) : null;
-  const afterNode =
-    ring !== null ? (
-      <View style={styles.after}>
-        {linksNode}
-        <SessionDetailsPill ring={ring} onPress={onSessionDetailsPress!} />
-      </View>
-    ) : (
-      linksNode
-    );
-  const hiddenPills = pills.filter((pill) => hiddenIds.includes(pill.id));
-  const overflowPages = hiddenPages.filter((page) => hiddenIds.includes(`page:${page.pageId}`));
-  const overflowCount = hiddenPills.length + overflowPages.length;
-  useEffect(() => {
-    if (overflowCount === 0) setOverflowOpen(false);
-  }, [overflowCount]);
   const questions = document.openQuestions;
   return (
     <>
@@ -342,81 +261,75 @@ export function PillsStrip({
             { height: open.interpolate({ inputRange: [0, 1], outputRange: [0, STRIP] }), opacity: open },
           ]}
         >
-          <View style={styles.band} onLayout={(event) => setStripWidth(event.nativeEvent.layout.width)}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={styles.bandScroll}
+            contentContainerStyle={styles.band}
+            onLayout={(event) => setStripWidth(event.nativeEvent.layout.width)}
+          >
             {shown && where !== null ? (
-              <>
-                <WherePill pill={where} tier={whereTier} open={whereOpen} onPress={() => setWhereOpen(true)} />
-                <View
-                  style={styles.measureWhere}
-                  pointerEvents="none"
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                >
-                  {WHERE_TIERS.map((tier) => (
-                    <View key={tier} onLayout={measureWhere(tier)}>
-                      <WherePill pill={where} tier={tier} open={false} />
-                    </View>
-                  ))}
-                </View>
-              </>
+              <WherePill pill={where} tier="full" open={whereOpen} onPress={() => setWhereOpen(true)} />
             ) : null}
-            {/* The Saved draft pill and the view chips stay pinned left; the pills scroll in what is left beside them. */}
-            {shown && (savedDraft !== null || (document.viewChips?.length ?? 0) > 0) ? (
-              <View style={styles.chips}>
-                {savedDraft !== null ? (
-                  <SavedDraftPill
-                    pill={savedDraft}
-                    width={stripWidth}
-                    open={draftOpen}
-                    onPress={() => setDraftOpen(true)}
-                  />
-                ) : null}
-                {(document.viewChips ?? []).map((chip) => (
+            {shown && savedDraft !== null ? (
+              <SavedDraftPill
+                pill={savedDraft}
+                width={stripWidth}
+                open={draftOpen}
+                onPress={() => setDraftOpen(true)}
+              />
+            ) : null}
+            {shown
+              ? (document.viewChips ?? []).map((chip) => (
                   <ViewChipButton key={chip.id} chip={chip} onPress={() => chat.dispatch(chip.command)} />
-                ))}
-              </View>
-            ) : null}
-            <PillsFit
-              panel={panel}
-              after={afterNode}
-              overflow={(count) => (
-                <OverflowPill count={count} open={overflowOpen} onPress={() => setOverflowOpen(true)} />
-              )}
-              onHidden={setHiddenIds}
-              lead={leadWidths}
-              leadTier={whereTier}
-              onLeadTier={setWhereTier}
-            >
-              {armed.map((action) => (
-                <Pressable
-                  key={action.id}
-                  disabled={onArmedPress === undefined}
-                  onPress={onArmedPress}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${action.label}. Manage delayed actions`}
-                  hitSlop={6}
-                  style={({ pressed }) => [styles.armed, pressed ? styles.armedPressed : null]}
-                >
-                  <ComposerGlyph
-                    name="clock"
-                    size={VISUAL.sparkSize}
-                    color={action.id === 'delayedSend' ? VISUAL.delayedSendColor : VISUAL.closeAfterDoneColor}
-                  />
-                  <Text style={styles.armedLabel} numberOfLines={1}>
-                    {action.label}
-                  </Text>
-                </Pressable>
-              ))}
-              {questions !== undefined && questions !== null && questionWaiting(document) ? (
-                <QuestionPill
-                  count={questions.pillCount ?? 0}
-                  newest={questions.newest ?? null}
-                  accessibilityLabel={questions.accessibilityLabel}
-                  onPress={() => chat.dispatch({ type: 'previousQuestion' })}
+                ))
+              : null}
+            {armed.map((action) => (
+              <Pressable
+                key={action.id}
+                disabled={onArmedPress === undefined}
+                onPress={onArmedPress}
+                accessibilityRole="button"
+                accessibilityLabel={`${action.label}. Manage delayed actions`}
+                hitSlop={6}
+                style={({ pressed }) => [styles.armed, pressed ? styles.armedPressed : null]}
+              >
+                <ComposerGlyph
+                  name="clock"
+                  size={VISUAL.sparkSize}
+                  color={action.id === 'delayedSend' ? VISUAL.delayedSendColor : VISUAL.closeAfterDoneColor}
                 />
-              ) : null}
-            </PillsFit>
-          </View>
+                <Text style={styles.armedLabel} numberOfLines={1}>
+                  {action.label}
+                </Text>
+              </Pressable>
+            ))}
+            {questions !== undefined && questions !== null && questionWaiting(document) ? (
+              <QuestionPill
+                count={questions.pillCount ?? 0}
+                newest={questions.newest ?? null}
+                accessibilityLabel={questions.accessibilityLabel}
+                onPress={() => chat.dispatch({ type: 'previousQuestion' })}
+              />
+            ) : null}
+            {hiddenPages.map((page) => (
+              <PagePill
+                key={page.pageId}
+                page={page}
+                tier="full"
+                onPress={() => onShowPage?.(page)}
+                onLongPress={() => onClosePage?.(page)}
+              />
+            ))}
+            {pills.map((pill) => (
+              <Pill key={pill.id} pill={pill} open={pill.id === menu} onPress={() => pressPill(pill)} />
+            ))}
+            {boosts !== null ? <BoostPill boosts={boosts} open={boostOpen} onPress={openBoosts} /> : null}
+            {links && linksPill !== null ? <LinksPill key="links" pill={linksPill} onPress={links.onOpen} /> : null}
+            {ring !== null ? <SessionDetailsPill ring={ring} onPress={onSessionDetailsPress!} /> : null}
+          </ScrollView>
           <View style={styles.hairline} />
         </Animated.View>
       ) : null}
@@ -429,51 +342,6 @@ export function PillsStrip({
         dispatch={chat.dispatch}
         {...(onOpenFolder !== undefined ? { onOpenFolder } : {})}
       />
-      <Sheet
-        visible={overflowOpen && overflowCount > 0}
-        title="More pills"
-        // The desktop menu's detail (`strip_overflow.rs`).
-        subtitle={`${overflowCount} hidden`}
-        onClose={() => setOverflowOpen(false)}
-        // A sheet picked from this one opens only after this one has gone (iOS drops a modal presented over a closing one).
-        onDismissed={() => {
-          const pill = afterDismiss.current;
-          afterDismiss.current = null;
-          if (pill === null) return;
-          if ('pageId' in pill) onShowPage?.(pill);
-          else pressPill(pill);
-        }}
-      >
-        {overflowPages.map((page) => (
-          <PageOverflowRow
-            key={page.pageId}
-            page={page}
-            onPress={() => {
-              // As a pill's row below: iOS waits for this sheet to go first, Android goes now.
-              setOverflowOpen(false);
-              if (Platform.OS === 'ios') afterDismiss.current = page;
-              else onShowPage?.(page);
-            }}
-          />
-        ))}
-        {hiddenPills.map((pill) => (
-          <OverflowPillRow
-            key={pill.id}
-            pill={pill}
-            onPress={() => {
-              // A row does what its pill does in the strip. iOS waits for this sheet to go first
-              // (`onDismissed`); Android never reports that (React Native's Modal sends `onDismiss`
-              // on iOS only), and its sheets are dialogs that open over a closing one, so it goes now.
-              // CDXC:SessionChat 2026-11-11 WHY: the user, on Android: "When i click on share here
-              // in my phone nothing happens"; every row of this sheet did nothing there since
-              // 2026-11-10 (2d2dd229).
-              setOverflowOpen(false);
-              if (Platform.OS === 'ios') afterDismiss.current = pill;
-              else pressPill(pill);
-            }}
-          />
-        ))}
-      </Sheet>
     </>
   );
 }
@@ -590,190 +458,6 @@ export function planStripTiers(
   return { hidden: n, collapsed: 0, tiny: 0 };
 }
 
-/** The gap between the band's parts: the where pill, the chips and the pills (`band.gap`). */
-const BAND_GAP = 8;
-
-/** How wide the row is for a plan from `planStripTiers`. */
-function planTotal(
-  fixed: readonly number[],
-  pills: readonly { full: number; icon: number; least: number }[],
-  plan: { hidden: number; collapsed: number; tiny: number },
-  overflow: number,
-  gap: number,
-): number {
-  const visible = pills.length - Math.min(plan.hidden, pills.length);
-  let total = fixed.reduce((sum, width) => sum + width, 0);
-  let count = fixed.length;
-  for (let index = 0; index < visible; index += 1) {
-    const pill = pills[index];
-    total +=
-      index >= visible - plan.tiny
-        ? (pill?.least ?? 0)
-        : index >= visible - plan.collapsed
-          ? (pill?.icon ?? 0)
-          : (pill?.full ?? 0);
-    count += 1;
-  }
-  if (plan.hidden > 0) {
-    total += overflow;
-    count += 1;
-  }
-  return total + gap * Math.max(0, count - 1);
-}
-
-/**
- * `planStripTiers` with the where pill at the band's left counted in: `room` is what the where pill
- * and the pills share (its `BAND_GAP` included). The panel pills drop their labels first, then the
- * where pill shrinks a tier at a time (`lead`: its widths, widest first), and only at its narrowest
- * do pills go into "+N". Port of desktop `plan_strip_with_where`, which has the user's words.
- */
-export function planStripWithWhere(
-  room: number,
-  lead: readonly [number, number, number] | null,
-  fixed: readonly number[],
-  pills: readonly { full: number; icon: number; least: number }[],
-  overflow: number,
-  gap: number,
-): { tier: WhereTier; plan: { hidden: number; collapsed: number; tiny: number } } {
-  if (lead === null) return { tier: 'full', plan: planStripTiers(room, fixed, pills, overflow, gap) };
-  let last: { tier: WhereTier; plan: { hidden: number; collapsed: number; tiny: number } } = {
-    tier: 'icon',
-    plan: { hidden: pills.length, collapsed: 0, tiny: 0 },
-  };
-  for (const [index, tier] of WHERE_TIERS.entries()) {
-    const avail = room - (lead[index] ?? 0) - BAND_GAP;
-    const plan = planStripTiers(avail, fixed, pills, overflow, gap);
-    last = { tier, plan };
-    if (plan.hidden === 0 && planTotal(fixed, pills, plan, overflow, gap) <= avail + 0.5) return last;
-  }
-  return last;
-}
-
-/** A panel pill drawn at a tier; `tiny` pills (a hidden page's) have a narrowest one of their own. */
-type FitPanel = { id: string; tiny?: boolean; node: (tier: PagePillTier) => ReactNode };
-
-/**
- * The pills' room: they sit at the right, whole. No pill is scrolled, cut or faded; when the row is
- * too wide the last panel pills drop their label first, then go into one "+N" pill (`planStrip`).
- * Every panel pill is also drawn invisibly with and without its label, to know both widths.
- *
- * CDXC:SessionChat 2026-11-10 DECISION:
- * User, of the row scrolling sideways behind edge fades (Board and Autopilot faded at its two edges
- * once the pills grew to 13): "the pills hiding is still bad, please make this simpler". Matches
- * desktop `pills_strip_fit` in apps/desktop/src/app/native_chat/pills_strip.rs. Supersedes the
- * 2026-10-28 and 2026-11-08 edge fades and the sideways scroll.
- */
-function PillsFit({
-  children,
-  panel,
-  after,
-  overflow,
-  onHidden,
-  lead,
-  leadTier,
-  onLeadTier,
-}: {
-  /** The where pill's widths at its tiers (`WherePill.tsx`), drawn left of this area, or null. */
-  lead: readonly [number, number, number] | null;
-  leadTier: WhereTier;
-  /** The tier the fit picked for the where pill. */
-  onLeadTier: (tier: WhereTier) => void;
-  /** The pills that always show (↓, timers, ?), before the panel pills. */
-  children: ReactNode;
-  panel: readonly FitPanel[];
-  /** The Links pill, after them. */
-  after: ReactNode;
-  overflow: (count: number) => ReactNode;
-  onHidden: (ids: readonly string[]) => void;
-}) {
-  const styles = useStyles();
-  const [avail, setAvail] = useState(0);
-  const [widths, setWidths] = useState<Record<string, number>>({});
-  const measure = (key: string) => (event: { nativeEvent: { layout: { width: number } } }) => {
-    const width = event.nativeEvent.layout.width;
-    setWidths((was) => (Math.abs((was[key] ?? -1) - width) < 0.5 ? was : { ...was, [key]: width }));
-  };
-  const hasBefore = Children.toArray(children).length > 0;
-  const fixed = [
-    hasBefore ? widths['fixed:before'] : undefined,
-    after !== null ? widths['fixed:after'] : undefined,
-  ].filter((width): width is number => width !== undefined && width > 0);
-  const known = panel.every(
-    (pill) =>
-      widths[`full:${pill.id}`] !== undefined &&
-      widths[`icon:${pill.id}`] !== undefined &&
-      (pill.tiny !== true || widths[`tiny:${pill.id}`] !== undefined),
-  );
-  // The where pill sits left of this area at its current tier; the room the two share is this area,
-  // that pill and the band's gap.
-  const room = avail + (lead !== null ? (lead[WHERE_TIERS.indexOf(leadTier)] ?? 0) + BAND_GAP : 0);
-  // Everything drawn whole until the widths are known.
-  const fitted =
-    avail > 0 && known
-      ? planStripWithWhere(
-          room,
-          lead,
-          fixed,
-          panel.map((pill) => {
-            const icon = widths[`icon:${pill.id}`] ?? 0;
-            return {
-              full: widths[`full:${pill.id}`] ?? 0,
-              icon,
-              least: pill.tiny === true ? (widths[`tiny:${pill.id}`] ?? icon) : icon,
-            };
-          }),
-          widths.overflow ?? 56,
-          PILL_GAP,
-        )
-      : null;
-  const plan = fitted?.plan ?? { hidden: 0, collapsed: 0, tiny: 0 };
-  const nextTier = fitted?.tier ?? leadTier;
-  useEffect(() => {
-    if (nextTier !== leadTier) onLeadTier(nextTier);
-  }, [nextTier, leadTier, onLeadTier]);
-  const visible = panel.length - plan.hidden;
-  const hiddenIds = panel.slice(visible).map((pill) => pill.id);
-  const hiddenKey = hiddenIds.join(',');
-  useEffect(() => {
-    onHidden(hiddenKey === '' ? [] : hiddenKey.split(','));
-  }, [hiddenKey, onHidden]);
-  return (
-    <View style={styles.fit} onLayout={(event) => setAvail(event.nativeEvent.layout.width)}>
-      <View style={styles.pills}>
-        {hasBefore ? (
-          <View style={styles.pills} onLayout={measure('fixed:before')}>
-            {children}
-          </View>
-        ) : null}
-        {panel.slice(0, visible).map((pill, index) => (
-          <View key={pill.id}>
-            {pill.node(index >= visible - plan.tiny ? 'icon' : index >= visible - plan.collapsed ? 'count' : 'full')}
-          </View>
-        ))}
-        {plan.hidden > 0 ? <View onLayout={measure('overflow')}>{overflow(plan.hidden)}</View> : null}
-        {after !== null ? <View onLayout={measure('fixed:after')}>{after}</View> : null}
-      </View>
-      <View
-        style={styles.measure}
-        pointerEvents="none"
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        {panel.map((pill) => (
-          <View key={pill.id} style={styles.measureRow}>
-            <View onLayout={measure(`full:${pill.id}`)}>{pill.node('full')}</View>
-            <View onLayout={measure(`icon:${pill.id}`)}>{pill.node('count')}</View>
-            {pill.tiny === true ? <View onLayout={measure(`tiny:${pill.id}`)}>{pill.node('icon')}</View> : null}
-          </View>
-        ))}
-        {plan.hidden === 0 && widths.overflow === undefined ? (
-          <View onLayout={measure('overflow')}>{overflow(panel.length)}</View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 const useStyles = themedStyles((P) => ({
   /** Inside the box's border, at its top, with its top corners. */
   strip: {
@@ -782,24 +466,23 @@ const useStyles = themedStyles((P) => ({
     borderTopRightRadius: 21,
     backgroundColor: P.ink(STRIP_TINT),
   },
+  bandScroll: {
+    height: BAND,
+    flexGrow: 0,
+  },
   band: {
     height: BAND,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  chips: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 0,
+    gap: PILL_GAP,
   },
   /** A pill's 25 (its 1px border included), quieter: a faint fill and no outline. */
   chip: {
     height: 25,
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     gap: 5,
     paddingLeft: 8,
     paddingRight: 6,
@@ -819,44 +502,10 @@ const useStyles = themedStyles((P) => ({
     height: 1,
     backgroundColor: P.composerBorder,
   },
-  fit: {
-    flex: 1,
-    minWidth: 0,
-    height: '100%',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-  },
-  /** The where pill drawn invisibly at its three tiers, to know their widths. */
-  measureWhere: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    opacity: 0,
-    alignItems: 'flex-start',
-  },
-  /** The pills drawn invisibly to know their widths. */
-  measure: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    opacity: 0,
-    alignItems: 'flex-start',
-  },
-  measureRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  /** Links and the Session details ring, together at the strip's right end. */
-  after: { flexDirection: 'row', alignItems: 'center', gap: PILL_GAP },
-  pills: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   armed: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     gap: VISUAL.armedIconGap,
   },
   armedPressed: {
