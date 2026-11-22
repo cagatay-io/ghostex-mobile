@@ -511,6 +511,13 @@ function withMachine(projectLabel: string, machineLabel: string): string {
   return [projectLabel, machineLabel].filter((part) => part.length > 0).join(' · ');
 }
 
+export type SessionSearchOptions = {
+  /** Closed sessions only (a project's History, mirroring gx-core `SessionScope::Closed`). */
+  closedOnly?: boolean;
+  /** Restrict results to one project id and lift the 14-day window (gx-core `has_filters`). */
+  projectId?: string;
+};
+
 /**
  * The sessions a query keeps, open and closed, newest first (open by last use,
  * closed by when they closed) and grouped by day. Every query token must match;
@@ -521,39 +528,51 @@ export function searchSessions(
   sources: readonly SessionSearchSource[],
   query: string,
   nowMs: number,
+  options?: SessionSearchOptions,
 ): SessionSearchGroup[] {
   const queryEmpty = query.trim().length === 0;
+  const closedOnly = options?.closedOnly === true;
+  const projectId = options?.projectId?.trim() ?? '';
+  const hasProjectFilter = projectId.length > 0;
   const cutoff = nowMs - CLOSED_SESSIONS_VISIBLE_WINDOW_MS;
   const rows: SessionSearchRow[] = [];
   for (const source of sources) {
     const catalog = source.customSessionTags;
-    for (const { session, projectLabel } of filterSearchable(
-      source.open,
-      (entry) => openFields(entry.session),
-      query,
-      catalog,
-    )) {
-      rows.push({
-        kind: 'open',
-        session,
-        key: `open:${source.machineId}:${session.sessionId}`,
-        machineId: source.machineId,
-        title: sessionSearchTitle(session),
-        projectLabel: withMachine(projectLabel, source.machineLabel),
-        timestamp: parseTimestamp(session.lastInteractionAt),
-        customSessionTags: catalog,
-        agentIcon: session.agentIcon,
-        agentName: session.agentName.length > 0 ? session.agentName : session.agent,
-        sessionTag: session.sessionTag,
-        isFavorite: session.isFavorite,
-      });
+    if (!closedOnly) {
+      const openPool = hasProjectFilter
+        ? source.open.filter((entry) => entry.session.projectId === projectId)
+        : source.open;
+      for (const { session, projectLabel } of filterSearchable(
+        openPool,
+        (entry) => openFields(entry.session),
+        query,
+        catalog,
+      )) {
+        rows.push({
+          kind: 'open',
+          session,
+          key: `open:${source.machineId}:${session.sessionId}`,
+          machineId: source.machineId,
+          title: sessionSearchTitle(session),
+          projectLabel: withMachine(projectLabel, source.machineLabel),
+          timestamp: parseTimestamp(session.lastInteractionAt),
+          customSessionTags: catalog,
+          agentIcon: session.agentIcon,
+          agentName: session.agentName.length > 0 ? session.agentName : session.agent,
+          sessionTag: session.sessionTag,
+          isFavorite: session.isFavorite,
+        });
+      }
     }
     // `filter_previous`: no web pages, deduped, then the query; an empty query keeps every title.
-    const deduped = dedupeClosed(source.closed.filter((session) => session.agentIcon !== 'browser'));
+    const closedPool = source.closed.filter(
+      (session) => session.agentIcon !== 'browser' && (!hasProjectFilter || session.projectId === projectId),
+    );
+    const deduped = dedupeClosed(closedPool);
     const matched = queryEmpty ? deduped : filterSearchable(deduped, closedFields, query, catalog);
     for (const closed of matched) {
       const timestamp = closedTimestamp(closed);
-      if (queryEmpty && timestamp < cutoff) continue;
+      if (queryEmpty && !hasProjectFilter && timestamp < cutoff) continue;
       rows.push({
         kind: 'closed',
         closed,

@@ -71,7 +71,13 @@ export function chiefHasDot(counts: ReturnType<typeof chiefCounts>): boolean {
  * Separate by machine, so each tab's home carries that computer's Chief.
  */
 export function hasHomeProject(summary: Pick<GhostexMobileSummary, 'projects'> | null | undefined): boolean {
-  return summary?.projects.some((project) => project.isHome === true) === true;
+  return homeProjectIdIn(summary) !== null;
+}
+
+/** The computer's home project id (Main Hub, server/src/chief/home.rs), or `null` when absent. */
+export function homeProjectIdIn(summary: Pick<GhostexMobileSummary, 'projects'> | null | undefined): string | null {
+  const id = summary?.projects.find((project) => project.isHome === true)?.projectId?.trim() ?? '';
+  return id.length > 0 ? id : null;
 }
 
 /** Chief's built-in feature id, as the computer lists it. */
@@ -140,4 +146,48 @@ export function parseChiefAgents(json: unknown): { agentId: string; name: string
     const name = typeof row.name === 'string' && row.name.length > 0 ? row.name : agentId;
     return agentId.length === 0 ? [] : [{ agentId, name }];
   });
+}
+
+/**
+ * One earlier Ask Ghostex AI chat (asleep, still open) from `ghostex chief status --json`
+ * (`earlierChats`, server/src/chief/session.rs `earlier_chats`).
+ */
+export type ChiefEarlierChat = {
+  projectId: string;
+  sessionId: string;
+  title: string;
+  /** ISO timestamp from `lastActiveAt` (or `createdAt` on the server); `null` when absent. */
+  lastActiveAt: string | null;
+};
+
+/** `ghostex chief status --json`: Ghostex AI's earlier open chats, newest first. */
+export function parseChiefEarlierChats(json: unknown): ChiefEarlierChat[] {
+  const root = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {};
+  const chats = Array.isArray(root.earlierChats) ? root.earlierChats : [];
+  const parsed = chats.flatMap((entry): ChiefEarlierChat[] => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const row = entry as Record<string, unknown>;
+    const projectId = typeof row.projectId === 'string' ? row.projectId.trim() : '';
+    const sessionId = typeof row.sessionId === 'string' ? row.sessionId.trim() : '';
+    if (projectId.length === 0 || sessionId.length === 0) return [];
+    const title = typeof row.title === 'string' && row.title.trim().length > 0 ? row.title.trim() : CHIEF_LABEL;
+    const lastActiveAt =
+      typeof row.lastActiveAt === 'string' && row.lastActiveAt.trim().length > 0 ? row.lastActiveAt.trim() : null;
+    return [{ projectId, sessionId, title, lastActiveAt }];
+  });
+  return parsed.sort((left, right) => (right.lastActiveAt ?? '').localeCompare(left.lastActiveAt ?? ''));
+}
+
+/** An earlier chat's timestamp in the phone's local time ("22 Nov, 10:58", or with the year when older). */
+export function formatChiefEarlierChatDate(iso: string | null, nowMs = Date.now()): string {
+  if (iso === null || iso.length === 0) return '';
+  const time = new Date(iso);
+  if (Number.isNaN(time.getTime())) return '';
+  const sameYear = time.getFullYear() === new Date(nowMs).getFullYear();
+  const day = time.toLocaleDateString(
+    undefined,
+    sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' },
+  );
+  const clock = time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${day}, ${clock}`;
 }

@@ -1248,13 +1248,20 @@ export function resolveAgentPromptLaunchCommand(key: string, action: 'fork' | 'r
  * closed sessions being unavailable there.
  */
 
-/** `ghostex previous-sessions [--query q] [--cursor c] --limit n --json` */
-export function previousSessionsCommand(options: { query?: string; cursor?: string; limit: number }): string {
+/** `ghostex previous-sessions [--query q] [--cursor c] [--project-id id] --limit n --json` */
+export function previousSessionsCommand(options: {
+  query?: string;
+  cursor?: string;
+  projectId?: string;
+  limit: number;
+}): string {
   const parts = ['ghostex previous-sessions'];
   const query = options.query?.trim() ?? '';
   if (query.length > 0) parts.push(`--query ${shellQuote(query)}`);
   const cursor = options.cursor?.trim() ?? '';
   if (cursor.length > 0) parts.push(`--cursor ${shellQuote(cursor)}`);
+  const projectId = options.projectId?.trim() ?? '';
+  if (projectId.length > 0) parts.push(`--project-id ${shellQuote(projectId)}`);
   parts.push(`--limit ${Math.max(1, Math.floor(options.limit))}`);
   parts.push('--json');
   return parts.join(' ');

@@ -32,8 +32,8 @@ export default function ChiefRow({
   onOpen: (row: ChiefRowModel & { session: GhostexSession }) => void;
   /** The selected computer's Chief was never opened: ask which agent runs it. */
   onPickAgent: (machineId: string) => void;
-  /** Long press: New Chat, Change Agent. */
-  onMenu: (row: ChiefRowModel & { session: GhostexSession }) => void;
+  /** Long press: New Chat, Earlier Chats, Change Agent. */
+  onMenu: (row: ChiefRowModel) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const ink = useSidebarInk();
@@ -50,7 +50,7 @@ export default function ChiefRow({
         accessibilityRole="button"
         accessibilityLabel={CHIEF_LABEL}
         onPress={() => (mainSession === null ? onPickAgent(main.machineId) : onOpen({ ...main, session: mainSession }))}
-        onLongPress={mainSession === null ? undefined : () => onMenu({ ...main, session: mainSession })}
+        onLongPress={() => onMenu(main)}
         style={({ pressed }) => [styles.header, pressed ? styles.pressed : null]}
       >
         {folds ? (
@@ -189,7 +189,7 @@ const chiefStyles = inkStyleSheets((ink) =>
  * this place. The desktop draws the same row
  * (apps/desktop/src/app/native_sidebar/chief.rs `render_native_sidebar_chief_placeholder`).
  */
-export function ChiefPlaceholderRow({ onPress }: { onPress: () => void }) {
+export function ChiefPlaceholderRow({ onPress, onLongPress }: { onPress: () => void; onLongPress?: () => void }) {
   const ink = useSidebarInk();
   const styles = chiefStyles(ink);
   return (
@@ -197,6 +197,7 @@ export function ChiefPlaceholderRow({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel={`${CHIEF_LABEL}: start here`}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [styles.other, pressed ? styles.pressed : null]}
     >
       <FlowerGlyph size={ds(14)} color={ink.muted} />

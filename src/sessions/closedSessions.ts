@@ -25,15 +25,25 @@ export async function fetchClosedSessions(
   machine: MachineRecord,
   query: string,
   nowMs: number,
+  projectId?: string,
 ): Promise<ClosedSession[]> {
   const trimmed = query.trim();
+  const scopedProjectId = projectId?.trim() ?? '';
   const sessions: ClosedSession[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_WINDOW_PAGES; page += 1) {
-    const result = await runGhostexCli(machine, previousSessionsCommand({ query: trimmed, cursor, limit: PAGE_SIZE }));
+    const result = await runGhostexCli(
+      machine,
+      previousSessionsCommand({
+        query: trimmed,
+        cursor,
+        projectId: scopedProjectId.length > 0 ? scopedProjectId : undefined,
+        limit: PAGE_SIZE,
+      }),
+    );
     const parsed = parseClosedSessionsPage(result.json);
     sessions.push(...parsed.sessions);
-    if (trimmed.length > 0 || parsed.cursor === null) break;
+    if (trimmed.length > 0 || scopedProjectId.length > 0 || parsed.cursor === null) break;
     const oldest = parsed.sessions[parsed.sessions.length - 1];
     const oldestMs = oldest === undefined ? 0 : Date.parse(oldest.closedAt);
     if (!Number.isFinite(oldestMs) || oldestMs < nowMs - CLOSED_SESSIONS_VISIBLE_WINDOW_MS) break;

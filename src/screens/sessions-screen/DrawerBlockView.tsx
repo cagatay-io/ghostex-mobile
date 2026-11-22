@@ -89,6 +89,8 @@ export type DrawerBlockActions = {
   folderMark: (machineId: string, header: ProjectHeaderItem) => void;
   /** Main Hub's "Start here" row: starts the computer's Chief of Staff on its default agent. */
   openHomeChief: (machineId: string, header: ProjectHeaderItem) => void;
+  /** Main Hub's "Start here" row long press: opens Earlier Chats even while no chat is open. */
+  openHomeChiefMenu: (machineId: string, header: ProjectHeaderItem) => void;
   /** Main Hub's long press: what it is, Start Chief of Staff before its first open, the project's options. */
   homeMenu: (machineId: string, header: ProjectHeaderItem) => void;
   stateCard: (machineId: string, item: StateCardItem) => void;
@@ -391,7 +393,10 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
         />
         {/* Main Hub before Chief of Staff's first open: its row's place (ChiefRow.tsx). */}
         {header.isHome === true && !header.collapsed && header.chief === null && chiefOnIn(summary) ? (
-          <ChiefPlaceholderRow onPress={() => actions.openHomeChief(machineId, header)} />
+          <ChiefPlaceholderRow
+            onPress={() => actions.openHomeChief(machineId, header)}
+            onLongPress={() => actions.openHomeChiefMenu(machineId, header)}
+          />
         ) : null}
         {!header.collapsed && (card.children.length > 0 || card.gbots != null) ? projectFold(card) : null}
       </View>

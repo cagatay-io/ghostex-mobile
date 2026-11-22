@@ -98,17 +98,22 @@ import SpaceSwipe from '../components/sessions/SpaceSwipe';
 import SpaceTabs, { SPACE_CHIP_HEIGHT, spaceMenuIcon, spaceRowOrder } from '../components/sessions/SpaceTabs';
 import { useExtensionPanels } from '../extensions/useExtensionPanels';
 import ChiefRow, { CHIEF_LABEL, CHIEF_NAME } from '../components/sessions/ChiefRow';
+import ChiefEarlierChatsSheet from '../components/sessions/ChiefEarlierChatsSheet';
 import { runGhostexCli } from '../components/sessions/cli';
 import {
   chiefOnIn,
   chiefRows,
   hasHomeProject,
   HOME_LABEL,
+  homeProjectIdIn,
   MAIN_HUB_EXPLANATION,
   parseChiefAgents,
   parseChiefDefaultAgent,
+  parseChiefEarlierChats,
+  type ChiefEarlierChat,
   type ChiefRowModel,
 } from '../contract/chief';
+import { sessionMenuIcon } from '../session-menu/glyphs';
 import {
   chiefNewChatCommand,
   chiefOpenCommand,
@@ -120,7 +125,7 @@ import WorkspaceTile, { workspaceMenuItems } from '../components/sessions/Worksp
 import { agentChoicePlace, parseAgentChoiceScope, type AgentChoiceContext } from '../components/sessions/agentChoice';
 import { useLauncherStore } from '../components/sessions/launcherStore';
 import { expandedGroupBackground, inkWash, sidebarInk } from '../components/sessions/rows';
-import SessionSearchSheet from '../components/sessions/SessionSearchSheet';
+import SessionSearchSheet, { type ProjectHistoryScope } from '../components/sessions/SessionSearchSheet';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import NewCoordinatorSheet from './sessions-screen/NewCoordinatorSheet';
 import CoordinatorDetailsSheet from './sessions-screen/CoordinatorDetailsSheet';
@@ -332,7 +337,9 @@ export default function SessionsScreen({ navigation }: Props) {
     overlay.kind === 'agentMenu' ? overlay.ctx.machine.id : null,
     overlay.kind === 'agentMenu' ? overlay.ctx.header.projectId : null,
   );
-  const [sessionSearchOpen, setSessionSearchOpen] = useState(false);
+  const [sessionSearch, setSessionSearch] = useState<
+    { kind: 'all' } | { kind: 'projectHistory'; scope: ProjectHistoryScope } | null
+  >(null);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   /*
@@ -1019,8 +1026,14 @@ export default function SessionsScreen({ navigation }: Props) {
           ),
     [machine, machines, inventoriesByMachineId],
   );
-  /** The menu Chief's row opens: its first-open agent picker, or New Chat and Change Agent. */
+  /** The menu Chief's row opens: its first-open agent picker, or New Chat, Earlier Chats and Change Agent. */
   const [chiefMenu, setChiefMenu] = useState<{ title: string; items: ContextMenuItem[] } | null>(null);
+  /** Earlier Ask Ghostex AI chats sheet (desktop commit f76c9a478 `show_native_sidebar_chief_earlier`). */
+  const [chiefEarlierSheet, setChiefEarlierSheet] = useState<{
+    target: MachineRecord;
+    machineLabel: string;
+    initialChats: ChiefEarlierChat[] | null;
+  } | null>(null);
 
   /** Runs `ghostex chief open|new-chat|set-agent` on `target` and opens the chat it answers with. */
   const runChief = useCallback(
@@ -1124,37 +1137,66 @@ export default function SessionsScreen({ navigation }: Props) {
     [chiefAgentItems, runChief, setTransientStatus],
   );
 
-  /** Chief of Staff's long press: New Chat, Change Agent's agents, then (`more`) the row's own session options. */
+  /** Chief of Staff's long press: New Chat, Earlier Chats, Change Agent's agents, then (`more`) session options. */
   const openChiefMenu = useCallback(
-    async (
-      target: MachineRecord,
-      row: ChiefRowModel & { session: GhostexSession },
-      more?: () => void,
-    ): Promise<void> => {
+    async (target: MachineRecord, row: ChiefRowModel, more?: () => void): Promise<void> => {
       let agents: ContextMenuItem[] = [];
+      let earlierChats: ChiefEarlierChat[] | null = null;
       try {
-        agents = (await chiefAgentItems(target, chiefSetAgentCommand, row.session.agent)).map((item) =>
-          item.kind === 'item' && item.key.startsWith('chief-agent-')
-            ? {
-                ...item,
-                onPress: () =>
-                  runChiefAsking(target, chiefSetAgentCommand(item.key.slice('chief-agent-'.length)), true),
-              }
-            : item,
-        );
+        const status = await runGhostexCli(target, chiefStatusCommand());
+        earlierChats = parseChiefEarlierChats(status.json);
+        if (row.session !== null) {
+          const current = row.session.agent;
+          agents = parseChiefAgents(status.json).map(
+            (agent): ContextMenuItem => ({
+              kind: 'item',
+              key: `chief-agent-${agent.agentId}`,
+              label: agent.name,
+              selected: agent.agentId === current,
+              onPress: () => runChiefAsking(target, chiefSetAgentCommand(agent.agentId), true),
+            }),
+          );
+        }
       } catch {
-        // New Chat still works without the agent list.
+        // New Chat and Earlier Chats still open (Earlier Chats retries on open when initialChats is null).
       }
       const heading: ContextMenuItem = { kind: 'heading', key: 'chief-agent-heading', label: 'Change Agent' };
+      const historyIcon = sessionMenuIcon('history', { size: 14, color: sidebarAppearance.foreground });
+      const openEarlierChats = (): void => {
+        setChiefMenu(null);
+        setChiefEarlierSheet({ target, machineLabel: row.machineLabel, initialChats: earlierChats });
+      };
+      const earlierItem: ContextMenuItem =
+        historyIcon !== undefined
+          ? {
+              kind: 'item',
+              key: 'chief-earlier-chats',
+              label: 'Earlier Chats…',
+              icon: historyIcon,
+              submenu: true,
+              onPress: openEarlierChats,
+            }
+          : {
+              kind: 'item',
+              key: 'chief-earlier-chats',
+              label: 'Earlier Chats…',
+              submenu: true,
+              onPress: openEarlierChats,
+            };
       setChiefMenu({
         title: row.machineId === machine?.id ? CHIEF_LABEL : `${CHIEF_LABEL} · ${row.machineLabel}`,
         items: [
-          {
-            kind: 'item',
-            key: 'chief-new-chat',
-            label: 'New Chat',
-            onPress: () => runChiefAsking(target, chiefNewChatCommand(), false),
-          },
+          ...(row.session !== null
+            ? [
+                {
+                  kind: 'item',
+                  key: 'chief-new-chat',
+                  label: 'New Chat',
+                  onPress: () => runChiefAsking(target, chiefNewChatCommand(), false),
+                } as ContextMenuItem,
+              ]
+            : []),
+          earlierItem,
           ...(agents.length > 0 ? [heading, ...agents] : []),
           ...(more !== undefined
             ? [
@@ -1173,7 +1215,49 @@ export default function SessionsScreen({ navigation }: Props) {
         ],
       });
     },
-    [chiefAgentItems, machine?.id, runChiefAsking],
+    [machine?.id, runChiefAsking, sidebarAppearance.foreground],
+  );
+
+  /** Opens an earlier Ask Ghostex AI chat (asleep, still open) from the Earlier Chats sheet. */
+  const openChiefEarlierChat = useCallback(
+    (target: MachineRecord, chat: ChiefEarlierChat): void => {
+      setChiefEarlierSheet(null);
+      const existing = inventoriesByMachineId[target.id]?.summary?.sessions.find(
+        (session) => session.sessionId === chat.sessionId,
+      );
+      if (machine?.id !== target.id) selectMachine(target.id);
+      revealSessionWorkspace(target.id, chat.sessionId);
+      if (existing !== undefined) {
+        void attach(target, existing);
+        return;
+      }
+      void attachCreated(target, chat.sessionId).catch((error: unknown) => {
+        setTransientStatus(error instanceof Error ? error.message : String(error));
+      });
+    },
+    [
+      attach,
+      attachCreated,
+      inventoriesByMachineId,
+      machine?.id,
+      revealSessionWorkspace,
+      selectMachine,
+      setTransientStatus,
+    ],
+  );
+
+  /** Opens Main Hub's closed sessions (History) in the phone's session search sheet. */
+  const openMainHubHistory = useCallback(
+    (target: MachineRecord): void => {
+      setChiefEarlierSheet(null);
+      const homeProjectId = homeProjectIdIn(inventoriesByMachineId[target.id]?.summary);
+      if (homeProjectId === null) return;
+      setSessionSearch({
+        kind: 'projectHistory',
+        scope: { machineId: target.id, projectId: homeProjectId, title: HOME_LABEL },
+      });
+    },
+    [inventoriesByMachineId],
   );
 
   /** Main Hub's GBots: their menus, the remove confirm, GBot Settings and New GBot (use-gbots.tsx). */
@@ -1252,6 +1336,19 @@ export default function SessionsScreen({ navigation }: Props) {
     agentMenu: (machineId, header) =>
       withMachine(machineId, (target) => setOverlay({ kind: 'agentMenu', ctx: { machine: target, header } })),
     openHomeChief: (machineId) => withMachine(machineId, (target) => void openChiefPicker(target)),
+    openHomeChiefMenu: (machineId) =>
+      withMachine(
+        machineId,
+        (target) => {
+          const label = machines.find((entry) => entry.id === machineId);
+          void openChiefMenu(target, {
+            machineId,
+            machineLabel: label === undefined ? machineId : machineDisplayLabel(label),
+            session: null,
+          });
+        },
+        true,
+      ),
     homeMenu: (machineId, header) =>
       withMachine(
         machineId,
@@ -1763,6 +1860,23 @@ export default function SessionsScreen({ navigation }: Props) {
       {chiefMenu !== null ? (
         <ContextMenu visible title={chiefMenu.title} items={chiefMenu.items} onClose={() => setChiefMenu(null)} />
       ) : null}
+      {chiefEarlierSheet !== null ? (
+        <ChiefEarlierChatsSheet
+          visible
+          subtitle={chiefEarlierSheet.target.id !== machine?.id ? chiefEarlierSheet.machineLabel : undefined}
+          initialChats={chiefEarlierSheet.initialChats}
+          load={async () =>
+            parseChiefEarlierChats((await runGhostexCli(chiefEarlierSheet.target, chiefStatusCommand())).json)
+          }
+          onOpenChat={(chat) => openChiefEarlierChat(chiefEarlierSheet.target, chat)}
+          onOpenHistory={
+            homeProjectIdIn(inventoriesByMachineId[chiefEarlierSheet.target.id]?.summary) !== null
+              ? () => openMainHubHistory(chiefEarlierSheet.target)
+              : undefined
+          }
+          onClose={() => setChiefEarlierSheet(null)}
+        />
+      ) : null}
       {gbots.overlays}
       {extensionPanels.overlays}
       {chiefConfirm !== null ? (
@@ -1889,7 +2003,7 @@ export default function SessionsScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel={SessionSearchCopy.buttonLabel}
           style={({ pressed }) => [styles.bottomItem, pressed ? styles.bottomItemPressed : null]}
-          onPress={() => setSessionSearchOpen(true)}
+          onPress={() => setSessionSearch({ kind: 'all' })}
         >
           <SearchGlyph size={20} color={sidebarAppearance.foreground} />
           <Text style={[styles.bottomLabel, { color: sidebarAppearance.foreground }]}>Search</Text>
@@ -1924,10 +2038,11 @@ export default function SessionsScreen({ navigation }: Props) {
       <ProgressOverlay visible={progress !== null} message={progress ?? ''} />
 
       <SessionSearchSheet
-        visible={sessionSearchOpen}
+        visible={sessionSearch !== null}
         machines={machines}
+        projectHistory={sessionSearch?.kind === 'projectHistory' ? sessionSearch.scope : null}
         onOpen={(target, session) => {
-          setSessionSearchOpen(false);
+          setSessionSearch(null);
           // A result can come from another computer; show that computer's list, as if the row had been tapped there.
           if (machine?.id !== target.id) selectMachine(target.id);
           revealSessionWorkspace(target.id, session.sessionId);
@@ -1937,14 +2052,14 @@ export default function SessionsScreen({ navigation }: Props) {
           // A failure here stays in the search panel, which shows it under the field.
           const restored = await restoreClosedSession(target, closed);
           await refreshMachine(target);
-          setSessionSearchOpen(false);
+          setSessionSearch(null);
           if (machine?.id !== target.id) selectMachine(target.id);
           revealSessionWorkspace(target.id, restored.sessionId);
           void attachCreated(target, restored.sessionId).catch((error: unknown) => {
             setTransientStatus(error instanceof Error ? error.message : String(error));
           });
         }}
-        onClose={() => setSessionSearchOpen(false)}
+        onClose={() => setSessionSearch(null)}
       />
 
       {overlay.kind === 'sessionMenu' ? (

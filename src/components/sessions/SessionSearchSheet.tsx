@@ -53,10 +53,18 @@ import { FOLD_CLEARANCE } from '../common/verticalBar/layout';
 import { useLaptopFold } from '../common/verticalBar/laptopFold';
 import { ChevronLeftGlyph, SearchGlyph, XGlyph } from './icons';
 
+export type ProjectHistoryScope = {
+  machineId: string;
+  projectId: string;
+  title: string;
+};
+
 export type SessionSearchSheetProps = {
   visible: boolean;
   /** The computers the Sessions list shows (hidden ones are never searched). */
   machines: readonly MachineRecord[];
+  /** When set, lists only this project's closed sessions (e.g. Main Hub's History). */
+  projectHistory?: ProjectHistoryScope | null;
   onOpen: (machine: MachineRecord, session: GhostexSession) => void;
   /** Bring a closed session back and open it; rejects with the message to show when it cannot. */
   onRestore: (machine: MachineRecord, session: ClosedSession) => Promise<void>;
@@ -71,7 +79,14 @@ const STATUS_DOT_OPEN = '#FFFFFF';
 /** Each keystroke would be an SSH round trip per computer; wait for a pause in typing. */
 const CLOSED_QUERY_DEBOUNCE_MS = 300;
 
-export default function SessionSearchSheet({ visible, machines, onOpen, onRestore, onClose }: SessionSearchSheetProps) {
+export default function SessionSearchSheet({
+  visible,
+  machines,
+  projectHistory = null,
+  onOpen,
+  onRestore,
+  onClose,
+}: SessionSearchSheetProps) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const insets = useSafeAreaInsets();
@@ -92,11 +107,20 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const closedGeneration = useRef(0);
+  const historyMachineId = projectHistory?.machineId ?? null;
+  const historyProjectId = projectHistory?.projectId ?? null;
 
   // The computers that answered the inventory: only those can be reached for closed sessions too.
   const reporting = useMemo(
-    () => (visible ? machines.filter((machine) => inventoriesByMachineId[machine.id]?.summary != null) : []),
-    [visible, machines, inventoriesByMachineId],
+    () =>
+      visible
+        ? machines.filter(
+            (machine) =>
+              inventoriesByMachineId[machine.id]?.summary != null &&
+              (historyMachineId === null || machine.id === historyMachineId),
+          )
+        : [],
+    [visible, machines, inventoriesByMachineId, historyMachineId],
   );
   const reportingIds = reporting.map((machine) => machine.id).join('\n');
 
@@ -115,7 +139,10 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
       void Promise.all(
         reporting.map(async (machine) => {
           try {
-            return { machine, sessions: await fetchClosedSessions(machine, query, nowMs) };
+            return {
+              machine,
+              sessions: await fetchClosedSessions(machine, query, nowMs, historyProjectId ?? undefined),
+            };
           } catch {
             return { machine, sessions: null };
           }
@@ -134,9 +161,9 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
       });
     }, CLOSED_QUERY_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-    // `reporting` changes on every inventory poll; refetch only when the computers or the query change.
+    // `reporting` changes on every inventory poll; refetch only when the computers, scope or query change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, query, reportingIds]);
+  }, [visible, query, reportingIds, historyProjectId]);
 
   const sources = useMemo((): SessionSearchSource[] => {
     // The phone lists one computer at a time, so a result names its computer once there are several.
@@ -160,7 +187,16 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
   }, [reporting, inventoriesByMachineId, closedByMachine]);
 
   const nowMs = Date.now();
-  const groups = useMemo(() => searchSessions(sources, query, Date.now()), [sources, query]);
+  const groups = useMemo(
+    () =>
+      searchSessions(
+        sources,
+        query,
+        Date.now(),
+        historyProjectId !== null ? { closedOnly: true, projectId: historyProjectId } : undefined,
+      ),
+    [sources, query, historyProjectId],
+  );
   const sections = useMemo(() => groups.map((group) => ({ title: group.heading, data: group.rows })), [groups]);
   const firstKey = groups[0]?.rows[0]?.key;
 
@@ -288,7 +324,9 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
       animationType="fade"
       statusBarTranslucent
       onRequestClose={close}
-      onShow={() => inputRef.current?.focus()}
+      onShow={() => {
+        if (projectHistory === null) inputRef.current?.focus();
+      }}
     >
       <KeyboardAvoidingContainer style={[styles.fill, { paddingTop: insets.top + 8, paddingBottom: panelBottom }]}>
         <Pressable
@@ -313,14 +351,18 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
               <TextInput
                 keyboardAppearance={appearance.light ? 'light' : 'dark'}
                 ref={inputRef}
-                autoFocus
+                autoFocus={projectHistory === null}
                 value={query}
                 onChangeText={(next) => {
                   setQuery(next);
                   setRestoreError(null);
                 }}
                 editable={restoringKey === null}
-                placeholder={SessionSearchCopy.placeholder}
+                placeholder={
+                  projectHistory !== null
+                    ? `Search ${projectHistory.title} history...`
+                    : SessionSearchCopy.placeholder
+                }
                 placeholderTextColor={appearance.muted}
                 style={styles.input}
                 autoCapitalize="none"
@@ -370,7 +412,11 @@ export default function SessionSearchSheet({ visible, machines, onOpen, onRestor
             ListEmptyComponent={
               closedLoading ? undefined : (
                 <Text style={styles.empty}>
-                  {query.trim().length > 0 ? SessionSearchCopy.noMatches : SessionSearchCopy.noSessions}
+                  {query.trim().length > 0
+                    ? SessionSearchCopy.noMatches
+                    : projectHistory !== null
+                      ? `No closed sessions in ${projectHistory.title} yet.`
+                      : SessionSearchCopy.noSessions}
                 </Text>
               )
             }
