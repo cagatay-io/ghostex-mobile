@@ -74,15 +74,17 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
   if (lastResolved !== null && lastResolved.key === key) return lastResolved.appearance;
   const areas = resolveThemeAreas(settings, light);
   const sidebar = sidebarAppearanceFor(areas.sidebar);
-  const card = resolveRoleOverBase(activeRoles.surface, light, areas.sidebar) ?? sidebar.card;
-  const controlSurface = resolveRoleOverBase(activeRoles.control, light, areas.sidebar);
+  // Desktop `theme_roles.rs` resolves every relative role (`base+N%`) against the appearance's work area base colour.
+  const roleBase = areas.workArea;
+  const card = resolveRoleOverBase(activeRoles.surface, light, roleBase) ?? sidebar.card;
+  const controlSurface = resolveRoleOverBase(activeRoles.control, light, roleBase);
   const cardActive =
-    resolveRoleOverBase(activeRoles.selection, light, areas.sidebar) ??
+    resolveRoleOverBase(activeRoles.selection, light, roleBase) ??
     controlSurface ??
     sidebar.cardActive;
-  const border = resolveRoleCss(activeRoles.border, light, areas.sidebar) ?? sidebar.border;
+  const border = resolveRoleCss(activeRoles.border, light, roleBase) ?? sidebar.border;
   const fills = neutralButtonFills(light);
-  const customDanger = resolveRoleOverBase(activeRoles.danger, light, areas.sidebar);
+  const customDanger = resolveRoleOverBase(activeRoles.danger, light, roleBase);
   const dangerBase = customDanger ?? GhostexPalette.DANGER;
   const dangerFills = destructiveButtonFills(dangerBase, light);
   const surfaces = [
@@ -97,11 +99,11 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     colorOver(VOICE_MEMORY_WASH, sidebar.background),
   ];
   // Keep the desktop's surfaces and fill alphas; honour explicit themeRoles text/accent while preserving readability.
-  const baseForeground = resolveRoleOverBase(activeRoles.text, light, areas.sidebar) ?? sidebar.foreground;
+  const baseForeground = resolveRoleOverBase(activeRoles.text, light, roleBase) ?? sidebar.foreground;
   const foreground = readableSecondaryText(baseForeground, light ? '#000000' : '#ffffff', surfaces);
   const text = (designed: string) => readableSecondaryText(designed, foreground, surfaces);
-  const baseMuted = resolveRoleOverBase(activeRoles.mutedText, light, areas.sidebar) ?? sidebar.muted;
-  const customAccent = resolveRoleOverBase(activeRoles.accent, light, areas.sidebar);
+  const baseMuted = resolveRoleOverBase(activeRoles.mutedText, light, roleBase) ?? sidebar.muted;
+  const customAccent = resolveRoleOverBase(activeRoles.accent, light, roleBase);
   const accent = customAccent ?? text(light ? LIGHT_ACCENT : GhostexPalette.ACCENT);
   const accentForeground =
     customAccent !== null
@@ -112,8 +114,8 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
         ? GhostexPalette.FOREGROUND
         : GhostexPalette.ACCENT_FOREGROUND;
   const danger = text(dangerBase);
-  const customSuccess = resolveRoleOverBase(activeRoles.success, light, areas.sidebar);
-  const customWarning = resolveRoleOverBase(activeRoles.warning, light, areas.sidebar);
+  const customSuccess = resolveRoleOverBase(activeRoles.success, light, roleBase);
+  const customWarning = resolveRoleOverBase(activeRoles.warning, light, roleBase);
   const appearance: Appearance = {
     ...sidebar,
     card,

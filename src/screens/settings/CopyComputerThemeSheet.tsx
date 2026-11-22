@@ -46,19 +46,37 @@ export function CopyComputerThemeSheet({ visible, onClose, onCopied }: CopyCompu
     });
   }, [machines, inventories]);
 
+  // Stable key of currently online machine ids so background 5s inventory polls do not restart fetches or clear state.
+  const onlineIdsKey = useMemo(
+    () =>
+      candidates
+        .filter((machine) => isMachineOnline(inventories[machine.id]))
+        .map((machine) => machine.id)
+        .sort()
+        .join('\0'),
+    [candidates, inventories],
+  );
+
+  const candidatesRef = useRef(candidates);
+  candidatesRef.current = candidates;
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [entries, setEntries] = useState<Record<string, FetchEntry>>({});
   const [copiedBanner, setCopiedBanner] = useState<string | null>(null);
   const activeRun = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const fetchedIdsRef = useRef<Set<string>>(new Set());
+  const wasVisibleRef = useRef(false);
 
-  const loadMachine = useCallback(async (machine: MachineRecord, runId: number) => {
+  const loadMachine = useCallback(async (machine: MachineRecord, runId: number, signal: AbortSignal) => {
+    fetchedIdsRef.current.add(machine.id);
     setEntries((prev) => ({ ...prev, [machine.id]: { status: 'loading' } }));
     try {
-      const preview = await fetchComputerTheme(machine);
-      if (activeRun.current !== runId) return;
+      const preview = await fetchComputerTheme(machine, signal);
+      if (activeRun.current !== runId || signal.aborted) return;
       setEntries((prev) => ({ ...prev, [machine.id]: { status: 'ready', preview } }));
     } catch (error) {
-      if (activeRun.current !== runId) return;
+      if (activeRun.current !== runId || signal.aborted) return;
       const message =
         error instanceof Error && error.message.trim().length > 0
           ? error.message.trim()
@@ -67,26 +85,56 @@ export function CopyComputerThemeSheet({ visible, onClose, onCopied }: CopyCompu
     }
   }, []);
 
+  // Lifecycle on open/close: start fresh when opening, abort in-flight work on close or unmount.
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current) {
+      wasVisibleRef.current = true;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const runId = activeRun.current + 1;
+      activeRun.current = runId;
+      fetchedIdsRef.current = new Set();
+      setEntries({});
+      setCopiedBanner(null);
+    } else if (!visible && wasVisibleRef.current) {
+      wasVisibleRef.current = false;
+      activeRun.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      fetchedIdsRef.current = new Set();
+    }
+  }, [visible]);
+
+  useEffect(
+    () => () => {
+      activeRun.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    },
+    [],
+  );
+
+  // Fetch only newly-online machines not yet loaded/loading during this open session; never wipe copiedBanner.
   useEffect(() => {
     if (!visible) return;
-    const runId = activeRun.current + 1;
-    activeRun.current = runId;
-    setCopiedBanner(null);
+    const onlineIds = onlineIdsKey === '' ? [] : onlineIdsKey.split('\0');
+    const onlineSet = new Set(onlineIds);
+    const onlineMachines = candidatesRef.current.filter((machine) => onlineSet.has(machine.id));
 
-    const online = candidates.filter((machine) => isMachineOnline(inventories[machine.id]));
     setSelectedId((current) => {
-      if (current !== null && online.some((m) => m.id === current)) return current;
-      return online[0]?.id ?? null;
+      if (current !== null && onlineSet.has(current)) return current;
+      return onlineMachines[0]?.id ?? null;
     });
 
-    for (const machine of online) {
-      void loadMachine(machine, runId);
+    const controller = abortRef.current;
+    if (controller === null) return;
+    const runId = activeRun.current;
+    for (const machine of onlineMachines) {
+      if (fetchedIdsRef.current.has(machine.id)) continue;
+      void loadMachine(machine, runId, controller.signal);
     }
-
-    return () => {
-      activeRun.current += 1;
-    };
-  }, [visible, candidates, inventories, loadMachine]);
+  }, [visible, onlineIdsKey, loadMachine]);
 
   const selectedMachine = candidates.find((m) => m.id === selectedId) ?? null;
   const selectedEntry = selectedId !== null ? entries[selectedId] : undefined;
@@ -140,8 +188,9 @@ export function CopyComputerThemeSheet({ visible, onClose, onCopied }: CopyCompu
                   onPress={() => {
                     setSelectedId(machine.id);
                     setCopiedBanner(null);
-                    if (entry?.status === 'error') {
-                      void loadMachine(machine, activeRun.current);
+                    if (entry?.status === 'error' && abortRef.current !== null) {
+                      fetchedIdsRef.current.delete(machine.id);
+                      void loadMachine(machine, activeRun.current, abortRef.current.signal);
                     }
                   }}
                   style={[
@@ -198,7 +247,11 @@ export function CopyComputerThemeSheet({ visible, onClose, onCopied }: CopyCompu
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Retry reading theme"
-              onPress={() => void loadMachine(selectedMachine, activeRun.current)}
+              onPress={() => {
+                if (abortRef.current === null) return;
+                fetchedIdsRef.current.delete(selectedMachine.id);
+                void loadMachine(selectedMachine, activeRun.current, abortRef.current.signal);
+              }}
               style={({ pressed }) => [
                 styles.retryButton,
                 { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },

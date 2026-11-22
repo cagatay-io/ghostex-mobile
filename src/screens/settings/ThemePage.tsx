@@ -22,6 +22,7 @@ import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-nativ
 
 import { Glyph } from '../../chat/native/cards/icons';
 import { useTranscriptTheme } from '../../chat/native/transcript/theme';
+import { useTwoColumns } from '../../components/common/verticalBar/VerticalBarArea';
 import type { RootStackParamList } from '../../navigation/types';
 import { defaultSettings, useSettingsStore, type GhostexSettings } from '../../settings/store';
 import { HeaderBackdrop } from '../../theme/HeaderBackdrop';
@@ -222,7 +223,7 @@ function LiveMiniChatPreview() {
           Live preview
         </Text>
         <Text style={[styles.previewBadge, { color: appearance.accent }]} numberOfLines={1}>
-          {hasArtOrLive && settings.showHeaderArtworkBackdrop && isBundledArtId(settings.windowArt)
+          {!appearance.light && hasArtOrLive && settings.showHeaderArtworkBackdrop && isBundledArtId(settings.windowArt)
             ? `${badge} · ${settings.windowArtDim}% dim`
             : badge}
         </Text>
@@ -374,17 +375,19 @@ function ThemesGallerySection({ onPicked }: { onPicked: (dark: boolean) => void 
       <ToggleRow
         label="Show dimmed artwork in header"
         detail={
-          hasArt
-            ? 'Shows the active Art look softly dimmed behind the top bar.'
-            : liveSpec !== null
-              ? `Maps ${liveSpec.label} to a clean static tint gradient behind the top bar.`
-              : 'When an Art or Live look is active, shows its dimmed backdrop behind the top bar.'
+          appearance.light
+            ? 'Applies in dark mode when an Art or Live look is active.'
+            : hasArt
+              ? 'Shows the active Art look softly dimmed behind the top bar.'
+              : liveSpec !== null
+                ? `Maps ${liveSpec.label} to a clean static tint gradient behind the top bar.`
+                : 'When an Art or Live look is active, shows its dimmed backdrop behind the top bar.'
         }
         value={settings.showHeaderArtworkBackdrop}
         onValueChange={(next) => setSetting('showHeaderArtworkBackdrop', next)}
       />
 
-      {hasArt && settings.showHeaderArtworkBackdrop ? (
+      {!appearance.light && hasArt && settings.showHeaderArtworkBackdrop ? (
         <SettingsSlider
           label="Artwork dimming"
           minimumValue={15}
@@ -755,7 +758,8 @@ function ThemeRoleEditorRow({
           const trimmed = next.trim();
           if (trimmed === '') {
             if (value !== undefined) onChange(null);
-          } else if (parseRoleValue(trimmed) !== null && trimmed !== value) {
+            // Avoid committing bare "base" mid-keystroke while the user is typing e.g. "base+7%".
+          } else if (trimmed.toLowerCase() !== 'base' && parseRoleValue(trimmed) !== null && trimmed !== value) {
             onChange(trimmed);
           }
         }}
@@ -1041,10 +1045,48 @@ function TerminalPaletteRows() {
   );
 }
 
+/** Confirmation dialog shared by the header Reset button (single & two-column Duo) and bottom Reset row. */
+export function promptResetThemeToDefault(onDidReset?: () => void): void {
+  Alert.alert(
+    'Reset theme to default?',
+    'This restores Ghostex default colours, artwork settings, and fine-tune overrides on this phone.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset',
+        style: 'destructive',
+        onPress: () => {
+          useSettingsStore.getState().patchSettings(resetThemeToDefaultPatch());
+          onDidReset?.();
+        },
+      },
+    ],
+  );
+}
+
+/** Compact Reset button for Settings > Themes' navigation header and two-column Duo title row. */
+export function ThemeResetHeaderButton({ onDidReset }: { onDidReset?: () => void }) {
+  const appearance = useAppearance();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Reset theme to default"
+      hitSlop={8}
+      onPress={() => promptResetThemeToDefault(onDidReset)}
+      style={({ pressed }) => [
+        styles.headerResetBtn,
+        { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },
+      ]}
+    >
+      <Text style={[styles.headerResetText, { color: appearance.foreground }]}>Reset</Text>
+    </Pressable>
+  );
+}
+
 export default function ThemePage() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute();
-  const patchSettings = useSettingsStore((state) => state.patchSettings);
+  const twoColumns = useTwoColumns();
   const settingsStyles = useSettingsStyles();
   const appearance = useAppearance();
 
@@ -1055,50 +1097,28 @@ export default function ThemePage() {
   const onPicked = (dark: boolean): void =>
     setPicked((current) => (dark ? { ...current, dark: true } : { ...current, light: true }));
 
-  const confirmReset = useMemo(
+  const clearLocalThemeState = useMemo(
     () => () => {
-      Alert.alert(
-        'Reset theme to default?',
-        'This restores Ghostex default colours, artwork settings, and fine-tune overrides on this phone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Reset',
-            style: 'destructive',
-            onPress: () => {
-              patchSettings(resetThemeToDefaultPatch());
-              setPicked({ dark: false, light: false });
-              setCopiedNote(null);
-            },
-          },
-        ],
-      );
+      setPicked({ dark: false, light: false });
+      setCopiedNote(null);
     },
-    [patchSettings],
+    [],
+  );
+
+  const confirmReset = useMemo(
+    () => () => promptResetThemeToDefault(clearLocalThemeState),
+    [clearLocalThemeState],
   );
 
   useLayoutEffect(() => {
-    if (route.name !== 'SettingsPage') return;
+    if (route.name !== 'SettingsPage' || twoColumns) return;
     navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Reset theme to default"
-          hitSlop={8}
-          onPress={confirmReset}
-          style={({ pressed }) => [
-            styles.headerResetBtn,
-            { backgroundColor: pressed ? appearance.neutralFillPressed : appearance.neutralFill },
-          ]}
-        >
-          <Text style={[styles.headerResetText, { color: appearance.foreground }]}>Reset</Text>
-        </Pressable>
-      ),
+      headerRight: () => <ThemeResetHeaderButton onDidReset={clearLocalThemeState} />,
     });
     return () => {
       navigation.setOptions({ headerRight: undefined });
     };
-  }, [navigation, route.name, appearance, confirmReset]);
+  }, [navigation, route.name, twoColumns, clearLocalThemeState]);
 
   return (
     <SettingsScreenLayout>

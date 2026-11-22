@@ -266,6 +266,16 @@ export function chiefStopAskingCommand(): string {
   return 'ghostex settings set chiefConfirmNewChat false --json';
 }
 
+/** Lists every desktop setting with its current value as JSON (`ghostex settings list --json`). */
+export function settingsListCommand(): string {
+  return 'ghostex settings list --json';
+}
+
+/** Reads one desktop setting's current value as JSON (`ghostex settings get <key> --json`). */
+export function settingsGetCommand(key: string): string {
+  return `ghostex settings get ${shellQuote(requireId(key, 'setting key'))} --json`;
+}
+
 /** Chief's Change Agent. */
 export function chiefSetAgentCommand(agentId: string): string {
   return `ghostex chief set-agent ${shellQuote(requireId(agentId, 'agent id'))} --json`;

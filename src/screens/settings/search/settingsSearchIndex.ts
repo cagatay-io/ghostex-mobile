@@ -1096,6 +1096,11 @@ function rank(
   return null;
 }
 
+/** Former page names and search aliases so renamed pages (e.g. Interface -> Themes) still appear as page cards. */
+const PAGE_SEARCH_ALIASES: Partial<Record<SettingsPageId, readonly string[]>> = {
+  theme: ['Interface', 'Appearance'],
+};
+
 /**
  * The Settings pages and rows `query` finds, best first, among `pages` (the pages this phone lists, in its order:
  * another page's rows are left out). A blank query finds nothing.
@@ -1109,7 +1114,7 @@ export function searchSettings(query: string, pages: readonly SettingsPageId[]):
 
   pages.forEach((page, index) => {
     const meta = SETTINGS_PAGES[page];
-    const score = rank(trimmed, pattern, [meta.title], [], []);
+    const score = rank(trimmed, pattern, [meta.title], PAGE_SEARCH_ALIASES[page] ?? [], []);
     if (score === null) return;
     ranked.push({
       result: { key: `page:${page}`, title: meta.title, breadcrumb: 'Settings', description: meta.description, page },

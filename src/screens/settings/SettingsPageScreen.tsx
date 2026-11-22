@@ -23,7 +23,7 @@ import SyncPage from './SyncPage';
 import TerminalPage from './TerminalPage';
 import { SettingsPageBoundary } from './SectionBoundary';
 import TerminalPalettePage from './TerminalPalettePage';
-import ThemePage from './ThemePage';
+import ThemePage, { ThemeResetHeaderButton } from './ThemePage';
 import ExperiencePage from './ExperiencePage';
 import UpdatesPage from './UpdatesPage';
 import VoicePage from './VoicePage';
@@ -33,7 +33,10 @@ import { SettingsSearchFocusProvider, type SettingsSearchFocus } from './search/
 export default function SettingsPageScreen({ route }: NativeStackScreenProps<RootStackParamList, 'SettingsPage'>) {
   const { page, focus } = route.params;
   return (
-    <SettingsColumnsFrame title={SETTINGS_PAGES[page].title}>
+    <SettingsColumnsFrame
+      title={SETTINGS_PAGES[page].title}
+      trailing={page === 'theme' ? <ThemeResetHeaderButton /> : undefined}
+    >
       <SettingsPageContent page={page} focus={focus} />
     </SettingsColumnsFrame>
   );

@@ -52,11 +52,12 @@ export function HeaderBackdrop({
   const dim = Math.max(0, Math.min(100, dimPercentProp ?? stored.dim));
   const liveStyle = liveStyleProp ?? stored.live;
 
-  if (isBundledArtId(artId)) {
+  if (isBundledArtId(artId) && !appearance.light) {
     // 45% dim -> ~0.42 image opacity under a bottom-fading scrim, matching the approved Q4467 mockup.
+    // All 6 bundled artworks are dark-mode looks, so light mode stays clean solid.
     const imageOpacity = Math.max(0.14, Math.min(0.62, ((100 - dim) / 100) * 0.76));
-    const topScrimOpacity = appearance.light ? 0.55 : 0.42;
-    const bottomScrimOpacity = appearance.light ? 0.94 : 0.92;
+    const topScrimOpacity = 0.42;
+    const bottomScrimOpacity = 0.92;
     return (
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <Image

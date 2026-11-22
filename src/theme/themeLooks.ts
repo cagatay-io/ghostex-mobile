@@ -289,7 +289,7 @@ export const ART_THEME_LOOKS: readonly ThemeLook[] = [
   artLook({
     id: 'red-earth',
     name: 'Red Earth',
-    label: 'Red Earth',
+    label: 'Earth',
     tint: '#21171b',
     work: '#251a1f',
     accent: '#e2a68d',
@@ -317,7 +317,7 @@ export const ART_THEME_LOOKS: readonly ThemeLook[] = [
     accent: '#d8a8ce',
     text: '#eee4ec',
     mutedText: '#b2a2b1',
-    terminalPalette: 'Ghostex Dracula',
+    terminalPalette: 'Rose Pine',
   }),
   artLook({
     id: 'nocturne-canyon',
@@ -332,22 +332,8 @@ export const ART_THEME_LOOKS: readonly ThemeLook[] = [
   }),
 ];
 
+/** Desktop Stage 1 (`theme_gallery.rs`) Agent-made look order. */
 export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
-  agentLook({
-    id: 'inkstone',
-    name: 'Inkstone',
-    label: 'Inkstone',
-    tint: '#46506a',
-    darkness: 96,
-    liveStyle: 'ink',
-    accent: '#d8664f',
-    text: '#ece4d6',
-    mutedText: '#9b968d',
-    success: '#9cbf8c',
-    warning: '#d9b46a',
-    danger: '#e06c75',
-    terminalPalette: 'Ghostex Kanagawa Dragon',
-  }),
   agentLook({
     id: 'firefly-forest',
     name: 'Firefly Forest',
@@ -410,6 +396,21 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
     terminalPalette: 'Ghostex Nord',
   }),
   agentLook({
+    id: 'inkstone',
+    name: 'Inkstone',
+    label: 'Inkstone',
+    tint: '#46506a',
+    darkness: 96,
+    liveStyle: 'ink',
+    accent: '#d8664f',
+    text: '#ece4d6',
+    mutedText: '#9b968d',
+    success: '#9cbf8c',
+    warning: '#d9b46a',
+    danger: '#e06c75',
+    terminalPalette: 'Ghostex Kanagawa Dragon',
+  }),
+  agentLook({
     id: 'orchid-dusk',
     name: 'Orchid Dusk',
     label: 'Orchid',
@@ -422,7 +423,7 @@ export const AGENT_THEME_LOOKS: readonly ThemeLook[] = [
     success: '#9cc49a',
     warning: '#e0bd84',
     danger: '#e2727a',
-    terminalPalette: 'Ghostex Dracula',
+    terminalPalette: 'Rose Pine',
   }),
 ];
 

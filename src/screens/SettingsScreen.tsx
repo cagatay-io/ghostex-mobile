@@ -17,6 +17,7 @@ import { SettingsColumnsFrame, SettingsPageList } from './settings/SettingsColum
 import { DEFAULT_SETTINGS_PAGE } from './settings/columnRules';
 import { SettingsScreenLayout } from './settings/SettingsControls';
 import { SettingsPageContent } from './settings/SettingsPageScreen';
+import { ThemeResetHeaderButton } from './settings/ThemePage';
 import { clearSettingsSearch } from './settings/search/SettingsSearch';
 
 export default function SettingsScreen() {
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
   return (
     <SettingsColumnsFrame
       title={SETTINGS_PAGES[DEFAULT_SETTINGS_PAGE].title}
+      trailing={DEFAULT_SETTINGS_PAGE === 'theme' ? <ThemeResetHeaderButton /> : undefined}
       single={
         <SettingsScreenLayout>
           <SettingsPageList onOpen={(page, focus) => navigation.navigate('SettingsPage', { page, focus })} />
