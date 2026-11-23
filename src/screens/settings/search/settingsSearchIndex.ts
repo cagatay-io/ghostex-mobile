@@ -427,6 +427,15 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   {
     page: 'chat',
+    section: 'settings:chat:session-mode',
+    group: 'Session mode',
+    title: 'Session mode',
+    description: 'Choose Terminal or Native mode per agent for Claude Code, Codex, and Antigravity.',
+    catalog: 'agentSessionMode',
+    keywords: ['native', 'terminal', 'claude', 'codex', 'antigravity', 'session mode'],
+  },
+  {
+    page: 'chat',
     section: 'settings:chat:claude-code',
     group: 'Claude Code',
     title: 'Compact idle chats before the prompt cache expires',

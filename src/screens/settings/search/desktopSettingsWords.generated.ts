@@ -13,6 +13,12 @@ export type DesktopSettingWords = {
 };
 
 export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords>> = {
+  "agentSessionMode": {
+    "title": "Session mode",
+    "subtitle": "Choose Terminal (interactive terminal, instant switching between Chat and Terminal) or Native (structured host without terminal scraping; switching to Terminal asks first and interrupts any active turn). Applies to sessions started or resumed after you change it.",
+    "options": [],
+    "keywords": []
+  },
   "attentionAlertsFor": {
     "title": "Alert me for",
     "subtitle": "A red dot (an approval, a stuck or blocked session) always alerts. All plays the finished sound and shows the system notification whenever an agent finishes, and for a coordinator only once none of its workers is still working; Needs you only does that only when it asks you something, waits for approval, or ends with Blocked or Needs you. Workers follow the Workers setting instead. The bell keeps a row either way.",
