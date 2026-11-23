@@ -1011,10 +1011,12 @@ function DockHeader({
               {({ pressed }) => (
                 <>
                   <StatusMarker status={group.status} size={13} />
-                  <View style={!pressed ? styles.dockCountUnderline : undefined}>
+                  <View style={styles.dockCountLabel}>
                     <Text style={styles.dockCountNumber}>{count}</Text>
                     {named ? (
-                      <Text style={styles.dockCountName}>{count === 1 ? group.one : group.many}</Text>
+                      <Text style={[styles.dockCountName, pressed && { color: P.foreground }]}>
+                        {count === 1 ? group.one : group.many}
+                      </Text>
                     ) : null}
                   </View>
                 </>
@@ -2175,13 +2177,10 @@ const useStyles = themedStyles((P) => ({
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  dockCountUnderline: {
+  dockCountLabel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderBottomWidth: 1,
-    borderStyle: 'dotted',
-    borderBottomColor: P.ink(P.light ? 0.28 : 0.26),
   },
   dockCountNumber: { fontSize: WORKING_VISUAL.fontSize, color: P.foreground, fontVariant: ['tabular-nums'] },
   dockCountName: { fontSize: WORKING_VISUAL.fontSize, color: P.cardMuted },
