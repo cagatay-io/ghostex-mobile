@@ -800,12 +800,12 @@ export function NativeComposer({
    */
   const lastTailRead = useRef(0);
   const readTerminalTail = useCallback(() => {
-    if (!available('terminal')) return;
+    if (!available('terminal') || document?.nonCliMode === true) return;
     const now = Date.now();
     if (now - lastTailRead.current < TAIL_READ_INTERVAL_MS) return;
     lastTailRead.current = now;
     dispatch({ type: 'terminalTailHover' });
-  }, [available, dispatch]);
+  }, [available, dispatch, document?.nonCliMode]);
 
   // ---- layout ------------------------------------------------------------------------------------
 

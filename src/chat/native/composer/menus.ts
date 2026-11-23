@@ -437,12 +437,12 @@ export function moreActionsRows({
           });
         }
         // Terminal View never folds for width on the phone's full chat box (`NativeComposer`), so it is a row only in a
-        // pane's, or where Settings › Experience keeps it off the row; there a terminal problem shows under it, with
-        // Copy Report (CDXC:Experience 2026-11-15 in gx-chat-core composer/row.rs).
+        // pane's, on Native sessions, or where Settings › Experience keeps it off the row; for Terminal sessions there
+        // a terminal problem shows under it, with Copy Report (CDXC:Experience 2026-11-15 in gx-chat-core composer/row.rs).
         if ((allFolded || rowFolded(document, 'terminal')) && available('terminal')) {
           const issue = terminalIssue(document);
           rows.push({
-            label: 'Terminal View',
+            label: document.nonCliMode === true ? 'Switch to Terminal' : 'Terminal View',
             iconPath: 'titlebar/terminal-2.svg',
             ...(issue === null ? {} : { description: issue }),
             command: { type: 'composerHost', action: 'terminalView' },

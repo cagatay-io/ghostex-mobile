@@ -629,6 +629,8 @@ export type ChatDocument = {
   agentTasks: Json;
   /** Latched once gxserver has read this session's screen. */
   screenProbed: boolean;
+  /** True while this session runs in Native (Non-CLI) mode instead of an interactive Terminal CLI. */
+  nonCliMode?: boolean;
   /** Transcript agent family (`claude`, `codex`, ...), or null. */
   agent: string | null;
   agentSessionId: string | null;
