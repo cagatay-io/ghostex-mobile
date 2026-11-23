@@ -45,7 +45,7 @@ import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, 
 import { arr, obj, str, type JsonRecord } from './json';
 import { Glyph } from './icons';
 import { SingleLinePill, SingleLineTile } from './singleLineCard';
-import { MONO_FONT } from './theme';
+import { MONO_FONT, useTranscriptTheme } from './theme';
 import { LinkWords } from './LinkWords';
 import { QuestionFlashFrame, useQuestionAnchor } from './OpenQuestions';
 import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
@@ -78,7 +78,8 @@ const INFO_ICON_ROOM = 20;
  * CDXC:SessionChat 2026-10-24 DECISION: User: "remove the text about skipped (add i icon there for that)". The footer's sentence wrapped into five lines beside the buttons on the phone, so the icon takes its place and the sentence shows on a tap (a hover tooltip on the computer, desktop `ask_info_hint` in ask_card.rs). Skip all and Send answers keep their size and place.
  */
 export function InfoHint({ hint }: { hint: string }) {
-  const { theme } = useTranscriptEnv();
+  // Rendered both in transcript forms and in NoticeCard (outside TranscriptEnvProvider), so read the theme directly.
+  const theme = useTranscriptTheme();
   const icon = useRef<ViewInstance>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [bubbleHeight, setBubbleHeight] = useState<number | null>(null);
