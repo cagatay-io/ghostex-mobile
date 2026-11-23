@@ -16,6 +16,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { FilesLinksRow, FilesLinksState } from '../../rust/document';
+import { CountBadge } from '../../../components/common/CountBadge';
 import { useChatViewSize } from '../chatPlacement';
 import { Glyph, type GlyphName } from '../composer/icons';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
@@ -198,10 +199,19 @@ export function FilesLinksCard({
             {section.moreLabel.length > 0 ? (
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={
+                  section.moreCount !== undefined && section.moreCount > 0
+                    ? `${section.moreLabel}, ${section.moreCount}`
+                    : section.moreLabel
+                }
                 hitSlop={6}
                 onPress={() => dispatch({ type: 'filesLinksShowAll', section: section.id })}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
               >
                 <Text style={styles.more}>{section.moreLabel}</Text>
+                {section.moreCount !== undefined && section.moreCount > 0 ? (
+                  <CountBadge count={section.moreCount} light={P.light} />
+                ) : null}
               </Pressable>
             ) : null}
           </View>

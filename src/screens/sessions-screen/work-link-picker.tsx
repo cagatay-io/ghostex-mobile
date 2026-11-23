@@ -24,6 +24,7 @@ import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextIn
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { WorkLinkKind } from '../../commands/ghostexCli';
+import { CountBadge } from '../../components/common/CountBadge';
 import { FoldListFrame } from '../../components/common/foldGap';
 import { useLaptopFold } from '../../components/common/verticalBar/laptopFold';
 import { useScrollToBarEdges, useVerticalBarSpace } from '../../components/common/verticalBar/VerticalBarArea';
@@ -180,13 +181,16 @@ export default function WorkLinkPicker({ kind, sessionTitle, load, onPick, onCan
           {multiSelect ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={ticked.length > 0 ? `Save, ${ticked.length}` : 'Save'}
               disabled={selected === null}
               hitSlop={8}
               onPress={() => onPick(ticked)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}
             >
               <Text style={[styles.headerAction, selected === null ? styles.headerActionDisabled : null]}>
-                {ticked.length > 0 ? `Save (${ticked.length})` : 'Save'}
+                Save
               </Text>
+              {ticked.length > 0 ? <CountBadge count={ticked.length} /> : null}
             </Pressable>
           ) : (
             <View style={styles.headerSpacer} />

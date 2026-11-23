@@ -1175,6 +1175,7 @@ export type FilesLinksSection = {
   count: number;
   groups: FilesLinksGroup[];
   moreLabel: string;
+  moreCount?: number;
 };
 
 /** The Files and links card: every attachment, file and link the session (and a coordinator's threads) mentioned. */

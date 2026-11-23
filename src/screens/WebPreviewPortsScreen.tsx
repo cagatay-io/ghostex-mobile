@@ -19,6 +19,7 @@ import { ActivityIndicator, Pressable, RefreshControl, Text, TextInput, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PortSections } from './web-preview/PortSections';
+import { CountBadge } from '../components/common/CountBadge';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { NO_BAR_INSETS } from '../components/common/verticalBar/layout';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
@@ -269,10 +270,10 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
         )}
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>
-            {WebPreviewCopy.listeningSection}
-            {listedPorts.length > 0 ? ` (${listedPorts.length})` : ''}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <Text style={styles.sectionHeaderTitle}>{WebPreviewCopy.listeningSection}</Text>
+            {listedPorts.length > 0 ? <CountBadge count={listedPorts.length} /> : null}
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={WebPreviewCopy.refreshButton}

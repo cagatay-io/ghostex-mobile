@@ -120,7 +120,7 @@ export default function GbotMemoryView(props: GbotMemoryViewProps): ReactElement
       ? "Over what loads: the end of MEMORY.md doesn't reach new chats until older notes move to the archive."
       : memory.level === 'amber'
         ? 'Nearly full: the next note moves the oldest ones to the archive.'
-        : `When it fills up, the oldest notes move to the archive (${memory.archiveNotes} there now).`;
+        : `When it fills up, the oldest notes move to the archive. ${memory.archiveNotes} ${memory.archiveNotes === 1 ? 'is' : 'are'} there now.`;
   const days = memory.log.filter((day) => day.lines.length > 0);
 
   return (

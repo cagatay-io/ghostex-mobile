@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ProjectPickerSheet } from '../chat/native/composer/ProjectPickerSheet';
+import { CountBadge } from '../components/common/CountBadge';
 import {
   agentSpaceOfProject,
   newSessionComputersNow,
@@ -1971,14 +1972,18 @@ export default function SessionsScreen({ navigation }: Props) {
                   {visibleEntries.emptyProjects > 0 ? (
                     <Pressable
                       accessibilityRole="button"
+                      accessibilityLabel={
+                        showAllProjects
+                          ? 'Hide projects without sessions'
+                          : `Show all projects, ${visibleEntries.emptyProjects} hidden`
+                      }
                       onPress={() => setShowAllProjects((showing) => !showing)}
-                      style={styles.showAllProjects}
+                      style={[styles.showAllProjects, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
                     >
                       <Text style={[styles.showAllProjectsText, { color: inkWash(listInk, 0.55) }]}>
-                        {showAllProjects
-                          ? 'Hide projects without sessions'
-                          : `Show all projects (${visibleEntries.emptyProjects} hidden)`}
+                        {showAllProjects ? 'Hide projects without sessions' : 'Show all projects'}
                       </Text>
+                      {!showAllProjects ? <CountBadge count={visibleEntries.emptyProjects} /> : null}
                     </Pressable>
                   ) : null}
                   {extensionPanels.sections('projectsBottom')}

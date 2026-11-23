@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 
 import { AGENT_ICONS } from '../../../assets/agentIcons.generated';
+import { CountBadge } from '../../../components/common/CountBadge';
 import { SwitchRow } from '../../../components/common/SwitchRow';
 import type { UserAction } from '../../rust/actions';
 import { Spinner } from '../cards/primitives';
@@ -190,6 +191,7 @@ export function ModelMenuSheet({
       <Pressable
         key="legacy-toggle"
         accessibilityRole="button"
+        accessibilityLabel={`${str(legacy, 'label')}, ${String(legacy.count ?? 0)}`}
         accessibilityState={{ expanded: legacyOpen }}
         onPress={() => {
           scrollToLegacy.current = !legacyOpen;
@@ -204,7 +206,8 @@ export function ModelMenuSheet({
         style={({ pressed }) => [styles.legacy, pressed ? styles.rowButtonPressed : null]}
       >
         <Glyph name={legacyOpen ? 'chevron-down' : 'chevron-right'} size={16} color={P.ink(0.64)} />
-        <Text style={styles.legacyLabel}>{`${str(legacy, 'label')} (${String(legacy.count ?? 0)})`}</Text>
+        <Text style={styles.legacyLabel}>{str(legacy, 'label')}</Text>
+        <CountBadge count={Number(legacy.count ?? 0)} light={P.light} />
       </Pressable>
     );
   const listHeight = Math.min(340, Math.round(height * 0.4));

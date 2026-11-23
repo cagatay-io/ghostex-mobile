@@ -24,6 +24,7 @@ import {
 
 import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
+import { CountBadge } from '../../../components/common/CountBadge';
 import { SidebarPalette } from '../../../theme/palette';
 import { Glyph, type GlyphName } from './icons';
 import {
@@ -501,21 +502,29 @@ export function WorkDock({
                         {markAllSummary}
                       </Text>
                     ) : null}
-                    {markAllSeen !== null ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        hitSlop={8}
-                        style={({ pressed }) => [
-                          styles.dockMarkSeen,
-                          pressed && { backgroundColor: P.ink(0.09) },
-                        ]}
-                        onPress={() => dispatch(markAllSeen.command as never)}
-                      >
-                        <Text style={styles.dockMarkSeenText}>
-                          {str(markAllSeen, 'label').replace(/^Mark all (?:read|done)\b/, 'Archive all') || 'Archive all'}
-                        </Text>
-                      </Pressable>
-                    ) : null}
+                    {markAllSeen !== null ? (() => {
+                      const rawLabel =
+                        str(markAllSeen, 'label')
+                          .replace(/^Mark all (?:read|done)\b/, 'Archive all')
+                          .replace(/\s*\(\d+\)$/, '') || 'Archive all';
+                      const count = typeof markAllSeen.count === 'number' && markAllSeen.count > 0 ? markAllSeen.count : null;
+                      return (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={count !== null ? `${rawLabel}, ${count}` : rawLabel}
+                          hitSlop={8}
+                          style={({ pressed }) => [
+                            styles.dockMarkSeen,
+                            { flexDirection: 'row', alignItems: 'center', gap: 6 },
+                            pressed && { backgroundColor: P.ink(0.09) },
+                          ]}
+                          onPress={() => dispatch(markAllSeen.command as never)}
+                        >
+                          <Text style={styles.dockMarkSeenText}>{rawLabel}</Text>
+                          {count !== null ? <CountBadge count={count} light={P.light} /> : null}
+                        </Pressable>
+                      );
+                    })() : null}
                   </View>
                 ) : null}
                 {undoMarkAllRead !== null ? (
@@ -549,16 +558,27 @@ export function WorkDock({
                 {snoozed.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel={
+                      !snoozedOpen && soonestSnoozeAge.length > 0
+                        ? `Snoozed, ${snoozed.length}, ${soonestSnoozeAge}`
+                        : `Snoozed, ${snoozed.length}`
+                    }
                     accessibilityState={{ expanded: snoozedOpen }}
                     style={styles.dockSnoozed}
                     onPress={() => setSnoozedOpen((was) => !was)}
                   >
                     <Glyph name="clock" size={13} color={P.cardMuted} />
-                    <Text style={styles.dockSnoozedText} numberOfLines={1}>
-                      {!snoozedOpen && soonestSnoozeAge.length > 0
-                        ? `Snoozed (${snoozed.length}) \u00b7 ${soonestSnoozeAge}`
-                        : `Snoozed (${snoozed.length})`}
-                    </Text>
+                    <View style={styles.dockSnoozedMain}>
+                      <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
+                        Snoozed
+                      </Text>
+                      <CountBadge count={snoozed.length} light={P.light} />
+                      {!snoozedOpen && soonestSnoozeAge.length > 0 ? (
+                        <Text style={styles.dockSnoozedAge} numberOfLines={1}>
+                          {`\u00b7 ${soonestSnoozeAge}`}
+                        </Text>
+                      ) : null}
+                    </View>
                     <View style={snoozedOpen ? styles.dockSnoozedChevronOpen : null}>
                       <Glyph name="chevron-down" size={12} color={P.cardMuted} />
                     </View>
@@ -574,14 +594,18 @@ export function WorkDock({
                 {answered.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel={`Answered, ${answered.length}`}
                     accessibilityState={{ expanded: answeredOpen }}
                     style={styles.dockSnoozed}
                     onPress={() => setAnsweredOpen((was) => !was)}
                   >
                     <Glyph name="circle-check-filled" size={13} color="#2fa865" />
-                    <Text style={styles.dockSnoozedText} numberOfLines={1}>
-                      {`Answered (${answered.length})`}
-                    </Text>
+                    <View style={styles.dockSnoozedMain}>
+                      <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
+                        Answered
+                      </Text>
+                      <CountBadge count={answered.length} light={P.light} />
+                    </View>
                     <View style={answeredOpen ? styles.dockSnoozedChevronOpen : null}>
                       <Glyph name="chevron-down" size={12} color={P.cardMuted} />
                     </View>
@@ -2157,7 +2181,9 @@ const useStyles = themedStyles((P) => ({
   dockRows: { padding: 4 },
   // The Snoozed row: the "N more need you" line's quiet words, with a clock and a chevron.
   dockSnoozed: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8 },
-  dockSnoozedText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.muted },
+  dockSnoozedMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dockSnoozedLabel: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.muted },
+  dockSnoozedAge: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },
   dockSnoozedChevronOpen: { transform: [{ rotate: '180deg' }] },
   dockSnoozedRow: { opacity: 0.72 },
   // The header: the band over the rows while open, as the desktop's (`work_dock_header`).

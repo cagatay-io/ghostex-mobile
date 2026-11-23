@@ -143,7 +143,7 @@ export default function GbotApiView(props: GbotApiViewProps): ReactElement {
   const switchLabel = `Apps may message ${props.name}`;
   const used =
     api.lastUsedAt.length > 0
-      ? `last used ${gbotApiWhen(api.lastUsedAt)} (${api.uses} calls)`
+      ? `last used ${gbotApiWhen(api.lastUsedAt)} · ${api.uses} ${api.uses === 1 ? 'call' : 'calls'}`
       : 'not used yet';
   return (
     <View>

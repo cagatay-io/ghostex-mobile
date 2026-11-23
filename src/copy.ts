@@ -545,7 +545,7 @@ export const SendLogsCopy = {
     device: 'The app version and the phone system (such as iOS 27)',
     routes: 'Routes and timings: relays, round trips, drops',
   },
-  lines: (count: number) => `(${count} ${count === 1 ? 'line' : 'lines'})`,
+  lines: (count: number) => `· ${count} ${count === 1 ? 'line' : 'lines'}`,
   replaced: 'IP addresses, user names, computer names, host names and keys',
   replacedDetail: '(replaced with placeholders)',
   never: 'Your sessions, chats, prompts and terminal text',

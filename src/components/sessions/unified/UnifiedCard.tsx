@@ -548,7 +548,7 @@ export function UnifiedShelfHeader({ shelf, count, open, onToggle }: { shelf: Un
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${SHELF_LABEL[shelf]} (${count})`}
+      accessibilityLabel={`${SHELF_LABEL[shelf]}, ${count}`}
       accessibilityState={{ expanded: open }}
       onPress={onToggle}
       style={({ pressed }) => [styles.shelfHeader, pressed ? styles.shelfPressed : null]}
@@ -588,7 +588,7 @@ export function UnifiedGroupHeader({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${label} (${count})`}
+      accessibilityLabel={`${label}, ${count}`}
       accessibilityState={{ expanded: open }}
       onPress={onToggle}
       onLongPress={onMenu}
