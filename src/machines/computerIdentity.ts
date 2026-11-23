@@ -136,6 +136,26 @@ export function tailcatServerKey(address: string): string | null {
   return null;
 }
 
+/**
+ * Proof scope for an SSH/Tailscale computer: tied to its host and port so editing them
+ * automatically voids earlier Easy Connect proofs (`provenComputer.ts`).
+ */
+export function sshProofScope(machine: Pick<MachineRecord, 'host' | 'port'>): string | null {
+  const host = machine.host.trim().toLowerCase();
+  if (host.length === 0) return null;
+  return `ssh:${host}:${machine.port}`;
+}
+
+/**
+ * Normalises a record's pairing/proof scope: a `ssh:<host>:<port>` scope passes through as-is,
+ * while an Easy Connect `tc…` address reduces to its server key (`nodekey:<hex>`).
+ */
+export function proofScopeOf(value: string | null): string | null {
+  if (value === null) return null;
+  if (value.startsWith('ssh:')) return value;
+  return tailcatServerKey(value);
+}
+
 /** Later timestamps sort first; a missing one sorts last. */
 function timeOf(iso: string | null | undefined): number {
   if (iso === null || iso === undefined) return Number.NEGATIVE_INFINITY;
@@ -177,6 +197,41 @@ function survivorOf(
   return tied ? null : best;
 }
 
+/**
+ * When a group contains both Tailscale/SSH and Easy Connect records for the same computer (issue
+ * #722), keep the Tailscale/SSH record so the user keeps both routes (Tailscale primary + Easy
+ * Connect fallback) instead of losing Tailscale. When several SSH records exist in the same group,
+ * pick the best one to absorb the Easy Connect duplicate(s) and leave the other SSH records alone.
+ */
+function sshSurvivorOf(
+  sshGroup: readonly MachineRecord[],
+  connectedAtOf: (machineId: string) => number | null,
+): MachineRecord {
+  const rank = (machine: MachineRecord): [number, number, number, number] => {
+    const provenAt = connectedAtOf(machine.id);
+    return [
+      machine.easyConnectPairedAt !== undefined ? 1 : 0,
+      machine.disabled !== true ? 1 : 0,
+      provenAt !== null && Number.isFinite(provenAt) ? provenAt : Number.NEGATIVE_INFINITY,
+      timeOf(machine.lastConnectedAt),
+    ];
+  };
+  let best = sshGroup[0]!;
+  let bestRank = rank(best);
+  for (const candidate of sshGroup.slice(1)) {
+    const candidateRank = rank(candidate);
+    for (let i = 0; i < candidateRank.length; i += 1) {
+      if (candidateRank[i]! > bestRank[i]!) {
+        best = candidate;
+        bestRank = candidateRank;
+        break;
+      }
+      if (candidateRank[i]! < bestRank[i]!) break;
+    }
+  }
+  return best;
+}
+
 export type MachineMerge = {
   /** The record kept. */
   survivorId: string;
@@ -191,13 +246,20 @@ export type MachineDedupe = {
 };
 
 /**
- * Collapse Easy Connect records whose addresses name the same computer into
- * one. `tokenOf` returns a record's saved address (null when it has none, which
- * leaves the record alone). The record kept is the one whose own login worked
- * last (`connectedAtOf`, see `survivorOf`); a group where that cannot be told is
- * left as it is. The kept record takes the place of the first of its group in
- * the tab order, stays shown when any of the group was, keeps a name the user
- * typed on any of them, and remembers the latest connection.
+ * Collapse duplicate records whose Easy Connect server keys name the same computer into one.
+ * `tokenOf` returns a `tailcat` record's saved address (null for SSH/Tailscale records or when none
+ * is saved). `provenOf` returns the Easy Connect server keys proven or fetched for a record (both
+ * `tailcat` and SSH/Tailscale records).
+ *
+ * - Among `tailcat` records only: the one whose own login worked last (`connectedAtOf`, see
+ *   `survivorOf`) is kept; a group where that cannot be told is left alone.
+ * - When an SSH/Tailscale record matches one or more `tailcat` records (issue #722): the
+ *   SSH/Tailscale record is kept and the `tailcat` duplicate(s) are merged into it so the computer
+ *   appears once with Tailscale primary and Easy Connect fallback. Two SSH records are never merged
+ *   with each other.
+ *
+ * The kept record takes the place of the first affected record in the tab order, stays shown when
+ * any affected record was, keeps a custom name, and remembers the latest connection.
  */
 export function dedupeMachineRecords(
   machines: readonly MachineRecord[],
@@ -205,16 +267,22 @@ export function dedupeMachineRecords(
   provenOf: (machineId: string) => readonly string[] = () => [],
   connectedAtOf: (machineId: string) => number | null = () => null,
 ): MachineDedupe {
-  // Records that share a proven key are one computer; one record can link two others, so the
-  // groups are what the links join up.
+  // Records that share an Easy Connect server key are one computer; one record can link two others,
+  // so the groups are what the links join up.
   const groupOfKey = new Map<string, MachineRecord[]>();
   const groups: MachineRecord[][] = [];
   for (const machine of machines) {
-    if (machine.transport !== 'tailcat') continue;
-    const token = tokenOf(machine.id);
-    const pairedKey = token === null ? null : tailcatServerKey(token);
-    if (pairedKey === null) continue;
-    const keys = [pairedKey, ...provenOf(machine.id)];
+    if (machine.transport === 'demo') continue;
+    let keys: string[];
+    if (machine.transport === 'tailcat') {
+      const token = tokenOf(machine.id);
+      const pairedKey = token === null ? null : tailcatServerKey(token);
+      if (pairedKey === null) continue;
+      keys = [pairedKey, ...provenOf(machine.id)];
+    } else {
+      keys = [...provenOf(machine.id)];
+      if (keys.length === 0) continue;
+    }
     const joined: MachineRecord[][] = [];
     for (const key of keys) {
       const known = groupOfKey.get(key);
@@ -238,25 +306,45 @@ export function dedupeMachineRecords(
   const merges: MachineMerge[] = [];
   for (const group of groups) {
     if (group.length < 2) continue;
-    const survivor = survivorOf(group, connectedAtOf);
-    if (survivor === null) continue;
-    const stale = group.filter((machine) => machine.id !== survivor.id);
-    const customName = [survivor, ...stale].find(
+    const ssh = group.filter((machine) => machine.transport !== 'tailcat');
+    const tailcat = group.filter((machine) => machine.transport === 'tailcat');
+    // Never collapse two SSH/Tailscale records into each other; only drop duplicate Easy Connect entries.
+    if (tailcat.length === 0) continue;
+    let survivor: MachineRecord | null;
+    let stale: MachineRecord[];
+    if (ssh.length > 0) {
+      survivor = sshSurvivorOf(ssh, connectedAtOf);
+      stale = tailcat;
+    } else {
+      survivor = survivorOf(tailcat, connectedAtOf);
+      if (survivor === null) continue;
+      stale = tailcat.filter((machine) => machine.id !== survivor!.id);
+    }
+    const affected = [survivor, ...stale];
+    const customName = affected.find(
       (machine) =>
         machine.name.length > 0 && machine.computerName !== undefined && machine.name !== machine.computerName,
     )?.name;
-    const latestConnection = group.reduce<string | null>(
+    const name =
+      survivor.transport !== 'tailcat'
+        ? survivor.name.length > 0
+          ? survivor.name
+          : (customName ?? stale.find((machine) => machine.name.length > 0)?.name ?? survivor.name)
+        : (customName ?? survivor.name);
+    const computerName = survivor.computerName ?? stale.find((machine) => machine.computerName !== undefined)?.computerName;
+    const latestConnection = affected.reduce<string | null>(
       (latest, machine) => (timeOf(machine.lastConnectedAt) > timeOf(latest) ? machine.lastConnectedAt : latest),
       null,
     );
     const merged: MachineRecord = {
       ...survivor,
-      name: customName ?? survivor.name,
+      name,
+      ...(computerName !== undefined ? { computerName } : {}),
       lastConnectedAt: latestConnection,
     };
-    if (group.some((machine) => machine.disabled !== true)) delete merged.disabled;
-    // The group's first slot in the tab order holds the merged record; the others drop out.
-    const inTabOrder = [...group].sort((a, b) => orderOf(a.id) - orderOf(b.id));
+    if (affected.some((machine) => machine.disabled !== true)) delete merged.disabled;
+    // The affected group's first slot in the tab order holds the merged record; the stale records drop out.
+    const inTabOrder = [...affected].sort((a, b) => orderOf(a.id) - orderOf(b.id));
     replacements.set(inTabOrder[0]!.id, merged);
     for (const machine of inTabOrder.slice(1)) replacements.set(machine.id, null);
     merges.push({ survivorId: survivor.id, staleIds: stale.map((machine) => machine.id) });
@@ -299,8 +387,9 @@ export function machineForSameComputer(
 }
 
 /**
- * The saved record a pairing that was just approved belongs to, so that record is paired again
- * instead of a second one being added; null when the computer is new to this phone.
+ * The saved record a pairing that was just approved belongs to, so that record is paired again (or,
+ * for an existing Tailscale/SSH record, gains Easy Connect as its fallback route) instead of a
+ * second record being added; null when the computer is new to this phone.
  *
  * `scanned` is the address the code carried and `answered` the addresses the computer named in its
  * pairing answer. A record is that computer when
@@ -321,9 +410,14 @@ export function machineToPairAgain(
 ): MachineRecord | null {
   const scannedKey = tailcatServerKey(scanned);
   if (scannedKey === null) return null;
-  const candidates = machines.filter((machine) => machine.transport === 'tailcat');
+  // Prefer a matching Tailscale/SSH record over a tailcat record so scanning adds/updates its fallback
+  // route rather than keeping a duplicate tailcat entry.
+  const candidates = [
+    ...machines.filter((machine) => machine.transport !== 'tailcat' && machine.transport !== 'demo'),
+    ...machines.filter((machine) => machine.transport === 'tailcat'),
+  ];
   const provenKeys = (machine: MachineRecord): string[] => {
-    const token = tokenOf(machine.id);
+    const token = machine.transport === 'tailcat' ? tokenOf(machine.id) : null;
     const pairedKey = token === null ? null : tailcatServerKey(token);
     return [...(pairedKey === null ? [] : [pairedKey]), ...provenOf(machine.id)];
   };
@@ -337,6 +431,29 @@ export function machineToPairAgain(
     ) ??
     null
   );
+}
+
+/**
+ * The merge to act on now that `machineId` has shown which computer it reaches:
+ * - When `machineId` is the survivor of its group, returns that merge.
+ * - When `machineId` is a `tailcat` duplicate of an SSH/Tailscale survivor, returns that merge too
+ *   so connecting over Easy Connect still hides the duplicate and keeps the Tailscale/SSH entry.
+ * - When `machineId` is a non-survivor in a `tailcat`-only group, returns null (nothing is certain yet).
+ */
+export function duplicateMergeFor(
+  machines: readonly MachineRecord[],
+  tokenOf: (machineId: string) => string | null,
+  provenOf: (machineId: string) => readonly string[],
+  machineId: string,
+  connectedAtOf: (machineId: string) => number | null = () => null,
+): MachineMerge | null {
+  const { merges } = dedupeMachineRecords(machines, tokenOf, provenOf, connectedAtOf);
+  const bySurvivor = merges.find((entry) => entry.survivorId === machineId);
+  if (bySurvivor !== undefined) return bySurvivor;
+  const byStale = merges.find((entry) => entry.staleIds.includes(machineId));
+  if (byStale === undefined) return null;
+  const survivor = machines.find((machine) => machine.id === byStale.survivorId);
+  return survivor !== undefined && survivor.transport !== 'tailcat' ? byStale : null;
 }
 
 /**

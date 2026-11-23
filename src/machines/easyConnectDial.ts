@@ -15,6 +15,7 @@ import {
   type MachineConnectionTarget,
 } from './credentials';
 import { tailcatServerKey } from './computerIdentity';
+import { noteEasyConnectAddressesSaved } from './duplicateComputers';
 import { easyConnectOnFromAnswer, noteEasyConnectOn } from './easyConnectRoute';
 import { pairingEpoch, samePairing } from './pairingEpoch';
 import {
@@ -144,6 +145,7 @@ export async function saveEasyConnectAddresses(
       .map((entry) => `${entry.relay} (${entry.kind})`)
       .join(', ')}`,
   );
+  noteEasyConnectAddressesSaved(machineId);
   return true;
 }
 

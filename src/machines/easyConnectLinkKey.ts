@@ -9,6 +9,7 @@ import { logAppEvent } from '../app/appLog';
 import { chatMachineLink, onChatLinkHandshake } from '../chat/rust/machine-link';
 import type { MachineConnectionTarget } from './credentials';
 import { loadRegistered, nativeHasMachineKeys, saveRegistered } from './easyConnectLinkKeyState';
+import { hasEasyConnectRoute, useMachineRoutes } from './easyConnectRoute';
 import { pairingEpoch, samePairing } from './pairingEpoch';
 import { enabledMachines, useMachinesStore } from './store';
 
@@ -24,7 +25,8 @@ async function registerLinkKey(
   capabilities: readonly string[],
   redial: (machineId: string) => void,
 ): Promise<void> {
-  if (machine.transport !== 'tailcat' || !nativeHasMachineKeys()) return;
+  const usesEasyConnect = machine.transport === 'tailcat' || hasEasyConnectRoute(machine);
+  if (!usesEasyConnect || !nativeHasMachineKeys()) return;
   if (!capabilities.includes(EASY_CONNECT_CLIENT_KEYS_CAPABILITY) || registering.has(machine.id)) return;
   registering.add(machine.id);
   // The computer that takes the key is the one the entry is paired with now; one it was paired
@@ -44,9 +46,11 @@ async function registerLinkKey(
     }
     await saveRegistered((current) => ({ ...current, [machine.id]: publicKey }));
     await GhostexNative.useTailcatMachineClientKey!(machine.id, true);
-    // The computer restarts its Easy Connect helper for the new allow-list, which ends this tunnel:
-    // dial again on the new key straight away instead of waiting to notice.
-    redial(machine.id);
+    // The computer restarts its Easy Connect helper for the new allow-list, which ends an Easy
+    // Connect tunnel: dial again straight away, without dropping an active Tailscale/SSH link.
+    if (machine.transport === 'tailcat' || useMachineRoutes.getState().active[machine.id] === 'easyConnect') {
+      redial(machine.id);
+    }
   } catch (error) {
     logAppEvent(
       `Easy Connect: ${machine.id} kept its shared key (${error instanceof Error ? error.message : String(error)})`,

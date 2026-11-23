@@ -11,7 +11,9 @@ import { create } from 'zustand';
 
 import { onChatLinkHandshake } from '../chat/rust/machine-link';
 import { isDemoMachine } from '../demo/identity';
-import type { MachineConnectionTarget } from './credentials';
+import { getEasyConnectAddresses, type MachineConnectionTarget } from './credentials';
+import { noteEasyConnectAddressesSaved } from './duplicateComputers';
+import { decodeSavedAddresses } from './easyConnectAddresses';
 import { checkEasyConnectOn } from './easyConnectDial';
 import {
   easyConnectOnFor,
@@ -99,6 +101,21 @@ export function dismissFallbackAsk(machineId: string): void {
 
 // Registered when the dialog's module loads (EasyConnectFallbackAsk.tsx, mounted at the app's root).
 onChatLinkHandshake((machine, capabilities) => {
+  // When a Tailscale/SSH computer shakes hands while an enabled standalone Easy Connect entry is
+  // also saved, check whether they are the same computer (issue #722): reconcile cached addresses
+  // right away or read `/api/easyConnectAddresses` once without changing fallback settings.
+  if (!isDemoMachine(machine) && signsInOverSsh(machine)) {
+    const hasEnabledTailcat = useMachinesStore
+      .getState()
+      .machines.some((entry) => entry.transport === 'tailcat' && entry.disabled !== true);
+    if (hasEnabledTailcat) {
+      void (async () => {
+        const saved = decodeSavedAddresses(await getEasyConnectAddresses(machine.id), null);
+        if (saved !== null) noteEasyConnectAddressesSaved(machine.id);
+        else await checkEasyConnectOn(machine);
+      })().catch(() => undefined);
+    }
+  }
   if (!canFallBack(machine, capabilities.includes(PAIR_OVER_SSH_EASY_CONNECT_CAPABILITY))) return;
   void askIfUndecided(machine);
 });

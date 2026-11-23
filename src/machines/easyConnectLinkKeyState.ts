@@ -18,7 +18,7 @@
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
 
-const STORAGE_KEY = 'easyConnect.linkKeys.v1';
+export const EASY_CONNECT_LINK_KEYS_STORAGE_KEY = 'easyConnect.linkKeys.v1';
 
 /** Machine id → the public key the computer accepted for it. */
 export type Registered = Record<string, string>;
@@ -34,7 +34,7 @@ function storage(): typeof import('@react-native-async-storage/async-storage').d
 
 export function loadRegistered(): Promise<Registered> {
   registered ??= storage()
-    .getItem(STORAGE_KEY)
+    .getItem(EASY_CONNECT_LINK_KEYS_STORAGE_KEY)
     .then((text) => {
       const parsed = text === null ? null : (JSON.parse(text) as unknown);
       return parsed !== null && typeof parsed === 'object' ? (parsed as Registered) : {};
@@ -47,8 +47,19 @@ export async function saveRegistered(update: (current: Registered) => Registered
   const next = update({ ...(await loadRegistered()) });
   registered = Promise.resolve(next);
   await storage()
-    .setItem(STORAGE_KEY, JSON.stringify(next))
+    .setItem(EASY_CONNECT_LINK_KEYS_STORAGE_KEY, JSON.stringify(next))
     .catch(() => undefined);
+}
+
+/** Drops saved link-key entries for machine ids that were removed or merged away. */
+export async function forgetRegisteredLinkKeys(machineIds: readonly string[]): Promise<void> {
+  if (machineIds.length === 0) return;
+  const current = await loadRegistered();
+  if (!machineIds.some((id) => id in current)) return;
+  await saveRegistered((entries) => {
+    for (const id of machineIds) delete entries[id];
+    return entries;
+  });
 }
 
 /** Whether this app build can dial a computer with a key of its own. */

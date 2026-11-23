@@ -10,7 +10,8 @@ import {
   noteEasyConnectDial,
   refreshEasyConnectAddressesSoon,
 } from '../machines/easyConnectDial';
-import { noteConnectedThrough } from '../machines/duplicateComputers';
+import { sshProofScope } from '../machines/computerIdentity';
+import { noteConnectedThrough, setDuplicateDisconnectHandler } from '../machines/duplicateComputers';
 import { applyEasyConnectLinkKey } from '../machines/easyConnectLinkKeyState';
 import { linkTransferring, noteLinkProgress, waitForLinkProgressOrIdle } from './linkActivity';
 import { onPairingChanged, pairingEpoch, samePairing } from '../machines/pairingEpoch';
@@ -74,6 +75,12 @@ onPairingChanged((machineId) => {
   cancelConnectionAttempt(machineId);
   clearDialBackoff(machineId, 'paired again');
   void dropConnection(machineId);
+});
+
+setDuplicateDisconnectHandler((staleMachineId) => {
+  cancelConnectionAttempt(staleMachineId);
+  void GhostexNative.disconnect(staleMachineId).catch(() => undefined);
+  void GhostexNative.stopTailcatForward(staleMachineId).catch(() => undefined);
 });
 
 /** When the phone last ended a computer's connection itself to dial it again (a Retry, a check, a move back). */
@@ -350,8 +357,10 @@ async function connectEasyConnect(
   assertCurrent: () => void,
   assertKept: () => Promise<void>,
 ): Promise<string | null> {
-  // What a connect proves counts for the pairing it began under (machines/provenComputer.ts).
-  const pairedAddress = await getTailcatToken(machine.id);
+  // What a connect proves counts for the pairing it began under (machines/provenComputer.ts): the
+  // paired tailcat address for Easy Connect, or host:port for a Tailscale/SSH fallback route.
+  const pairedAddress =
+    machine.transport === 'tailcat' ? await getTailcatToken(machine.id) : sshProofScope(machine);
   const candidates = await easyConnectDialCandidates(machine.id);
   assertCurrent();
   // This computer's own key once it accepted one, the phone's shared key otherwise (easyConnectLinkKeyState.ts).

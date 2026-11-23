@@ -13,11 +13,17 @@ import { create } from 'zustand';
 
 import { logAppEvent } from '../app/appLog';
 import { MachineCopy } from '../copy';
-import { dedupeMachineRecords, machineForSameComputer, tailcatServerKey } from './computerIdentity';
+import {
+  dedupeMachineRecords,
+  machineForSameComputer,
+  sshProofScope,
+  tailcatServerKey,
+} from './computerIdentity';
 import {
   clearSessionPassword,
   deleteAllCredentials,
   deleteSavedPassword,
+  getEasyConnectAddresses,
   getSavedPassword,
   getTailcatToken,
   setEasyConnectAddresses,
@@ -28,6 +34,9 @@ import {
   setTailcatToken,
   type MachineTransport,
 } from './credentials';
+import { decodeSavedAddresses } from './easyConnectAddresses';
+import { adoptEasyConnectRoute } from './easyConnectAdopt';
+import { EASY_CONNECT_LINK_KEYS_STORAGE_KEY, forgetRegisteredLinkKeys } from './easyConnectLinkKeyState';
 import { migrateMachineData } from './machineDataMigration';
 import { noteDuplicateEntries } from './duplicateNotice';
 import { notePairingChanged } from './pairingEpoch';
@@ -418,39 +427,105 @@ async function loadTailcatTokens(machines: readonly MachineRecord[]): Promise<Ma
   return byId;
 }
 
+/** The Easy Connect server keys saved in `easyconnectaddresses` for each SSH/Tailscale machine, by id. */
+async function loadSshEasyConnectKeys(machines: readonly MachineRecord[]): Promise<Map<string, string[]>> {
+  const ssh = machines.filter((machine) => machine.transport !== 'tailcat' && machine.transport !== 'demo');
+  const rawLists = await Promise.all(ssh.map((machine) => getEasyConnectAddresses(machine.id)));
+  const byId = new Map<string, string[]>();
+  ssh.forEach((machine, index) => {
+    const saved = decodeSavedAddresses(rawLists[index] ?? null, null);
+    if (saved === null) return;
+    const keys = [
+      ...new Set(
+        saved.addresses
+          .map((entry) => tailcatServerKey(entry.address))
+          .filter((key): key is string => key !== null),
+      ),
+    ];
+    if (keys.length > 0) byId.set(machine.id, keys);
+  });
+  return byId;
+}
+
 /**
  * CDXC:RemotePairing 2026-11-05 DECISION:
  * Brief: "A phone never runs two tunnels to the same computer, and old duplicate records heal by
- * themselves." Loading collapses Easy Connect records for one computer into the newest pairing,
- * moves what the phone saved under the dropped ids (selected machine, workspaces, drawer state,
- * terminal tabs, chat drafts) to the kept id, and deletes the dropped records' credentials. It runs
- * before anything connects, so the dropped records never start a tunnel.
+ * themselves." Loading collapses duplicate records for one computer (both duplicate Easy Connect
+ * entries and a standalone Easy Connect entry alongside a Tailscale/SSH entry for the same
+ * computer, issue #722), moves what the phone saved under the dropped ids (selected machine,
+ * workspaces, drawer state, terminal tabs, chat drafts) to the kept id, adopts the Easy Connect
+ * fallback route onto a Tailscale/SSH survivor when it does not already have one, and deletes the
+ * dropped records' credentials. It runs before anything connects, so dropped records never start
+ * a tunnel.
  */
 async function healDuplicateComputers(machines: MachineRecord[]): Promise<MachineRecord[]> {
   try {
-    const tokens = await loadTailcatTokens(machines);
-    // Records under different addresses are one computer when earlier connects proved it, and the
-    // one kept is the one whose own login worked last; a group where nothing says so is left alone
-    // (provenComputer.ts, computerIdentity.ts `survivorOf`).
-    const proofs = await loadMachineProofs((id) => tokens.get(id) ?? null);
-    const { machines: deduped, merges } = dedupeMachineRecords(
+    if (!machines.some((machine) => machine.transport === 'tailcat')) return machines;
+    const [tokens, sshKeys] = await Promise.all([loadTailcatTokens(machines), loadSshEasyConnectKeys(machines)]);
+    const scopeById = new Map<string, string>();
+    for (const machine of machines) {
+      if (machine.transport === 'demo') continue;
+      if (machine.transport === 'tailcat') {
+        const token = tokens.get(machine.id);
+        if (token !== undefined) scopeById.set(machine.id, token);
+      } else {
+        const scope = sshProofScope(machine);
+        if (scope !== null) scopeById.set(machine.id, scope);
+      }
+    }
+    // Records under different addresses are one computer when earlier connects proved it or an
+    // SSH/Tailscale entry fetched the same Easy Connect server keys from the computer itself
+    // (provenComputer.ts, computerIdentity.ts).
+    const proofs = await loadMachineProofs((id) => scopeById.get(id) ?? null);
+    const { machines: dedupedRaw, merges } = dedupeMachineRecords(
       machines,
       (id) => tokens.get(id) ?? null,
-      (id) => proofs[id]?.keys ?? [],
+      (id) => {
+        const proven = proofs[id]?.keys ?? [];
+        const saved = sshKeys.get(id) ?? [];
+        return saved.length === 0 ? proven : [...new Set([...proven, ...saved])];
+      },
       (id) => proofs[id]?.connectedAt ?? null,
     );
     if (merges.length === 0) return machines;
+    const byId = new Map(machines.map((machine) => [machine.id, machine] as const));
+    const deduped = [...dedupedRaw];
+    for (const merge of merges) {
+      const survivorIndex = deduped.findIndex((machine) => machine.id === merge.survivorId);
+      const survivor = survivorIndex >= 0 ? deduped[survivorIndex] : undefined;
+      if (survivor === undefined || survivor.transport === 'tailcat') continue;
+      const staleRecords = merge.staleIds
+        .map((id) => byId.get(id))
+        .filter((entry): entry is MachineRecord => entry !== undefined);
+      const adopted = await adoptEasyConnectRoute(survivor, staleRecords);
+      if (adopted !== null) {
+        deduped[survivorIndex] = {
+          ...survivor,
+          easyConnectPairedAt: adopted.easyConnectPairedAt,
+          ...(adopted.deviceId !== undefined && survivor.deviceId === undefined ? { deviceId: adopted.deviceId } : {}),
+        };
+      }
+    }
     const renames = new Map<string, string>();
     for (const merge of merges) for (const staleId of merge.staleIds) renames.set(staleId, merge.survivorId);
     // Data first: if the app stops halfway, the duplicates are still saved and the next launch redoes it.
-    // What a dropped record proved goes with it instead of moving to the kept one (provenComputer.ts).
-    await migrateMachineData(AsyncStorage, renames, new Set([MACHINES_STORAGE_KEY, PROVEN_SERVER_KEYS_STORAGE_KEY]));
+    // What a dropped record proved and its per-machine native link key go with it instead of moving to
+    // the kept one (provenComputer.ts, easyConnectLinkKeyState.ts).
+    await migrateMachineData(
+      AsyncStorage,
+      renames,
+      new Set([MACHINES_STORAGE_KEY, PROVEN_SERVER_KEYS_STORAGE_KEY, EASY_CONNECT_LINK_KEYS_STORAGE_KEY]),
+    );
     await AsyncStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify(deduped));
     await Promise.all([...renames.keys()].map((staleId) => deleteAllCredentials(staleId)));
     await forgetProvenServerKeys([...renames.keys()]);
+    await forgetRegisteredLinkKeys([...renames.keys()]);
     for (const merge of merges) {
+      const survivor = deduped.find((machine) => machine.id === merge.survivorId);
       logAppEvent(
-        `Easy Connect: merged ${merge.staleIds.join(', ')} into ${merge.survivorId}, the entry for that computer whose own login worked last`,
+        survivor !== undefined && survivor.transport !== 'tailcat'
+          ? `Easy Connect: merged duplicate Easy Connect entry ${merge.staleIds.join(', ')} into ${merge.survivorId}`
+          : `Easy Connect: merged ${merge.staleIds.join(', ')} into ${merge.survivorId}, the entry for that computer whose own login worked last`,
       );
       await noteDuplicateEntries(merge.survivorId, 'merged', merge.staleIds);
     }
@@ -559,6 +634,11 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
     const { easyConnectPairedAt: routePairedAt, ...withoutRoute } = edited;
     const routeGone = routePairedAt !== undefined && (edited.transport === 'tailcat' || edited.host !== existing.host);
     const machine: MachineRecord = routeGone ? withoutRoute : edited;
+    const sshTargetChanged =
+      existing.transport !== 'tailcat' &&
+      (edited.transport === 'tailcat' ||
+        edited.host.trim().toLowerCase() !== existing.host.trim().toLowerCase() ||
+        edited.port !== existing.port);
     if (routeGone) {
       notePairingChanged(machine.id);
       await Promise.all([
@@ -567,6 +647,9 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
         setEasyConnectAddresses(machine.id, ''),
       ]);
       logAppEvent(`Easy Connect: ${machine.id} got another address; its Easy Connect route was dropped`);
+    } else if (sshTargetChanged) {
+      // Even without an Easy Connect route yet, cached addresses and proofs belonged to the host before.
+      await setEasyConnectAddresses(machine.id, '');
     }
     await persistPassword(machine.id, normalized.savePassword, normalized.password);
     /*
@@ -585,7 +668,7 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
           ? normalized.tailcatToken
           : addressBefore;
     const keyOf = (address: string | null): string | null => (address === null ? null : tailcatServerKey(address));
-    const computerMayDiffer = keyOf(addressBefore) !== keyOf(addressAfter);
+    const computerMayDiffer = keyOf(addressBefore) !== keyOf(addressAfter) || sshTargetChanged;
     // First of all: a connect still running under the address before is ended, and nothing it
     // brings back is saved onto this entry any more (machines/pairingEpoch.ts).
     if (computerMayDiffer) notePairingChanged(machine.id);

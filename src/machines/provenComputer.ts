@@ -25,7 +25,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { tailcatServerKey } from './computerIdentity';
+import { proofScopeOf, tailcatServerKey } from './computerIdentity';
 
 /** `{ [machineId]: { paired: serverKey, keys: serverKey[], connectedAt?: ms } }`, the keys newest first. */
 export const PROVEN_SERVER_KEYS_STORAGE_KEY = 'machines.provenServerKeys.v1';
@@ -75,8 +75,8 @@ export async function loadMachineProofs(
 ): Promise<Record<string, MachineProof>> {
   const proofs: Record<string, MachineProof> = {};
   for (const [machineId, proof] of Object.entries(await loadStoredProofs())) {
-    const pairedAddress = pairedAddressOf(machineId);
-    if (pairedAddress !== null && tailcatServerKey(pairedAddress) === proof.paired) {
+    const scope = proofScopeOf(pairedAddressOf(machineId));
+    if (scope !== null && scope === proof.paired) {
       proofs[machineId] = { keys: proof.keys, connectedAt: proof.connectedAt ?? null };
     }
   }
@@ -111,7 +111,7 @@ function changeStoredProofs(change: (stored: StoredProofs) => boolean): Promise<
  * it is saved; nothing is recorded for an address without a key this app can read.
  */
 export function recordProvenAddress(machineId: string, pairedAddress: string | null, address: string): Promise<void> {
-  const paired = pairedAddress === null ? null : tailcatServerKey(pairedAddress);
+  const paired = proofScopeOf(pairedAddress);
   const key = tailcatServerKey(address);
   if (paired === null || key === null) return Promise.resolve();
   const connectedAt = Date.now();

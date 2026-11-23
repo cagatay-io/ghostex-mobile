@@ -23,8 +23,9 @@
 import { Platform } from 'react-native';
 
 import { GhostexNative } from '../../modules/ghostex-native/src';
-import { machineToPairAgain } from './computerIdentity';
+import { machineToPairAgain, sshProofScope, tailcatServerKey } from './computerIdentity';
 import {
+  getDeviceApiToken,
   getEasyConnectAddresses,
   getTailcatToken,
   setDeviceApiToken,
@@ -36,8 +37,9 @@ import {
 } from './credentials';
 import { APPROVER_KEY_ALGORITHM, approverKeyPublic, hasApproverKey } from '../security/approverKey';
 import { DEVICE_KEY_ALGORITHM, deviceKeyPublic, deviceKeySign, hasDeviceKey } from './deviceKey';
-import { decodeSavedAddresses, readEasyConnectAddresses } from './easyConnectAddresses';
+import { decodeSavedAddresses, encodeSavedAddresses, readEasyConnectAddresses } from './easyConnectAddresses';
 import { saveEasyConnectAddresses } from './easyConnectDial';
+import { saveEasyConnectRoute, setFallbackChoice } from './easyConnectRoute';
 import type { EasyConnectCode } from './pairingCodes';
 import { matchWords, pairingStatusPayload, sameWords } from './pairingWords';
 import { loadProvenServerKeys } from './provenComputer';
@@ -311,34 +313,56 @@ async function waitForApproval(
 }
 
 /**
- * The saved Easy Connect machine for the computer behind `address`, if any. Pairing that computer
- * again re-pairs this record instead of adding a second one: two records mean two tunnels to one
- * computer, which break each other (CDXC:RemotePairing 2026-11-05 in computerIdentity.ts).
+ * The saved machine for the computer behind `address`, if any (either an existing Easy Connect
+ * record to re-pair, or a Tailscale/SSH record to attach Easy Connect to as its fallback route,
+ * issue #722). Two records mean duplicate entries and two tunnels to one computer, which break each
+ * other (CDXC:RemotePairing 2026-11-05 in computerIdentity.ts).
  */
 async function savedMachineForComputer(address: string, answered: unknown): Promise<string | null> {
   const { machines } = useMachinesStore.getState();
-  const tailcat = machines.filter((machine) => machine.transport === 'tailcat');
+  const candidates = machines.filter((machine) => machine.transport !== 'demo');
   const tokens = new Map<string, string | null>(
-    await Promise.all(tailcat.map(async (machine) => [machine.id, await getTailcatToken(machine.id)] as const)),
+    await Promise.all(
+      candidates.map(async (machine) => [
+        machine.id,
+        machine.transport === 'tailcat' ? await getTailcatToken(machine.id) : null,
+      ] as const),
+    ),
   );
-  // A computer's second address has its own server key, so a record saved with the other address is
-  // found through the address list the computer gave it.
+  // A computer's second address has its own server key, so a record saved with another address
+  // (or an SSH/Tailscale entry that fetched the computer's Easy Connect list) is found through it.
   const lists = new Map<string, string[]>(
     await Promise.all(
-      tailcat.map(async (machine) => {
+      candidates.map(async (machine) => {
         const saved = decodeSavedAddresses(await getEasyConnectAddresses(machine.id), tokens.get(machine.id) ?? null);
         return [machine.id, (saved?.addresses ?? []).map((entry) => entry.address)] as const;
       }),
     ),
   );
+  const scopes = new Map<string, string | null>(
+    candidates.map((machine) => [
+      machine.id,
+      machine.transport === 'tailcat' ? (tokens.get(machine.id) ?? null) : sshProofScope(machine),
+    ]),
+  );
   // Since 11.3.0 the code carries the computer's pairing door, a key of its own: a record is
   // found by it only under `machineToPairAgain`'s two-way rule (computerIdentity.ts).
-  const proven = await loadProvenServerKeys((id) => tokens.get(id) ?? null);
+  const proven = await loadProvenServerKeys((id) => scopes.get(id) ?? null);
   return (
     machineToPairAgain(
-      tailcat,
+      candidates,
       (id) => tokens.get(id) ?? null,
-      (id) => proven[id] ?? [],
+      (id) => {
+        const keys = proven[id] ?? [];
+        const machine = candidates.find((entry) => entry.id === id);
+        if (machine !== undefined && machine.transport !== 'tailcat') {
+          const listedKeys = (lists.get(id) ?? [])
+            .map((entry) => tailcatServerKey(entry))
+            .filter((key): key is string => key !== null);
+          return [...new Set([...keys, ...listedKeys])];
+        }
+        return keys;
+      },
       (id) => lists.get(id) ?? [],
       address,
       readEasyConnectAddresses(answered).map((entry) => entry.address),
@@ -476,7 +500,46 @@ export async function pairEasyConnect(
       const giveUpAtMs = pairingGiveUpAt(started.expiresAtMs);
       options.onPending?.({ words, computerName: started.computerName || code.name, giveUpAtMs });
       const registration = await waitForApproval(localPort, started.pendingId, giveUpAtMs, options.signal);
-      const machine = await saveEasyConnectMachine(code, registration, rePairMachineId);
+      // When scanning a computer already saved over Tailscale/SSH, attach Easy Connect as its
+      // fallback route instead of adding a duplicate Easy Connect record (issue #722).
+      const matchedId =
+        rePairMachineId ?? (await savedMachineForComputer(code.address, registration.easyConnectAddresses));
+      const matched =
+        matchedId === null
+          ? null
+          : (useMachinesStore.getState().machines.find((entry) => entry.id === matchedId) ?? null);
+      if (rePairMachineId === null && matched !== null && matched.transport !== 'tailcat') {
+        await saveEasyConnectRoute(matched.id, key, async () => {
+          const saved = await saveEasyConnectAddresses(matched.id, registration.easyConnectAddresses, null);
+          if (saved) return true;
+          await setEasyConnectAddresses(
+            matched.id,
+            encodeSavedAddresses({
+              fetchedAt: Date.now(),
+              addresses: [{ address: code.address, relay: 'tailcat.dev', kind: 'public' }],
+            }),
+          );
+          return true;
+        });
+        setFallbackChoice(matched.id, 'yes');
+        if (!(await getDeviceApiToken(matched.id)) && registration.deviceApiToken) {
+          await Promise.all([
+            setDeviceApiToken(matched.id, registration.deviceApiToken),
+            setDeviceTokenExpiresAt(
+              matched.id,
+              registration.deviceTokenExpiresAtMs === null ? '' : String(registration.deviceTokenExpiresAtMs),
+            ),
+          ]);
+          useMachinesStore.getState().setMachineDeviceId(matched.id, registration.deviceId);
+        }
+        await forgetEasyConnectLinkKey(matched.id);
+        await GhostexNative.resetHostKey(tailcatSyntheticHost(matched.id), matched.port);
+        if (matched.disabled === true) useMachinesStore.getState().setMachineDisabled(matched.id, false);
+        const updated =
+          useMachinesStore.getState().machines.find((entry) => entry.id === matched.id) ?? matched;
+        return { ok: true, machine: updated };
+      }
+      const machine = await saveEasyConnectMachine(code, registration, matchedId);
       await Promise.all([
         setSshKey(machine.id, key.privateKey),
         setPublicKey(machine.id, key.publicKey),
