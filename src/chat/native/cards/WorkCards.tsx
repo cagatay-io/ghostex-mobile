@@ -13,6 +13,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
+  Animated,
+  PanResponder,
   Pressable,
   ScrollView,
   Text,
@@ -24,6 +26,13 @@ import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/d
 import type { RustChat } from '../../rust/useRustChat';
 import { SidebarPalette } from '../../../theme/palette';
 import { Glyph, type GlyphName } from './icons';
+import {
+  ASKS_GROUP_NAME,
+  ASKS_GROUP_PLURAL,
+  ASKS_GROUP_SINGULAR,
+  INBOX_NAME,
+  asksCountWords,
+} from './inboxLabels';
 import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { usePageCountRefresh } from './pageCounts';
 import { ToneButton } from './ToneCard';
@@ -216,7 +225,7 @@ function dockMoreLabel(hiddenRows: JsonRecord[]): string {
   const blocked = hiddenRows.filter((row) => !isTrue(row, 'needs') && str(row, 'kind') === 'blocked').length;
   const done = hiddenRows.length - needs - blocked;
   const parts: string[] = [];
-  if (needs > 0) parts.push(`${needs} more ${needs === 1 ? 'needs you' : 'need you'}`);
+  if (needs > 0) parts.push(`${needs} more ${asksCountWords(needs)}`);
   if (blocked > 0) parts.push(`${blocked} more blocked`);
   if (done > 0) parts.push(`${done} more done`);
   return parts.join(' \u00b7 ');
@@ -309,6 +318,8 @@ export function WorkDock({
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
+  const [answeredOpen, setAnsweredOpen] = useState(false);
+  const [swipeSnoozeRow, setSwipeSnoozeRow] = useState<JsonRecord | null>(null);
   const env = useMemo<TranscriptEnv>(
     () => ({
       dispatch,
@@ -349,6 +360,8 @@ export function WorkDock({
   const dock = obj(dockValue);
   const rows = dockRows(document);
   const snoozed = dockSnoozed(document);
+  const answered = dockAnswered(document);
+  const undoMarkAllRead = obj(dock?.undoMarkAllRead);
   const board = obj(boardValue);
   // The sheet's row left the dock while it was open: the sheet goes (its key with it, so the same
   // row coming back later does not pop it up again), and an ask the coordinator, the computer or
@@ -376,7 +389,7 @@ export function WorkDock({
     return null;
   }
   // With nothing docked the bar is one line: no chevron, nothing to open.
-  const collapsible = rows.length > 0 || snoozed.length > 0;
+  const collapsible = rows.length > 0 || snoozed.length > 0 || answered.length > 0 || undoMarkAllRead !== null;
   const hiddenInCore = isTrue(dock, 'hidden');
   // An approval the agent waits on (or one just answered) keeps the dock open while typing: it is
   // drawn nowhere else (gx-chat-core extras/dock_approvals.rs; desktop `render_work_dock`).
@@ -388,15 +401,15 @@ export function WorkDock({
   const hidden = Math.max(0, rows.length - limit);
   const shown = all && hidden > 0 ? rows : rows.slice(0, limit);
   const markAllSeen = obj(dock?.markAllSeen);
-  // A tap on a row shows its ask in a sheet over the chat (desktop `dock_ask_modal`): the dock's
-  // rows never open in place. The sheet goes when the row does (answered, dismissed, snoozed).
-  //
-  // CDXC:Coordinators 2026-11-14 DECISION:
-  // User: "i want when i click on a thing like this one to open modal instead of expanding like
-  // accordion because accordion is annoying pls fix". Supersedes the rows opening in place
-  // (2026-11-12, opening and closing each docked card animated).
+  const markAllSummary = str(markAllSeen, 'summary');
+  const soonestSnoozeAge = snoozed.length > 0 ? str(snoozed[0], 'age') : '';
   const sheetRow =
     sheetKey === null ? null : ([...rows, ...snoozed].find((row) => str(row, 'key') === sheetKey) ?? null);
+  const swipeSnoozeChoices = swipeSnoozeRow === null
+    ? []
+    : arr(swipeSnoozeRow.snooze)
+        .map(obj)
+        .filter((choice): choice is JsonRecord => choice !== null);
   return (
     <TranscriptFlagsProvider value={flags}>
       <TranscriptEnvProvider value={env}>
@@ -408,6 +421,7 @@ export function WorkDock({
               status={status}
               collapsible={collapsible}
               open={!collapsed}
+              onOpenGroup={(group) => dispatch({ type: 'showCoordinatorBoardGroup', group } as never)}
               onOpenWork={
                 onOpenWork ?? (() => dispatch({ type: 'showCoordinatorBoardGroup', group: 'needs' } as never))
               }
@@ -432,13 +446,36 @@ export function WorkDock({
                 contentContainerStyle={styles.dockRows}
                 nestedScrollEnabled
               >
-                {shown.map((row) => (
-                  <View key={str(row, 'key')}>
-                    <QuestionFlashFrame target={str(row, 'key')} light={P.light}>
-                      <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(str(row, 'key'))} />
-                    </QuestionFlashFrame>
-                  </View>
-                ))}
+                {shown.map((row) => {
+                  const rowKey = str(row, 'key');
+                  const dismissCmd = obj(row.dismiss);
+                  const rowSnooze = arr(row.snooze)
+                    .map(obj)
+                    .filter((choice): choice is JsonRecord => choice !== null);
+                  const rowContent =
+                    str(row, 'kind') === 'pageBundle' ? (
+                      <DockPageBundleRow row={row} chat={chat} />
+                    ) : (
+                      <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
+                    );
+                  return (
+                    <View key={rowKey}>
+                      <QuestionFlashFrame target={rowKey} light={P.light}>
+                        <SwipeableInboxRow
+                          canDismiss={dismissCmd !== null}
+                          dismissLabel={str(row, 'dismissLabel') === 'Mark as read' ? 'Read' : 'Dismiss'}
+                          canSnooze={rowSnooze.length > 0}
+                          onDismiss={() => {
+                            if (dismissCmd !== null) dispatch(dismissCmd as never);
+                          }}
+                          onSnooze={() => setSwipeSnoozeRow(row)}
+                        >
+                          {rowContent}
+                        </SwipeableInboxRow>
+                      </QuestionFlashFrame>
+                    </View>
+                  );
+                })}
                 {hidden > 0 || markAllSeen !== null ? (
                   <View style={styles.dockFoot}>
                     {hidden > 0 ? (
@@ -452,13 +489,19 @@ export function WorkDock({
                           {all ? 'Show fewer' : dockMoreLabel(rows.slice(limit))}
                         </Text>
                       </Pressable>
+                    ) : markAllSummary.length > 0 ? (
+                      <Text style={styles.dockMarkSummary} numberOfLines={1}>
+                        {markAllSummary}
+                      </Text>
                     ) : null}
-                    {/* Mark all read (gx-chat-core `dock_with`), in the more line's quiet words, at its right. */}
                     {markAllSeen !== null ? (
                       <Pressable
                         accessibilityRole="button"
                         hitSlop={8}
-                        style={styles.dockMarkSeen}
+                        style={({ pressed }) => [
+                          styles.dockMarkSeen,
+                          pressed && { backgroundColor: P.ink(0.09) },
+                        ]}
                         onPress={() => dispatch(markAllSeen.command as never)}
                       >
                         <Text style={styles.dockMarkSeenText}>{str(markAllSeen, 'label') || 'Mark all read'}</Text>
@@ -466,9 +509,34 @@ export function WorkDock({
                     ) : null}
                   </View>
                 ) : null}
-                {/* The snoozed ones, folded under one quiet row (desktop `work_dock_snoozed`): a tap
-                    opens them in place, dimmed, each saying when it is back; Unsnooze is in its
-                    long-press menu (`workMenuRows`). */}
+                {undoMarkAllRead !== null ? (
+                  <View style={styles.dockUndoBar}>
+                    <Glyph name="circle-check-filled" size={13} color="#2fa865" />
+                    <Text style={styles.dockUndoText} numberOfLines={1}>
+                      {str(undoMarkAllRead, 'label') || 'Marked read'}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      style={({ pressed }) => [
+                        styles.dockUndoButton,
+                        pressed && { backgroundColor: P.ink(0.12) },
+                      ]}
+                      onPress={() => dispatch(undoMarkAllRead.command as never)}
+                    >
+                      <Text style={styles.dockUndoButtonText}>Undo</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss"
+                      hitSlop={8}
+                      onPress={() => dispatch(undoMarkAllRead.dismiss as never)}
+                      style={styles.dockUndoClose}
+                    >
+                      <Glyph name="x" size={12} color={P.muted} />
+                    </Pressable>
+                  </View>
+                ) : null}
                 {snoozed.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
@@ -478,7 +546,9 @@ export function WorkDock({
                   >
                     <Glyph name="clock" size={13} color={P.cardMuted} />
                     <Text style={styles.dockSnoozedText} numberOfLines={1}>
-                      {`Snoozed (${snoozed.length})`}
+                      {!snoozedOpen && soonestSnoozeAge.length > 0
+                        ? `Snoozed (${snoozed.length}) \u00b7 ${soonestSnoozeAge}`
+                        : `Snoozed (${snoozed.length})`}
                     </Text>
                     <View style={snoozedOpen ? styles.dockSnoozedChevronOpen : null}>
                       <Glyph name="chevron-down" size={12} color={P.cardMuted} />
@@ -492,6 +562,51 @@ export function WorkDock({
                       </View>
                     ))
                   : null}
+                {answered.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: answeredOpen }}
+                    style={styles.dockSnoozed}
+                    onPress={() => setAnsweredOpen((was) => !was)}
+                  >
+                    <Glyph name="circle-check-filled" size={13} color="#2fa865" />
+                    <Text style={styles.dockSnoozedText} numberOfLines={1}>
+                      {`Answered (${answered.length})`}
+                    </Text>
+                    <View style={answeredOpen ? styles.dockSnoozedChevronOpen : null}>
+                      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
+                    </View>
+                  </Pressable>
+                ) : null}
+                {answeredOpen
+                  ? answered.map((row, idx) => {
+                      const showInChat = obj(row.showInChat);
+                      const outcome = str(row, 'outcome');
+                      const age = str(row, 'age');
+                      return (
+                        <Pressable
+                          key={`${str(row, 'key')}:${idx}`}
+                          disabled={showInChat === null}
+                          onPress={() => (showInChat !== null ? dispatch(showInChat as never) : undefined)}
+                          style={({ pressed }) => [
+                            styles.dockAnsweredRow,
+                            pressed && showInChat !== null && { backgroundColor: P.ink(0.04) },
+                          ]}
+                        >
+                          <Glyph name="circle-check-filled" size={12} color="#2fa865" />
+                          <Text style={styles.dockAnsweredTitle} numberOfLines={1}>
+                            {str(row, 'title')}
+                          </Text>
+                          {outcome.length > 0 ? (
+                            <Text style={styles.dockAnsweredOutcome} numberOfLines={1}>
+                              {outcome}
+                            </Text>
+                          ) : null}
+                          {age.length > 0 ? <Text style={styles.foldTime}>{age}</Text> : null}
+                        </Pressable>
+                      );
+                    })
+                  : null}
               </ScrollView>
             )}
           </View>
@@ -503,6 +618,32 @@ export function WorkDock({
             </ScrollView>
           ) : null}
         </Sheet>
+        <Sheet
+          visible={swipeSnoozeRow !== null && swipeSnoozeChoices.length > 0}
+          onClose={() => setSwipeSnoozeRow(null)}
+          title={swipeSnoozeRow ? `Snooze "${str(swipeSnoozeRow, 'title')}"` : 'Snooze'}
+        >
+          <View style={styles.snoozeSheetList}>
+            {swipeSnoozeChoices.map((choice, index) => (
+              <Pressable
+                key={`swipe-snooze:${index}`}
+                accessibilityRole="button"
+                onPress={() => {
+                  const cmd = obj(choice.command);
+                  setSwipeSnoozeRow(null);
+                  if (cmd !== null) dispatch(cmd as never);
+                }}
+                style={({ pressed }) => [
+                  styles.snoozeSheetRow,
+                  pressed && { backgroundColor: P.ink(0.06) },
+                ]}
+              >
+                <Glyph name="clock" size={15} color={P.cardMuted} />
+                <Text style={styles.snoozeSheetLabel}>{str(choice, 'label')}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Sheet>
       </TranscriptEnvProvider>
     </TranscriptFlagsProvider>
   );
@@ -510,7 +651,7 @@ export function WorkDock({
 
 /** The header's counts and their marks, with their words (desktop `work_dock_header`). */
 const HEADER_GROUPS: { id: string; status: string; one: string; many: string }[] = [
-  { id: 'needs', status: 'needs', one: 'needs you', many: 'need you' },
+  { id: 'needs', status: 'needs', one: ASKS_GROUP_SINGULAR, many: ASKS_GROUP_PLURAL },
   { id: 'blocked', status: 'blocked', one: 'blocked', many: 'blocked' },
   { id: 'moving', status: 'moving', one: 'in progress', many: 'in progress' },
 ];
@@ -522,9 +663,16 @@ function dockRows(document: ChatDocument | null): JsonRecord[] {
     .filter((row): row is JsonRecord => row !== null);
 }
 
-/** The dock's snoozed asks, forms and pages (gx-chat-core `dock_with`'s `snoozed`), soonest back first. */
+/** The dock's snoozed asks, forms, pages and to-dos (gx-chat-core `dock_with`'s `snoozed`). */
 function dockSnoozed(document: ChatDocument | null): JsonRecord[] {
   return arr(obj(document?.workDock)?.snoozed)
+    .map(obj)
+    .filter((row): row is JsonRecord => row !== null);
+}
+
+/** Recently answered items for the collapsible Answered drawer (gx-chat-core `dock_with`'s `answered`). */
+function dockAnswered(document: ChatDocument | null): JsonRecord[] {
+  return arr(obj(document?.workDock)?.answered)
     .map(obj)
     .filter((row): row is JsonRecord => row !== null);
 }
@@ -544,8 +692,7 @@ function dockCounts(
     }
     const count =
       group.id === 'needs'
-        ? // An opened page that waits only to be seen keeps its row but not its count (gx-chat-core `questions/later.rs` `seen_on_open`).
-          rows.filter((row) => isTrue(row, 'needs') && !isTrue(row, 'opened')).length
+        ? rows.filter((row) => isTrue(row, 'needs') && !isTrue(row, 'opened')).length
         : group.id === 'blocked'
           ? rows.filter((row) => str(row, 'status') === 'blocked').length
           : 0;
@@ -559,17 +706,214 @@ function dockCounts(
  * bar carries the status and the working card does not show.
  */
 export function workDockShown(document: ChatDocument, status: WorkingCardValue | null): boolean {
-  if (dockRows(document).length > 0 || dockSnoozed(document).length > 0) return true;
+  const dock = obj(document.workDock);
+  if (
+    dockRows(document).length > 0 ||
+    dockSnoozed(document).length > 0 ||
+    dockAnswered(document).length > 0 ||
+    obj(dock?.undoMarkAllRead) !== null
+  ) {
+    return true;
+  }
   const board = obj(document.coordinatorBoard);
   if (board === null) return false;
   return status !== null || dockCounts([], board).length > 0;
 }
 
 /**
- * The dock's header: the agent's working status at the left when it carries one; then what needs him, what is blocked and what is in progress as marks and counts
- * (the Work panel's own numbers, `pillCounts`), named when they all fit; then the Work items button
- * that opens the Work sheet and the chevron that collapses the dock to this bar. A tap anywhere on
- * it collapses or opens the dock.
+ * Pure JS swipeable wrapper for phone Inbox rows (Q4688 A):
+ * - Swipe left reveals green Read/Dismiss strip and triggers `onDismiss`.
+ * - Swipe right reveals blue Snooze strip and triggers `onSnooze`.
+ */
+function SwipeableInboxRow({
+  canDismiss,
+  dismissLabel,
+  canSnooze,
+  onDismiss,
+  onSnooze,
+  children,
+}: {
+  canDismiss: boolean;
+  dismissLabel: string;
+  canSnooze: boolean;
+  onDismiss: () => void;
+  onSnooze: () => void;
+  children: ReactNode;
+}) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const tx = useRef(new Animated.Value(0)).current;
+  const threshold = 68;
+  const maxDrag = 104;
+  const callbacksRef = useRef({ canDismiss, canSnooze, onDismiss, onSnooze });
+  callbacksRef.current = { canDismiss, canSnooze, onDismiss, onSnooze };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, gesture) => {
+          const { canDismiss: d, canSnooze: s } = callbacksRef.current;
+          if (!d && !s) return false;
+          if (Math.abs(gesture.dx) < 12 || Math.abs(gesture.dx) < Math.abs(gesture.dy) * 1.4) return false;
+          if (gesture.dx < 0 && !d) return false;
+          if (gesture.dx > 0 && !s) return false;
+          return true;
+        },
+        onPanResponderMove: (_evt, gesture) => {
+          const { canDismiss: d, canSnooze: s } = callbacksRef.current;
+          const minX = d ? -maxDrag : 0;
+          const maxX = s ? maxDrag : 0;
+          const clamped = Math.max(minX, Math.min(maxX, gesture.dx));
+          tx.setValue(clamped);
+        },
+        onPanResponderRelease: (_evt, gesture) => {
+          const { canDismiss: d, canSnooze: s, onDismiss: dismiss, onSnooze: snooze } = callbacksRef.current;
+          if (gesture.dx <= -threshold && d) {
+            Animated.spring(tx, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+            dismiss();
+            return;
+          }
+          if (gesture.dx >= threshold && s) {
+            Animated.spring(tx, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+            snooze();
+            return;
+          }
+          Animated.spring(tx, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(tx, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        },
+      }),
+    [tx],
+  );
+
+  if (!canDismiss && !canSnooze) return <>{children}</>;
+  const snoozeBg = P.light ? '#dbeafe' : '#273c56';
+  const snoozeFg = P.light ? '#1d4ed8' : '#93c5fd';
+  const dismissBg = P.light ? '#dcfce7' : '#214e36';
+  const dismissFg = P.light ? '#15803d' : '#86efac';
+
+  return (
+    <View style={styles.swipeContainer}>
+      <View style={styles.swipeBackdrop} pointerEvents="none">
+        {canSnooze ? (
+          <View style={[styles.swipeActionLeft, { backgroundColor: snoozeBg }]}>
+            <Glyph name="clock" size={14} color={snoozeFg} />
+            <Text style={[styles.swipeActionText, { color: snoozeFg }]}>Snooze</Text>
+          </View>
+        ) : (
+          <View style={styles.swipeSpacer} />
+        )}
+        {canDismiss ? (
+          <View style={[styles.swipeActionRight, { backgroundColor: dismissBg }]}>
+            <Text style={[styles.swipeActionText, { color: dismissFg }]}>{dismissLabel}</Text>
+            <Glyph name="mail-opened" size={14} color={dismissFg} />
+          </View>
+        ) : (
+          <View style={styles.swipeSpacer} />
+        )}
+      </View>
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[styles.swipeForeground, { transform: [{ translateX: tx }] }]}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
+
+/** Bundled same-turn page burst row on phone (Q4683 A). */
+function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const body = useBodyColor();
+  const [open, setOpen] = useState(false);
+  const unread = isTrue(row, 'unread');
+  const dismiss = obj(row.dismiss);
+  const pages = arr(row.bundlePages)
+    .map(obj)
+    .filter((p): p is JsonRecord => p !== null);
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((was) => !was)}
+        style={({ pressed }) => [styles.dockPress, pressed && { backgroundColor: P.ink(0.04) }]}
+      >
+        <View style={styles.dockRow}>
+          <View style={styles.dockIconWithDot}>
+            {unread ? <View style={styles.unreadDot} /> : null}
+            <Glyph name="stack" size={14} color={STATUS_COLOR.needs} />
+          </View>
+          <View style={styles.dockMain}>
+            <Text
+              numberOfLines={1}
+              style={[styles.dockTitle, { color: body, fontWeight: unread ? '600' : '400' }]}
+            >
+              {str(row, 'title')}
+            </Text>
+          </View>
+          <View style={styles.bundleActions}>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={() => setOpen((was) => !was)}
+              style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
+            >
+              <Text style={styles.bundleButtonText}>{open ? 'Collapse' : 'Expand'}</Text>
+            </Pressable>
+            {dismiss !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={() => chat.dispatch(dismiss as never)}
+                style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
+              >
+                <Text style={styles.bundleButtonText}>Read all</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </Pressable>
+      {open ? (
+        <View style={styles.subRowsWrap}>
+          {pages.map((page, idx) => {
+            const pageOpen = obj(page.open);
+            const isRead = isTrue(page, 'opened');
+            return (
+              <Pressable
+                key={`${str(page, 'key')}:${idx}`}
+                accessibilityRole="button"
+                onPress={() => (pageOpen !== null ? chat.dispatch(pageOpen as never) : undefined)}
+                style={({ pressed }) => [
+                  styles.subRow,
+                  isRead && styles.readRowDim,
+                  pressed && { backgroundColor: P.ink(0.04) },
+                ]}
+              >
+                <Glyph
+                  name={isRead ? 'mail-opened' : 'note'}
+                  size={12}
+                  color={isRead ? P.muted : STATUS_COLOR.needs}
+                />
+                <Text style={[styles.subRowText, { color: body }]} numberOfLines={1}>
+                  {str(page, 'title')}
+                </Text>
+                {str(page, 'age').length > 0 ? <Text style={styles.foldTime}>{str(page, 'age')}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The Inbox header (Q4680 B + E, Q4688 A): `[inbox icon] Inbox · [tappable ghost count chips]`
+ * plus Work button and chevron.
  */
 function DockHeader({
   rows,
@@ -577,6 +921,7 @@ function DockHeader({
   status,
   collapsible,
   open,
+  onOpenGroup,
   onOpenWork,
   onToggle,
 }: {
@@ -585,6 +930,7 @@ function DockHeader({
   status: WorkingCardValue | null;
   collapsible: boolean;
   open: boolean;
+  onOpenGroup: (group: string) => void;
   onOpenWork: () => void;
   onToggle: () => void;
 }) {
@@ -594,35 +940,31 @@ function DockHeader({
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   const counts = dockCounts(rows, board);
-  // The status's width, its spark, words and the gap after them: the marks give up their names
-  // before it is cut, and it is cut at its end before anything overlaps (desktop `work_dock_header`).
   const statusWidth =
-    status === null
-      ? 0
-      : 24 + (status.label ?? '').length * 7.4 + 12;
-  // Every mark takes its name when the bar has room for all of them, and none does when it has not.
+    status === null ? 0 : 24 + (status.label ?? '').length * 7.4 + 12;
+  const inboxLabelWidth = 18 + INBOX_NAME.length * 7.6 + 10;
   const room = width - 24 - 12 - 5 - (board !== null ? 32 : 0) - (collapsible ? 30 : 0) - 16 - statusWidth;
+  const showInboxLabel = status === null || room >= inboxLabelWidth + 80;
   const named =
-    counts.reduce(
-      (sum, entry) =>
-        sum +
-        19 +
-        String(entry.count).length * 8 +
-        4 +
-        (entry.count === 1 ? entry.group.one : entry.group.many).length * 7.4,
-      0,
-    ) +
-      12 * Math.max(0, counts.length - 1) <=
+    (showInboxLabel ? inboxLabelWidth : 22) +
+      counts.reduce(
+        (sum, entry) =>
+          sum +
+          28 +
+          String(entry.count).length * 8 +
+          4 +
+          (entry.count === 1 ? entry.group.one : entry.group.many).length * 7.4,
+        0,
+      ) +
+      6 * Math.max(0, counts.length - 1) <=
     room;
-  // With nothing to open, a tap scrolls to the bottom while the pill shows, as the working card's
-  // does (`WorkingCard.tsx`), and does nothing otherwise.
   const jump = !collapsible && awayFromBottom && jumpToBottom !== null ? () => jumpToBottom() : undefined;
   return (
     <Pressable
       {...(collapsible
         ? {
             accessibilityRole: 'button' as const,
-            accessibilityLabel: open ? 'Collapse' : 'Expand',
+            accessibilityLabel: open ? 'Collapse Inbox' : 'Expand Inbox',
             accessibilityState: { expanded: open },
           }
         : { accessibilityRole: 'summary' as const })}
@@ -640,27 +982,58 @@ function DockHeader({
       )}
       {status === null ? null : <View style={styles.dockSpacer} />}
       <View style={status === null ? styles.dockCounts : styles.dockCountsBeside}>
-        {counts.map(({ group, count }) => (
-          <View
-            key={group.id}
-            accessibilityLabel={`${count} ${count === 1 ? group.one : group.many}`}
-            style={styles.dockCount}
-          >
-            <StatusMarker status={group.status} size={13} />
-            <Text style={styles.dockCountNumber}>{count}</Text>
-            {named ? <Text style={styles.dockCountName}>{count === 1 ? group.one : group.many}</Text> : null}
-          </View>
-        ))}
+        <View style={styles.inboxTitleSlot}>
+          <Glyph name="inbox" size={14} color={P.foreground} />
+          {showInboxLabel ? <Text style={styles.inboxTitleText}>{INBOX_NAME}</Text> : null}
+        </View>
+        {counts.length > 0 ? <Text style={styles.inboxDot}>{'\u00b7'}</Text> : null}
+        {counts.map(({ group, count }) => {
+          const groupTitle = group.id === 'needs' ? ASKS_GROUP_NAME : group.id === 'blocked' ? 'Blocked' : 'In progress';
+          const chipLabel = `${count} ${count === 1 ? group.one : group.many}`;
+          return board !== null ? (
+            <Pressable
+              key={group.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${groupTitle} in Work: ${chipLabel}`}
+              hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onOpenGroup(group.id);
+              }}
+              style={({ pressed }) => [
+                styles.dockCountChip,
+                pressed && {
+                  backgroundColor: P.ink(P.light ? 0.08 : 0.12),
+                  borderColor: P.ink(0.10),
+                },
+              ]}
+            >
+              {({ pressed }) => (
+                <>
+                  <StatusMarker status={group.status} size={13} />
+                  <View style={!pressed ? styles.dockCountUnderline : undefined}>
+                    <Text style={styles.dockCountNumber}>{count}</Text>
+                    {named ? (
+                      <Text style={styles.dockCountName}>{count === 1 ? group.one : group.many}</Text>
+                    ) : null}
+                  </View>
+                </>
+              )}
+            </Pressable>
+          ) : (
+            <View key={group.id} accessibilityLabel={chipLabel} style={styles.dockCount}>
+              <StatusMarker status={group.status} size={13} />
+              <Text style={styles.dockCountNumber}>{count}</Text>
+              {named ? <Text style={styles.dockCountName}>{count === 1 ? group.one : group.many}</Text> : null}
+            </View>
+          );
+        })}
       </View>
       {board !== null ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Work items"
           hitSlop={{ top: 10, bottom: 10, left: 6, right: 4 }}
-          // Opens the sheet itself, as the Work pill does. Going through the core's
-          // `showCoordinatorBoardGroup` (`needs`) opened nothing when no item needed him: the
-          // core moves the board's focus only to a group's first row, so an empty Needs you
-          // group gave the chat screen no focus to open the sheet at.
           onPress={onOpenWork}
           style={({ pressed }) => [styles.dockHeadButton, pressed && { backgroundColor: P.neutralFillPressed }]}
         >
@@ -701,7 +1074,16 @@ function DockRow({
   const P = useTranscriptTheme();
   const body = useBodyColor();
   const [menu, setMenu] = useState(false);
+  const [dupesOpen, setDupesOpen] = useState(false);
   const kind = str(row, 'kind');
+  const unread = onClose === undefined && isTrue(row, 'unread');
+  const openedRead = onClose === undefined && isTrue(row, 'opened');
+  const duplicates = onClose === undefined
+    ? arr(row.duplicates)
+        .map(obj)
+        .filter((d): d is JsonRecord => d !== null)
+    : [];
+  const sourcesCount = typeof row.sourcesCount === 'number' ? row.sourcesCount : duplicates.length + 1;
   const isThreadWait = kind === 'threadWait';
   const waitKind = str(row, 'waitKind');
   const page = isTrue(row, 'page') && obj(row.open) !== null;
@@ -845,12 +1227,16 @@ function DockRow({
         style={({ pressed }) => [
           styles.dockPress,
           opened && styles.dockPressOpen,
+          openedRead && styles.readRowDim,
           pressed && !opened && { backgroundColor: P.ink(0.04) },
         ]}
       >
         <View style={styles.dockRow}>
-          <View style={styles.dockIcon}>
-            {threadWaitApproval ? (
+          <View style={unread ? styles.dockIconWithDot : styles.dockIcon}>
+            {unread ? <View style={styles.unreadDot} /> : null}
+            {openedRead && page ? (
+              <Glyph name="mail-opened" size={14} color={P.muted} />
+            ) : threadWaitApproval ? (
               <Glyph name="shield-check" size={14} color={SidebarPalette.ROW_APPROVAL} />
             ) : threadWaitWarn ? (
               <Glyph name="alert-triangle" size={14} color={STATUS_COLOR.moving} />
@@ -865,18 +1251,47 @@ function DockRow({
             )}
           </View>
           <View style={styles.dockMain}>
-            {direct && count.length > 0 ? (
-              <Text numberOfLines={1} style={[styles.dockTitle, { color: body }]}>
-                {str(row, 'title')}
-              </Text>
-            ) : opened ? (
-              // Opened, its references (`#562`, a Markdown link) open on a tap, as a question's do.
-              <LinkWords text={str(row, 'title')} runs={row.titleRuns} color={body} style={styles.dockTitle} />
-            ) : (
-              <Text numberOfLines={2} style={[styles.dockTitle, { color: titleColor }]}>
-                {str(row, 'title')}
-              </Text>
-            )}
+            <View style={styles.dockTitleRow}>
+              <View style={styles.dockTitleFlex}>
+                {direct && count.length > 0 ? (
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.dockTitle, { color: body, fontWeight: unread ? '600' : '400' }]}
+                  >
+                    {str(row, 'title')}
+                  </Text>
+                ) : opened ? (
+                  <LinkWords text={str(row, 'title')} runs={row.titleRuns} color={body} style={styles.dockTitle} />
+                ) : (
+                  <Text
+                    numberOfLines={2}
+                    style={[styles.dockTitle, { color: titleColor, fontWeight: unread ? '600' : '400' }]}
+                  >
+                    {str(row, 'title')}
+                  </Text>
+                )}
+              </View>
+              {duplicates.length > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: dupesOpen }}
+                  hitSlop={6}
+                  onPress={(event) => {
+                    event.stopPropagation?.();
+                    setDupesOpen((was) => !was);
+                  }}
+                  style={({ pressed }) => [
+                    styles.sourcesChip,
+                    pressed && { backgroundColor: P.ink(0.11) },
+                  ]}
+                >
+                  <Text style={styles.sourcesChipText}>{`${sourcesCount} sources`}</Text>
+                  <View style={dupesOpen ? styles.dockSnoozedChevronOpen : null}>
+                    <Glyph name="chevron-down" size={10} color={P.muted} />
+                  </View>
+                </Pressable>
+              ) : null}
+            </View>
             {/* A short description that is not Details, quiet under the title, its answers still on
                 the row (gx-chat-core `details_fields`' 2026-11-20 decision; desktop `dock_row_look`). */}
             {!opened && !isTrue(row, 'details') && str(row, 'preview').length > 0 ? (
@@ -965,6 +1380,35 @@ function DockRow({
         <CommandChip command={str(row, 'command').trim()} />
       ) : null}
       {answerLine}
+      {dupesOpen && duplicates.length > 0 ? (
+        <View style={styles.subRowsWrap}>
+          {duplicates.map((dupe, idx) => {
+            const dupeOpen = obj(dupe.open);
+            const label = str(dupe, 'sourceLabel') || str(dupe, 'title');
+            return (
+              <Pressable
+                key={`${str(dupe, 'key')}:${idx}`}
+                accessibilityRole="button"
+                onPress={() => {
+                  if (dupeOpen !== null) dispatch(dupeOpen as never);
+                  else if (onShow) onShow();
+                }}
+                style={({ pressed }) => [styles.subRow, pressed && { backgroundColor: P.ink(0.04) }]}
+              >
+                <Glyph
+                  name={isTrue(dupe, 'page') ? 'note' : str(dupe, 'kind') === 'form' ? 'list-check' : 'help-circle'}
+                  size={12}
+                  color={STATUS_COLOR.needs}
+                />
+                <Text style={[styles.subRowText, { color: P.cardMuted }]} numberOfLines={1}>
+                  {label}
+                </Text>
+                {str(dupe, 'age').length > 0 ? <Text style={styles.foldTime}>{str(dupe, 'age')}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       {menuRows.length > 0 ? (
         <Sheet visible={menu} onClose={() => setMenu(false)} title={str(row, 'title')}>
           <WorkMenuList
@@ -1712,14 +2156,161 @@ const useStyles = themedStyles((P) => ({
     borderTopRightRadius: 11,
   },
   dockHeadShut: { borderRadius: 11 },
-  dockCounts: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, overflow: 'hidden' },
-  // Beside the status the summary keeps its width and the status gives way (desktop `work_dock_header`).
-  dockCountsBeside: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dockCounts: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
+  dockCountsBeside: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  inboxTitleSlot: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
+  inboxTitleText: { fontSize: WORKING_VISUAL.fontSize, fontWeight: '600', color: P.foreground },
+  inboxDot: { fontSize: WORKING_VISUAL.fontSize, color: P.muted, paddingHorizontal: 2 },
   dockStatus: { flexShrink: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'hidden' },
   dockSpacer: { flexGrow: 1, minWidth: 8 },
   dockCount: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
+  dockCountChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  dockCountUnderline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderBottomWidth: 1,
+    borderStyle: 'dotted',
+    borderBottomColor: P.ink(P.light ? 0.28 : 0.26),
+  },
   dockCountNumber: { fontSize: WORKING_VISUAL.fontSize, color: P.foreground, fontVariant: ['tabular-nums'] },
-  dockCountName: { marginLeft: -1, fontSize: WORKING_VISUAL.fontSize, color: P.cardMuted },
+  dockCountName: { fontSize: WORKING_VISUAL.fontSize, color: P.cardMuted },
+  dockIconWithDot: { flexDirection: 'row', alignItems: 'center', gap: 5, height: PROSE_LINE },
+  unreadDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: SidebarPalette.ROW_QUESTION },
+  readRowDim: { opacity: 0.62 },
+  dockTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dockTitleFlex: { flex: 1, minWidth: 0 },
+  sourcesChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: P.ink(0.10),
+    backgroundColor: P.ink(0.05),
+  },
+  sourcesChipText: { fontSize: PROSE_SIZE - 2, color: P.cardMuted },
+  subRowsWrap: { paddingLeft: 22, paddingRight: 4, paddingBottom: 4, gap: 2 },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 10,
+    paddingRight: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: P.ink(0.10),
+  },
+  subRowText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE - 1, lineHeight: PROSE_LINE - 2 },
+  bundleActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  bundleButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: P.ink(0.10),
+    backgroundColor: P.ink(0.04),
+  },
+  bundleButtonText: { fontSize: PROSE_SIZE - 1.5, color: P.foreground },
+  swipeContainer: { position: 'relative', overflow: 'hidden', borderRadius: 8 },
+  swipeBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+  },
+  swipeActionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  swipeActionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  swipeActionText: { fontSize: PROSE_SIZE - 1, fontWeight: '600' },
+  swipeSpacer: { flex: 1 },
+  swipeForeground: { backgroundColor: P.cardPanel, borderRadius: 8 },
+  dockMarkSummary: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE - 1.5, color: P.muted, paddingLeft: 8 },
+  dockUndoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: P.ink(0.08),
+    backgroundColor: P.ink(0.04),
+  },
+  dockUndoText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE - 0.5, color: P.foreground },
+  dockUndoButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: P.ink(0.12),
+    backgroundColor: P.ink(0.06),
+  },
+  dockUndoButtonText: { fontSize: PROSE_SIZE - 1, fontWeight: '600', color: P.foreground },
+  dockUndoClose: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 5 },
+  dockAnsweredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    opacity: 0.72,
+    paddingLeft: 24,
+    paddingRight: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  dockAnsweredTitle: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE - 0.5, color: P.cardMuted },
+  dockAnsweredOutcome: {
+    flexShrink: 0,
+    maxWidth: 130,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 5,
+    backgroundColor: P.ink(0.05),
+    fontSize: PROSE_SIZE - 2,
+    color: P.muted,
+  },
+  snoozeSheetList: { gap: 4, paddingVertical: 4 },
+  snoozeSheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  snoozeSheetLabel: { fontSize: PROSE_SIZE, color: P.foreground },
   dockHeadButton: { width: 28, height: 26, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   dockPress: { gap: 2, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8 },
   dockPressOpen: { paddingBottom: 2 },
@@ -1789,9 +2380,28 @@ const useStyles = themedStyles((P) => ({
   itemDot: { flexShrink: 0, fontSize: PROSE_SIZE, color: P.muted, opacity: 0.6 },
   itemWords: { flexShrink: 0, fontSize: PROSE_SIZE, lineHeight: 20, color: P.cardMuted },
   dockMore: { paddingLeft: 31, paddingRight: 8, paddingTop: 2, paddingBottom: 6, fontSize: PROSE_SIZE, color: P.muted },
-  dockFoot: { flexDirection: 'row', alignItems: 'flex-start' },
-  dockMarkSeen: { marginLeft: 'auto', flexShrink: 0 },
-  dockMarkSeenText: { paddingLeft: 8, paddingRight: 8, paddingTop: 2, paddingBottom: 6, fontSize: PROSE_SIZE, color: P.muted },
+  dockFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 5,
+    paddingBottom: 4,
+    paddingRight: 8,
+    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: P.ink(0.06),
+  },
+  dockMarkSeen: {
+    marginLeft: 'auto',
+    flexShrink: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: P.ink(0.10),
+    backgroundColor: P.ink(0.04),
+  },
+  dockMarkSeenText: { fontSize: PROSE_SIZE - 1, color: P.foreground },
   dismiss: { width: 20, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   dockFold: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   dockLineText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, color: P.cardMuted },

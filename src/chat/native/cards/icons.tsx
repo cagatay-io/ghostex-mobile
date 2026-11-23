@@ -141,6 +141,13 @@ const GLYPHS = {
   /** The page sheet's Hide (desktop `titlebar/window-minimize.svg`, the page window's Hide). */
   'window-minimize': { paths: ['M5 12h14'], strokeWidth: 1.8 },
   clock: { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 7v5l3 3'] },
+  /** The Session Inbox header glyph (desktop `titlebar/inbox.svg`). */
+  inbox: {
+    paths: [
+      'M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12',
+      'M4 13h3l3 3h4l3 -3h3',
+    ],
+  },
   /** The Resources pill's glyph (desktop `titlebar/stack.svg`). */
   stack: { paths: ['M12 6l-8 4l8 4l8 -4l-8 -4', 'M4 14l8 4l8 -4'] },
   /** The Stashed pill's glyph (desktop `titlebar/stack-push.svg`). */

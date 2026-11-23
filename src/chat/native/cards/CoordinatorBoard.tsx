@@ -537,7 +537,7 @@ function ClosedAnswers({
 }
 
 /** A board pill's tap (gx-chat-core `show_item`): the card to show, once per `seq`. */
-export type BoardFocus = { key: string; seq: number };
+export type BoardFocus = { key: string; group?: string; seq: number };
 
 type BoardMenuProps = {
   chat: RustChat;
@@ -580,8 +580,16 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
   const cardTops = useRef<Record<string, { group: string; y: number }>>({});
   const scrolledFor = useRef<number | null>(null);
   const [ringed, setRinged] = useState<string | null>(null);
+  const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
   const scrollToFocus = () => {
     if (focus === null || scrolledFor.current === focus.seq) return;
+    if (focus.group) {
+      const groupY = groupTops.current[focus.group];
+      if (groupY === undefined) return;
+      scrolledFor.current = focus.seq;
+      list.current?.scrollTo({ y: Math.max(0, groupY - 8), animated: true });
+      return;
+    }
     const card = cardTops.current[focus.key];
     const group = card !== undefined ? groupTops.current[card.group] : undefined;
     if (card === undefined || group === undefined) return;
@@ -590,13 +598,22 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
   };
   useEffect(() => {
     if (focus === null) return undefined;
-    setRinged(focus.key);
+    if (focus.group) {
+      setRinged(null);
+      setHighlightedGroup(focus.group);
+    } else {
+      setHighlightedGroup(null);
+      setRinged(focus.key);
+    }
     scrollToFocus();
-    const timer = setTimeout(() => setRinged(null), 2200);
+    const timer = setTimeout(() => {
+      setRinged(null);
+      setHighlightedGroup(null);
+    }, 2200);
     return () => clearTimeout(timer);
     // `scrollToFocus` reads refs; a new tap is a new `seq`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus?.key, focus?.seq]);
+  }, [focus?.key, focus?.group, focus?.seq]);
   // The card whose menu a long press opened, and whether it shows its Tags page. Remove is one of
   // its rows (the phone's long-press rule: a card's actions open on a hold).
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -702,9 +719,24 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
           const id = str(group, 'id');
           const open = isTrue(group, 'open');
           const more = str(group, 'moreLabel');
+          const groupAccent = GROUP_COLOR[id] ?? P.foreground;
+          const isGroupHighlighted = highlightedGroup === id;
           return (
             <View
               key={id}
+              style={
+                isGroupHighlighted
+                  ? {
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: tint(groupAccent, 0.45),
+                      backgroundColor: tint(groupAccent, P.light ? 0.08 : 0.12),
+                      paddingHorizontal: 6,
+                      paddingVertical: 4,
+                      marginHorizontal: -6,
+                    }
+                  : undefined
+              }
               onLayout={(event) => {
                 groupTops.current[id] = event.nativeEvent.layout.y;
                 scrollToFocus();

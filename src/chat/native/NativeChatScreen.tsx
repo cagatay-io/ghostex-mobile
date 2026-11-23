@@ -482,6 +482,7 @@ export default function NativeChatScreen({
   }, []);
   const focus = obj(obj(document?.coordinatorBoard)?.focus);
   const focusKey = str(focus, 'key');
+  const focusGroup = str(focus, 'group');
   const focusSeq = num(focus, 'seq') ?? null;
   const seenFocus = useRef<number | null | undefined>(undefined);
   // Before the chat has a document there is no tap to see yet; the first document's focus counts as seen.
@@ -493,9 +494,9 @@ export default function NativeChatScreen({
       return;
     }
     seenFocus.current = focusSeq;
-    setBoardFocus({ key: focusKey, seq: focusSeq });
+    setBoardFocus({ key: focusKey, group: focusGroup || undefined, seq: focusSeq });
     setPillMenu('board');
-  }, [focusKey, focusSeq, hasDocument]);
+  }, [focusKey, focusGroup, focusSeq, hasDocument]);
   const [dropActive, setDropActive] = useState(false);
   const receiveImages = useCallback(
     (event: { nativeEvent: unknown }) => attachIntakeImages(chat, event.nativeEvent, (message) => show(message, true)),
