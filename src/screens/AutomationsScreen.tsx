@@ -126,6 +126,9 @@ export default function AutomationsScreen({ navigation, route }: Props) {
   const [machineId, setMachineId] = useState<string>(() => initialMachineId(route.params?.machineId));
   const [scope, setScope] = useState<AutomationsScope>(() => initialScope(route.params));
   const [tab, setTab] = useState<AutomationTab>('automations');
+  const [runFilter, setRunFilter] = useState<{ readonly automationId: string; readonly unreadOnly: boolean } | null>(
+    null,
+  );
 
   const [state, setState] = useState<AutomationState | null>(null);
   const [phase, setPhase] = useState<LoadPhase>({ kind: 'loading' });
@@ -234,6 +237,7 @@ export default function AutomationsScreen({ navigation, route }: Props) {
     setState(null);
     setNotice(null);
     setDetailSheet(null);
+    setRunFilter(null);
     setPhase({ kind: 'loading' });
     void load();
   }, [load]);
@@ -356,6 +360,41 @@ export default function AutomationsScreen({ navigation, route }: Props) {
     },
     [applyMutationResult, machineId, projectRefFor],
   );
+
+  const handleMarkAllRead = useCallback(
+    async (automationId: string) => {
+      const target = machineTargetFor(machineId);
+      const current = stateRef.current;
+      if (target === null || current === null) return;
+      const unreadRuns = visibleRuns(current).filter(
+        (run) => run.automationId === automationId && run.isUnread,
+      );
+      if (unreadRuns.length === 0) return;
+      setBusyId(automationId);
+      setNotice(null);
+      try {
+        for (const run of unreadRuns) {
+          const next = await markAutomationRunRead(target, projectRefFor(run.projectId), run.id);
+          applyMutationResult(next);
+        }
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : AutomationsCopy.markReadFailed);
+      } finally {
+        setBusyId((currentBusy) => (currentBusy === automationId ? null : currentBusy));
+      }
+    },
+    [applyMutationResult, machineId, projectRefFor],
+  );
+
+  const handleOpenUnreadForAutomation = useCallback((automationId: string) => {
+    setRunFilter({ automationId, unreadOnly: true });
+    setTab('runs');
+  }, []);
+
+  const handleSelectTab = useCallback((nextTab: AutomationTab) => {
+    setRunFilter(null);
+    setTab(nextTab);
+  }, []);
 
   const handleArchiveRun = useCallback(
     async (run: AutomationRun) => {
@@ -517,7 +556,24 @@ export default function AutomationsScreen({ navigation, route }: Props) {
             </Text>
             {!item.enabled ? <Text style={styles.pausedBadge}>{AutomationsCopy.paused}</Text> : null}
             {unread > 0 ? (
-              <Text style={[styles.unreadBadge, { color: appearance.accent }]}>{AutomationsCopy.unreadCount(unread)}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={AutomationsCopy.viewUnreadFor(unread, item.name)}
+                hitSlop={8}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  handleOpenUnreadForAutomation(item.id);
+                }}
+                style={({ pressed }) => [
+                  styles.unreadBadgeButton,
+                  { backgroundColor: colorWithOpacity(appearance.accent, 15) },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[styles.unreadBadge, { color: appearance.accent }]}>
+                  {AutomationsCopy.unreadCount(unread)}
+                </Text>
+              </Pressable>
             ) : null}
             <View style={styles.switchWrap}>
               {busy ? (
@@ -561,6 +617,7 @@ export default function AutomationsScreen({ navigation, route }: Props) {
       busyId,
       currentState.agents,
       currentState.runs,
+      handleOpenUnreadForAutomation,
       handleToggleEnabled,
       nowMs,
       projectNameById,
@@ -672,7 +729,7 @@ export default function AutomationsScreen({ navigation, route }: Props) {
         accessibilityLabel={AutomationsCopy.tabsLabel}
         items={tabs}
         selected={tab}
-        onSelect={setTab}
+        onSelect={handleSelectTab}
       />
 
       {notice !== null ? (
@@ -745,7 +802,22 @@ export default function AutomationsScreen({ navigation, route }: Props) {
       );
     }
 
-    const runs = tab === 'triage' ? triageList : allVisibleRuns;
+    const activeFilter = tab === 'runs' ? runFilter : null;
+    const filteredRuns =
+      activeFilter !== null
+        ? allVisibleRuns.filter(
+            (run) =>
+              run.automationId === activeFilter.automationId &&
+              (!activeFilter.unreadOnly || run.isUnread),
+          )
+        : allVisibleRuns;
+    const runs = tab === 'triage' ? triageList : filteredRuns;
+    const filteredName =
+      activeFilter !== null
+        ? (automationNameById.get(activeFilter.automationId) ?? activeFilter.automationId)
+        : '';
+    const filterBusy = activeFilter !== null && busyId === activeFilter.automationId;
+    const filterHasUnread = activeFilter !== null && runs.some((run) => run.isUnread);
     return (
       <FlatList
         data={runs}
@@ -754,15 +826,66 @@ export default function AutomationsScreen({ navigation, route }: Props) {
         refreshControl={refreshControl}
         style={listEdges.scroll}
         contentContainerStyle={[styles.listContent, listEdges.content, { paddingBottom: insets.bottom + 24 }]}
+        ListHeaderComponent={
+          activeFilter !== null ? (
+            <View style={styles.filterBanner}>
+              <Text style={styles.filterBannerLabel} numberOfLines={1}>
+                {AutomationsCopy.unreadRunsFilter(filteredName)}
+              </Text>
+              <View style={styles.filterBannerActions}>
+                {filterHasUnread ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={AutomationsCopy.markAllRead}
+                    disabled={filterBusy}
+                    hitSlop={8}
+                    onPress={() => void handleMarkAllRead(activeFilter.automationId)}
+                    style={({ pressed }) => [pressed && styles.pressed, filterBusy && styles.disabled]}
+                  >
+                    <Text style={[styles.filterActionText, { color: appearance.accent }]}>
+                      {AutomationsCopy.markAllRead}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={AutomationsCopy.showAllRuns}
+                  hitSlop={8}
+                  onPress={() => setRunFilter(null)}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Text style={styles.filterClearText}>{AutomationsCopy.showAllRuns}</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : undefined
+        }
         ListEmptyComponent={
           <View style={styles.centered}>
             <Glyph name="clock" size={28} color={appearance.muted} />
             <Text style={styles.emptyTitle}>
-              {tab === 'triage' ? AutomationsCopy.emptyTriageTitle : AutomationsCopy.emptyRunsTitle}
+              {activeFilter !== null
+                ? AutomationsCopy.emptyFilteredUnreadTitle
+                : tab === 'triage'
+                  ? AutomationsCopy.emptyTriageTitle
+                  : AutomationsCopy.emptyRunsTitle}
             </Text>
             <Text style={styles.mutedCenter}>
-              {tab === 'triage' ? AutomationsCopy.emptyTriageBody : AutomationsCopy.emptyRunsBody}
+              {activeFilter !== null
+                ? AutomationsCopy.emptyFilteredUnreadBody(filteredName)
+                : tab === 'triage'
+                  ? AutomationsCopy.emptyTriageBody
+                  : AutomationsCopy.emptyRunsBody}
             </Text>
+            {activeFilter !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setRunFilter(null)}
+                style={({ pressed }) => [styles.retryButton, pressed && styles.pickerPressed]}
+              >
+                <Text style={styles.retryLabel}>{AutomationsCopy.showAllRuns}</Text>
+              </Pressable>
+            ) : null}
           </View>
         }
       />
@@ -785,6 +908,7 @@ export default function AutomationsScreen({ navigation, route }: Props) {
         onBackToAutomation={(automationId) => setDetailSheet({ kind: 'automation', id: automationId })}
         onOpenSession={handleOpenRunSession}
         onMarkRead={(run) => void handleMarkRead(run)}
+        onMarkAllRead={(automationId) => void handleMarkAllRead(automationId)}
         onArchive={(run) => void handleArchiveRun(run)}
         onClose={() => setDetailSheet(null)}
       />
@@ -968,9 +1092,52 @@ const createStyles = (appearance: Appearance) =>
       fontSize: 11.5,
       fontWeight: '500',
     },
+    unreadBadgeButton: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 6,
+      flexShrink: 0,
+    },
     unreadBadge: {
       fontSize: 11.5,
       fontWeight: '600',
+    },
+    filterBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: GhostexRadii.control,
+      backgroundColor: appearance.card,
+      borderWidth: GhostexStrokeWidth,
+      borderColor: appearance.border,
+    },
+    filterBannerLabel: {
+      flex: 1,
+      minWidth: 0,
+      color: appearance.muted,
+      fontSize: 12.5,
+      fontWeight: '600',
+    },
+    filterBannerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flexShrink: 0,
+    },
+    filterActionText: {
+      fontSize: 12.5,
+      fontWeight: '600',
+    },
+    filterClearText: {
+      color: appearance.muted,
+      fontSize: 12.5,
+      fontWeight: '600',
+    },
+    disabled: {
+      opacity: 0.45,
     },
     switchWrap: {
       minWidth: 48,

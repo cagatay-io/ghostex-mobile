@@ -128,6 +128,7 @@ export function AutomationDetailsBottomSheet({
   onBackToAutomation,
   onOpenSession,
   onMarkRead,
+  onMarkAllRead,
   onArchive,
   onClose,
 }: {
@@ -141,6 +142,7 @@ export function AutomationDetailsBottomSheet({
   onBackToAutomation: (automationId: string) => void;
   onOpenSession: (run: AutomationRun, automationName: string) => void;
   onMarkRead: (run: AutomationRun) => void;
+  onMarkAllRead: (automationId: string) => void;
   onArchive: (run: AutomationRun) => void;
   onClose: () => void;
 }) {
@@ -156,7 +158,11 @@ export function AutomationDetailsBottomSheet({
     const projectName =
       state.projects.find((project) => project.projectId === projectId)?.label ??
       (state.projectId === projectId ? state.projectName : projectId);
-    const recentRuns = state.runs.filter((run) => run.automationId === automation.id).slice(0, 10);
+    const visibleAutomationRuns = state.runs.filter(
+      (run) => !run.isArchived && run.automationId === automation.id,
+    );
+    const unreadAutomationCount = visibleAutomationRuns.filter((run) => run.isUnread).length;
+    const recentRuns = visibleAutomationRuns.slice(0, 10);
     const modelLine = [automation.model, automation.effort]
       .filter((v): v is string => Boolean(v && v.trim()))
       .join(' · ');
@@ -278,7 +284,23 @@ export function AutomationDetailsBottomSheet({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{AutomationsCopy.recentRunsLabel}</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>{AutomationsCopy.recentRunsLabel}</Text>
+            {unreadAutomationCount > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={AutomationsCopy.markAllRead}
+                disabled={busy}
+                hitSlop={8}
+                onPress={() => onMarkAllRead(automation.id)}
+                style={({ pressed }) => [pressed && styles.pressed, busy && styles.disabled]}
+              >
+                <Text style={[styles.sectionActionText, { color: appearance.accent }]}>
+                  {AutomationsCopy.markAllRead}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
           <View style={styles.groupCard}>
             {recentRuns.length === 0 ? (
               <View style={styles.emptyRunRow}>
@@ -556,6 +578,16 @@ const createStyles = (appearance: Appearance) =>
     },
     section: {
       gap: 8,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    sectionActionText: {
+      fontSize: 12.5,
+      fontWeight: '600',
     },
     sectionLabel: {
       color: appearance.muted,
