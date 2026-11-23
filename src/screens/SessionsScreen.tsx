@@ -100,6 +100,7 @@ import SpaceTabs, { SPACE_CHIP_HEIGHT, spaceMenuIcon, spaceRowOrder } from '../c
 import { useExtensionPanels } from '../extensions/useExtensionPanels';
 import ChiefRow, { CHIEF_LABEL, CHIEF_NAME } from '../components/sessions/ChiefRow';
 import ChiefEarlierChatsSheet from '../components/sessions/ChiefEarlierChatsSheet';
+import { NativeModeAnnounceSheet } from '../components/sessions/NativeModeAnnounceSheet';
 import { runGhostexCli } from '../components/sessions/cli';
 import {
   chiefOnIn,
@@ -2685,6 +2686,18 @@ export default function SessionsScreen({ navigation }: Props) {
           onClose={() => setOverlay(NONE)}
         />
       ) : null}
+
+      <NativeModeAnnounceSheet
+        machine={selectedComputer}
+        machineName={selectedComputer !== null ? machineDisplayLabel(selectedComputer) : ''}
+        canPresent={isFocused && overlay.kind === 'none'}
+        onEnabled={(computerName) =>
+          setTransientStatus(`Native mode turned on for new chats on ${computerName}.`)
+        }
+        onError={(message) =>
+          setTransientStatus(message, { title: 'Could not turn on Native mode', error: true })
+        }
+      />
     </SafeAreaView>
   );
 }

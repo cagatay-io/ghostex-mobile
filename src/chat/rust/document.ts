@@ -764,6 +764,8 @@ export type ChatDocument = {
   /** The Ask-on-Enter compact-before-sending offer (`composer/compact_prompt.rs`), present when
    * the chat is long and its prompt cache has expired. Absent from an older core or older computer. */
   compactBeforeSend?: CompactBeforeSendOffer | null;
+  /** The "Switch to Native" strip chip and `•••` menu offer (`extras/native_switch.rs`, `Q4768`–`Q4772`). */
+  nativeSwitch?: NativeSwitchOffer | null;
   /** The session note sheet. Desktop: `note.rs`. */
   note: NoteState;
   /** The Catch me up button and card (`composer/catch_up.rs`). Desktop: `catch_up.rs`. */
@@ -1156,6 +1158,16 @@ export type CompactBeforeSendOffer = {
   idleLabel?: string | null;
   title: string;
   detail: string;
+};
+
+/** The "Switch to Native" strip chip and `•••` menu offer (`extras/native_switch.rs`, `Q4768`–`Q4772`). */
+export type NativeSwitchOffer = {
+  family: string;
+  agentName: string;
+  showChip: boolean;
+  queued: boolean;
+  nativeDefault: boolean;
+  showMenuItem: boolean;
 };
 
 /** One Files and links row (core `composer/files_links.rs`). `icon` is photo, file, folder or link; `open` is the

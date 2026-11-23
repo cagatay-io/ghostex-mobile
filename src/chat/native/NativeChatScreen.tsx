@@ -48,7 +48,8 @@ import type { RootStackParamList } from '../../navigation/types';
 import { classifyMachineLink, visualPageAddress, type ComputerAddress } from '../../webPreview/machineLinks';
 import { useOpenMachineLink } from '../../webPreview/useOpenMachineLink';
 import type { ChatViewRequest } from '../rust/effects';
-import type { ChatDocument } from '../rust/document';
+import type { ChatDocument, NativeSwitchOffer } from '../rust/document';
+import { chatMachineLink } from '../rust/machine-link';
 import { machineIdOfGlobalRef } from '../rust/sessionDirectory';
 import { sessionChatRpc } from '../rust/transport';
 import { useRustChat, type RustChat } from '../rust/useRustChat';
@@ -74,6 +75,7 @@ import type { BoardFocus } from './cards/CoordinatorBoard';
 import { num, obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PILLS_IN_DOCK_BAR, PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
+import { SwitchToNativeSheet } from './cards/SwitchToNativeSheet';
 import { SideChatBar } from './cards/SideChats';
 import { useTerminalStore } from '../../terminal/sessions';
 import { ScreenArtBackdrop } from '../../theme/ScreenArtBackdrop';
@@ -306,6 +308,113 @@ export default function NativeChatScreen({
   const [modelRequestId, setModelRequestId] = useState(0);
   // The Stash button's Saved prompts (empty draft, or a long press), like desktop's Stashed Prompts modal.
   const [savedPromptsOpen, setSavedPromptsOpen] = useState(false);
+  // "Switch to Native?" confirmation bottom sheet (`Q4768`, `Q4769`, `Q4771`).
+  const [switchToNativeOffer, setSwitchToNativeOffer] = useState<NativeSwitchOffer | null>(null);
+  const [switchToNativeBusy, setSwitchToNativeBusy] = useState(false);
+
+  const openSwitchToNative = useCallback((offer: NativeSwitchOffer, fromSheet = false) => {
+    if (fromSheet && Platform.OS === 'ios') {
+      setTimeout(() => setSwitchToNativeOffer(offer), HANDOFF_OPEN_DELAY_MS);
+    } else {
+      setSwitchToNativeOffer(offer);
+    }
+  }, []);
+
+  const cancelSwitchToNative = useCallback(() => {
+    void sessionChatRpc(machine, 'switchSessionCliToAcp', { projectId, sessionId, cancel: true }).then((answer) => {
+      if (answer.error !== null) {
+        show(answer.error.message, true, 'Could not cancel switch');
+      }
+    });
+  }, [machine, projectId, sessionId, show]);
+
+  const dismissNativeSwitch = useCallback(
+    (family: string) => {
+      chat.dispatch({ type: 'dismissNativeSwitchOffer', family } as unknown as Parameters<typeof chat.dispatch>[0]);
+      void (async () => {
+        const link = chatMachineLink(machine);
+        let existing: string[] = [];
+        try {
+          const read = await link.rpc('readSharedSettings', {}, 8_000);
+          const raw =
+            read.error === null &&
+            typeof (read.result as { settings?: { nativeSwitchOfferDismissedAgents?: unknown } })?.settings
+              ?.nativeSwitchOfferDismissedAgents === 'string'
+              ? ((read.result as { settings: { nativeSwitchOfferDismissedAgents: string } }).settings
+                  .nativeSwitchOfferDismissedAgents as string)
+              : '';
+          existing = raw
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter((entry) => entry.length > 0);
+        } catch {
+          existing = [];
+        }
+        if (!existing.includes(family)) existing.push(family);
+        await link.rpc(
+          'dispatchRendererCommand',
+          {
+            action: 'updateSettingsPatch',
+            payload: {
+              patch: { nativeSwitchOfferDismissedAgents: existing.join(',') },
+              source: 'mobile:nativeSwitchOfferDismiss',
+            },
+          },
+          10_000,
+        );
+      })();
+    },
+    [chat, machine],
+  );
+
+  const confirmSwitchToNative = useCallback(
+    (offer: NativeSwitchOffer, useAsDefault: boolean) => {
+      setSwitchToNativeBusy(true);
+      void (async () => {
+        try {
+          if (useAsDefault && !offer.nativeDefault && offer.family.length > 0) {
+            const link = chatMachineLink(machine);
+            let modes: Record<string, string> = {};
+            try {
+              const read = await link.rpc('readSharedSettings', {}, 8_000);
+              const rawModes =
+                read.error === null
+                  ? (read.result as { settings?: { agentSessionMode?: Record<string, unknown> } })?.settings
+                      ?.agentSessionMode
+                  : null;
+              if (rawModes !== null && typeof rawModes === 'object' && !Array.isArray(rawModes)) {
+                for (const [k, v] of Object.entries(rawModes)) {
+                  if (v === 'non-cli' || v === 'agent-cli') modes[k] = v;
+                }
+              }
+            } catch {
+              modes = {};
+            }
+            modes[offer.family] = 'non-cli';
+            await link.rpc(
+              'dispatchRendererCommand',
+              {
+                action: 'updateSettingsPatch',
+                payload: {
+                  patch: { agentSessionMode: modes },
+                  source: 'mobile:switchToNative',
+                },
+              },
+              10_000,
+            );
+          }
+          const answer = await sessionChatRpc(machine, 'switchSessionCliToAcp', { projectId, sessionId });
+          if (answer.error !== null) {
+            show(answer.error.message, true, 'Could not switch to Native');
+          }
+        } finally {
+          setSwitchToNativeBusy(false);
+          setSwitchToNativeOffer(null);
+        }
+      })();
+    },
+    [machine, projectId, sessionId, show],
+  );
   // More actions > Handoff / Export opens the chat's own dialog, the one the model menu's handoff opens.
   const exportCount = useRef(0);
   const hostAction = useCallback(
@@ -362,6 +471,18 @@ export default function NativeChatScreen({
         // Stash folded into More actions opens this from that sheet, which iOS must finish closing first.
         if (Platform.OS === 'ios') setTimeout(() => setSavedPromptsOpen(true), HANDOFF_OPEN_DELAY_MS);
         else setSavedPromptsOpen(true);
+      } else if (action === 'switchToNative') {
+        const offer: NativeSwitchOffer = document?.nativeSwitch ?? {
+          family: typeof params.family === 'string' ? params.family : '',
+          agentName: typeof params.agentName === 'string' ? params.agentName : 'this agent',
+          showChip: false,
+          queued: false,
+          nativeDefault: params.nativeDefault === true,
+          showMenuItem: true,
+        };
+        openSwitchToNative(offer, true);
+      } else if (action === 'cancelSwitchToNative') {
+        cancelSwitchToNative();
       } else if (hostActions.includes(action)) {
         // A dialog or an alert from a More actions row waits for that sheet to finish closing on iOS, which drops a
         // presentation made during another's dismissal (the Handoff sheet's wait).
@@ -378,6 +499,9 @@ export default function NativeChatScreen({
       onHostAction,
       onSwitchToTerminal,
       openHandoff,
+      openSwitchToNative,
+      cancelSwitchToNative,
+      document?.nativeSwitch,
       projectId,
       sessionId,
       show,
@@ -673,6 +797,9 @@ export default function NativeChatScreen({
                               onShowPage={showHiddenPage}
                               onClosePage={closeHiddenPage}
                               onSessionDetailsPress={openDetails}
+                              onSwitchToNative={(offer) => openSwitchToNative(offer, false)}
+                              onCancelSwitchToNative={cancelSwitchToNative}
+                              onDismissNativeSwitch={dismissNativeSwitch}
                               // The where pill's Open folder: the screen's Files browser for this project
                               // (the terminal menu's Files, `handleTerminalMenuAction('docs')`).
                               {...(onHostAction !== undefined ? { onOpenFolder: () => onHostAction('docs', {}) } : {})}
@@ -711,6 +838,13 @@ export default function NativeChatScreen({
                 onClose={() => setSavedPromptsOpen(false)}
                 onInsert={(content) => chat.composer?.replace(content)}
                 onChanged={() => chat.dispatch({ type: 'refreshComposerChrome', sessionId })}
+              />
+              <SwitchToNativeSheet
+                offer={switchToNativeOffer}
+                working={document?.working === true}
+                busy={switchToNativeBusy}
+                onCancel={() => setSwitchToNativeOffer(null)}
+                onConfirm={confirmSwitchToNative}
               />
               <HandoffSheet
                 request={handoff}

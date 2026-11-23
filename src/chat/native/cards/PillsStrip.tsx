@@ -29,7 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import type { ChatDocument, ChatPill, ViewChip } from '../../rust/document';
+import type { ChatDocument, ChatPill, NativeSwitchOffer, ViewChip } from '../../rust/document';
 import { BLOCKED_PILL } from './CoordinatorBoard';
 import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
@@ -41,6 +41,7 @@ import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { LinksPill, PagePill, Pill, QuestionPill } from './ChatPills';
 import type { HiddenPage } from './hiddenPages';
 import { BoostPill, BoostSheet, registerBoostSheetOpener } from './Boosts';
+import { NativeSwitchPill } from './NativeSwitchPill';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
 import { WherePill, WhereSheet } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
@@ -109,6 +110,7 @@ export function pillsStripShown(
     armed.length > 0 ||
     (document.savedDraftPill ?? null) !== null ||
     (document.wherePill ?? null) !== null ||
+    document.nativeSwitch?.showChip === true ||
     // The Boost pill (`Boosts.tsx`) is always there while the computer has Boosts.
     (document.boosts ?? null) !== null ||
     (document.viewChips?.length ?? 0) > 0 ||
@@ -135,11 +137,20 @@ export function PillsStrip({
   onShowPage,
   onClosePage,
   omitPills = NO_PILLS,
+  onSwitchToNative,
+  onCancelSwitchToNative,
+  onDismissNativeSwitch,
 }: {
   chat: RustChat;
   /** Pills left out of the strip (`PILLS_IN_DOCK_BAR` while the dock's bar shows). */
   omitPills?: readonly string[];
   document: ChatDocument;
+  /** Opens the "Switch to Native?" confirm sheet (`Q4768`, `Q4769`). */
+  onSwitchToNative?: (offer: NativeSwitchOffer) => void;
+  /** Cancels a queued mid-reply Terminal -> Native switch (`Q4771`). */
+  onCancelSwitchToNative?: () => void;
+  /** Dismisses the "Switch to Native" chip per agent (`Q4770`). */
+  onDismissNativeSwitch?: (family: string) => void;
   /** The chat's hidden pages, oldest first (`hiddenPages.ts`), drawn first among the panel pills. */
   hiddenPages?: readonly HiddenPage[];
   /** A tap on a page's pill: the page opens again. */
@@ -272,6 +283,23 @@ export function PillsStrip({
           >
             {shown && where !== null ? (
               <WherePill pill={where} tier="full" open={whereOpen} onPress={() => setWhereOpen(true)} />
+            ) : null}
+            {shown && document.nativeSwitch?.showChip === true ? (
+              <NativeSwitchPill
+                offer={document.nativeSwitch}
+                onPress={() => {
+                  const offer = document.nativeSwitch;
+                  if (offer == null) return;
+                  if (offer.queued) onCancelSwitchToNative?.();
+                  else onSwitchToNative?.(offer);
+                }}
+                onDismiss={() => {
+                  const offer = document.nativeSwitch;
+                  if (offer == null) return;
+                  if (offer.queued) onCancelSwitchToNative?.();
+                  else onDismissNativeSwitch?.(offer.family);
+                }}
+              />
             ) : null}
             {shown && savedDraft !== null ? (
               <SavedDraftPill

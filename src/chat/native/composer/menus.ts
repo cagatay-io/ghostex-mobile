@@ -453,6 +453,29 @@ export function moreActionsRows({
         }
         return rows;
       }
+      case 'switchToNative': {
+        const offer = document.nativeSwitch;
+        if (offer == null || offer.showMenuItem !== true) return [];
+        if (offer.queued) {
+          return [
+            {
+              label: 'Cancel Switch to Native',
+              iconPath: 'titlebar/clock.svg',
+              detail: 'Queued',
+              command: { type: 'host', action: 'cancelSwitchToNative' },
+            },
+          ];
+        }
+        return [
+          layoutRow(id, {
+            type: 'host',
+            action: 'switchToNative',
+            family: offer.family,
+            agentName: offer.agentName,
+            nativeDefault: offer.nativeDefault,
+          }),
+        ];
+      }
       case 'view':
         return [{ ...viewModesRow(document, available('summary')), label: label(id), iconPath: icon(id) }];
       case 'stopReading':
