@@ -175,8 +175,8 @@ const ICON_BUTTON = 30;
 const DETAILS_GLYPH: GlyphName = 'note';
 /** A Needs you row's Jump to context (desktop `CONTEXT_ICON`). */
 const CONTEXT_GLYPH: GlyphName = 'focus-2';
-/** A Needs you row's Mark as read (desktop `MARK_READ_ICON`). */
-const MARK_READ_GLYPH: GlyphName = 'mail-opened';
+/** A Needs you row's Done action (desktop `MARK_READ_ICON`). */
+const MARK_READ_GLYPH: GlyphName = 'check';
 
 /** A Reply button's width as `WorkAnswerLine` measures it. */
 function replyWidthOf(replied: string, fontScale: number): number {
@@ -212,7 +212,10 @@ export function rowAsksQuestion(row: JsonRecord): boolean {
   const key = str(row, 'key');
   const buttons = arr(row.buttons);
   if (key.startsWith('work-ask:')) return true;
-  if (key.startsWith('dock-questions:')) return str(row, 'dismissLabel') !== 'Mark as read';
+  if (key.startsWith('dock-questions:')) {
+    const label = str(row, 'dismissLabel');
+    return label !== 'Done' && label !== 'Mark as read';
+  }
   const onlyDone = buttons.length === 0 || (buttons.length === 1 && str(buttons[0], 'label') === 'Done');
   if (key.startsWith('needs-you:')) return !onlyDone;
   return buttons.length > 0;
@@ -599,7 +602,7 @@ export function WorkAnswerLine({
         key="read"
         keep
         iconOnly
-        label="Mark as read"
+        label="Done"
         icon={MARK_READ_GLYPH}
         onPress={() => dispatch(markRead as never)}
       />
@@ -882,12 +885,13 @@ export function workMenuRows(
   const markAnswered = obj(actions.markAnswered);
   if (markAnswered !== null) rows.push({ label: 'Mark answered', icon: 'circle-check', command: markAnswered });
   const dismiss = obj(actions.dismiss);
-  // Dismiss, or Mark as read on a row that asks no question (a Needs you to-do, a page that only
+  // Dismiss, or Done on a row that asks no question (a Needs you to-do, a page that only
   // waits to be seen, what the newest turn finished): gx-chat-core's `dismissLabel`. Both send the
   // agent nothing; gxserver tells it with its next message (server/src/session_chat_dismissed.rs).
   if (dismiss !== null) {
-    const read = str(actions, 'dismissLabel') === 'Mark as read';
-    rows.push({ label: read ? 'Mark as read' : 'Dismiss', icon: read ? 'check' : 'x', command: dismiss });
+    const label = str(actions, 'dismissLabel');
+    const done = label === 'Done' || label === 'Mark as read';
+    rows.push({ label: done ? 'Done' : label || 'Dismiss', icon: done ? 'check' : 'x', command: dismiss });
   }
   const snooze = arr(actions.snooze)
     .map(obj)

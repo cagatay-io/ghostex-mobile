@@ -458,12 +458,18 @@ export function WorkDock({
                     ) : (
                       <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
                     );
+                  const rowDismissLabel = str(row, 'dismissLabel');
+                  const isDoneDismiss =
+                    rowDismissLabel === 'Done' ||
+                    rowDismissLabel === 'Mark as read' ||
+                    rowDismissLabel === 'Mark all done' ||
+                    rowDismissLabel === 'Read all';
                   return (
                     <View key={rowKey}>
                       <QuestionFlashFrame target={rowKey} light={P.light}>
                         <SwipeableInboxRow
                           canDismiss={dismissCmd !== null}
-                          dismissLabel={str(row, 'dismissLabel') === 'Mark as read' ? 'Read' : 'Dismiss'}
+                          dismissLabel={isDoneDismiss ? 'Done' : 'Dismiss'}
                           canSnooze={rowSnooze.length > 0}
                           onDismiss={() => {
                             if (dismissCmd !== null) dispatch(dismissCmd as never);
@@ -504,7 +510,9 @@ export function WorkDock({
                         ]}
                         onPress={() => dispatch(markAllSeen.command as never)}
                       >
-                        <Text style={styles.dockMarkSeenText}>{str(markAllSeen, 'label') || 'Mark all read'}</Text>
+                        <Text style={styles.dockMarkSeenText}>
+                          {str(markAllSeen, 'label').replace(/^Mark all read\b/, 'Mark all done') || 'Mark all done'}
+                        </Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -513,7 +521,7 @@ export function WorkDock({
                   <View style={styles.dockUndoBar}>
                     <Glyph name="circle-check-filled" size={13} color="#2fa865" />
                     <Text style={styles.dockUndoText} numberOfLines={1}>
-                      {str(undoMarkAllRead, 'label') || 'Marked read'}
+                      {str(undoMarkAllRead, 'label').replace(/^Marked (\d+) read$/, 'Marked $1 done') || 'Marked done'}
                     </Text>
                     <Pressable
                       accessibilityRole="button"
@@ -807,7 +815,7 @@ function SwipeableInboxRow({
         {canDismiss ? (
           <View style={[styles.swipeActionRight, { backgroundColor: dismissBg }]}>
             <Text style={[styles.swipeActionText, { color: dismissFg }]}>{dismissLabel}</Text>
-            <Glyph name="mail-opened" size={14} color={dismissFg} />
+            <Glyph name={dismissLabel === 'Done' ? 'check' : 'x'} size={14} color={dismissFg} />
           </View>
         ) : (
           <View style={styles.swipeSpacer} />
@@ -871,7 +879,7 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
                 onPress={() => chat.dispatch(dismiss as never)}
                 style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
               >
-                <Text style={styles.bundleButtonText}>Read all</Text>
+                <Text style={styles.bundleButtonText}>Mark all done</Text>
               </Pressable>
             ) : null}
           </View>
@@ -1326,7 +1334,7 @@ function DockRow({
             {markRead !== null ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Mark as read"
+                accessibilityLabel="Done"
                 hitSlop={{ top: 11, bottom: 11, left: 6, right: 6 }}
                 onPress={() => dispatch(markRead as never)}
                 style={({ pressed }) => [styles.dismiss, pressed && { backgroundColor: P.neutralFillPressed }]}
@@ -1770,17 +1778,17 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
         </View>
         <Text style={[styles.title, { color: body }]}>{str(card, 'title')}</Text>
         {right.length > 0 ? <Text style={styles.right}>{right}</Text> : null}
-        {/* A finished card in the dock goes away with its × (gx-chat-core `dock`). It asks no
-            question, so it reads Mark as read, as the dock's finished row does; it sends nothing. */}
+        {/* A finished card in the dock goes away with its check (gx-chat-core `dock`). It asks no
+            question, so it reads Done, as the dock's finished row does; it sends nothing. */}
         {obj(card.dismiss) !== null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Mark as read"
+            accessibilityLabel="Done"
             hitSlop={8}
             onPress={() => dispatch(card.dismiss as never)}
             style={styles.dismiss}
           >
-            <Glyph name="x" size={12} color={P.muted} />
+            <Glyph name="check" size={12} color={P.muted} />
           </Pressable>
         ) : null}
       </View>
