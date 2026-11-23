@@ -185,6 +185,7 @@ function addFoldedStatus(
   status.working ||= session.activity === 'working';
   status.question ||= question || waiting;
   status.attention ||= !question && session.activity === 'attention' && !waiting;
+  if (status.working) status.attention = false;
   status.backgroundWork ||=
     session.backgroundWorkDetectedAt.length > 0 && session.activity !== 'working' && session.activity !== 'attention';
 }

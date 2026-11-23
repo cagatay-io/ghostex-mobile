@@ -163,7 +163,7 @@ export function statusStackColors(stack: FoldedStatus): string[] {
   const colors: string[] = [];
   if (stack.backgroundWork && !stack.working) colors.push(SidebarPalette.ROW_BACKGROUND_WORK);
   if (stack.working) colors.push(SidebarPalette.ROW_WORKING);
-  if (stack.attention) colors.push(SidebarPalette.ROW_ATTENTION);
+  if (stack.attention && !stack.working) colors.push(SidebarPalette.ROW_ATTENTION);
   if (stack.question) colors.push(SidebarPalette.ROW_QUESTION);
   if (stack.approval) colors.push(SidebarPalette.ROW_APPROVAL);
   return colors;

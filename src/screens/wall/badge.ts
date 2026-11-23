@@ -46,7 +46,7 @@ export function statusBadge(
   foldedStatus?: FoldedStatus,
 ): WallBadge | null {
   if (foldedStatus !== undefined) {
-    const kind = FOLDED_ORDER.find((key) => foldedStatus[key]);
+    const kind = FOLDED_ORDER.find((key) => foldedStatus[key] && !(key === 'attention' && foldedStatus.working));
     if (kind !== undefined) return { kind, label: WallCopy.badge[kind], dots: statusStackColors(foldedStatus) };
   }
   if (isAwaitingApproval(session)) return { kind: 'approval', label: WallCopy.badge.approval, dots: [DOT.approval] };

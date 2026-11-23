@@ -129,6 +129,7 @@ function addFolded(status: FoldedStatus, session: UnifiedSessionInput): void {
   const waiting = session.activity === 'attention' && session.threadState === 'waiting';
   status.question ||= session.hasQuestion || waiting;
   status.attention ||= !session.hasQuestion && session.activity === 'attention' && !waiting;
+  if (status.working) status.attention = false;
   status.backgroundWork ||=
     session.hasBackgroundWork &&
     session.activity !== 'working' &&
