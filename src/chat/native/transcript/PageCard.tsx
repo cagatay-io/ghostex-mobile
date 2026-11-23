@@ -17,13 +17,25 @@
 import { useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
-import { useTranscriptEnv, useTranscriptFlags } from './context';
+import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { Glyph } from './icons';
 import { str, type JsonRecord } from './json';
 import { answeredColor } from './PageAnswersCard';
+import { askColor } from '../cards/askCard';
 import { CardMoreMenu, pageRows, snoozeRow, starRow } from '../cards/CardMoreMenu';
 import { askedPageThumbnail, usePageThumbnailStore } from './pageThumbnails';
 import { QuestionFlashFrame } from './OpenQuestions';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLinePill,
+  SingleLineTile,
+  TITLE_ROW_GAP,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
+import { useDisclosure } from './state';
 import { VerticalFade } from './verticalFade';
 
 /** `packages/gx-chat-core/visual/page-card.json`. */
@@ -65,13 +77,19 @@ function PageCardBody({
   answer: JsonRecord | null;
   onLayout: (event: LayoutChangeEvent) => void;
 }) {
-  const { theme, dispatch } = useTranscriptEnv();
+  const { theme, dispatch, collapsePageCards } = useTranscriptEnv();
+  const { disclosures } = useNativeChatUi();
   const flags = useTranscriptFlags();
   const url = str(answer, 'url');
   const file = str(answer, 'file');
   const title = str(answer, 'title') || 'Live page';
   const pageId = str(answer, 'pageId');
   const answered = pageId.length > 0 && flags.answeredPages.has(pageId);
+  const openQuestions = pageId.length > 0 ? (flags.pageOpenQuestions[pageId] ?? 0) : 0;
+  const collapsible = collapsePageCards === true;
+  const cardKey = pageId.length > 0 ? pageId : url.length > 0 ? url : title;
+  const [expanded, toggleExpanded] = useDisclosure(disclosures, `page-card:${cardKey}`, false);
+  const collapsed = collapsible && !expanded;
   // Its questions a later block withdrew, some or all (desktop `page_card.rs`): the card says so
   // where an answered page says Answered.
   const withdrawnEntry = !answered && pageId.length > 0 ? flags.withdrawnPages[pageId] : undefined;
@@ -104,25 +122,78 @@ function PageCardBody({
 
   // Asked once per page and answered state (an answered page is pictured again), not per mount.
   useEffect(() => {
-    if (pageId.length > 0 && askedPageThumbnail(pageId, answered)) dispatch({ type: 'loadPageThumbnail', pageId });
-  }, [answered, dispatch, pageId]);
+    if (!collapsed && pageId.length > 0 && askedPageThumbnail(pageId, answered)) {
+      dispatch({ type: 'loadPageThumbnail', pageId });
+    }
+  }, [answered, collapsed, dispatch, pageId]);
   // While the picture is on its way, ask again when the core says to; a card that left the list
   // asks nothing until it is drawn again.
   const retryInMs = entry !== undefined && !entry.settled ? entry.retryInMs : null;
   const revision = entry?.revision ?? 0;
   useEffect(() => {
-    if (pageId.length === 0 || retryInMs === null) return undefined;
+    if (collapsed || pageId.length === 0 || retryInMs === null) return undefined;
     const timer = setTimeout(() => dispatch({ type: 'loadPageThumbnail', pageId }), retryInMs);
     return () => clearTimeout(timer);
-  }, [dispatch, pageId, retryInMs, revision]);
+  }, [collapsed, dispatch, pageId, retryInMs, revision]);
 
   // Answered, with the reader's answers card right under it, which names the page and opens it
   // again (Q2995, desktop `answers_right_below`).
   if (answered && flags.answersBelow.has(pageId)) return null;
   const open = () => dispatch({ type: 'openMarkdownLink', href: url, external: false });
+  if (collapsed) {
+    const countLabel = openQuestions === 1 ? '1 open question' : `${openQuestions} open questions`;
+    return (
+      <View style={singleLineShell(theme)} onLayout={onLayout}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: false }}
+          accessibilityLabel={`Expand page ${title}`}
+          onPress={toggleExpanded}
+          style={({ pressed }) => [styles.compactHead, pressed ? singleLinePressed(theme) : null]}
+        >
+          <SingleLineTile
+            glyph="file-type-html"
+            badge={openQuestions > 0 ? 'ask' : answered ? 'check' : undefined}
+          />
+          <Text numberOfLines={1} style={[SINGLE_LINE_TITLE, styles.compactTitle, { color: theme.foreground }]}>
+            {title}
+          </Text>
+          {openQuestions > 0 ? <SingleLinePill label={countLabel} color={askColor(theme.light)} /> : null}
+          <Pressable
+            style={({ pressed }) => [styles.open, { backgroundColor: theme.controlPrimary }, pressed && { opacity: 0.8 }]}
+            onPress={(event) => {
+              event.stopPropagation();
+              open();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open"
+          >
+            <Text style={[styles.openText, { color: theme.background }]}>Open</Text>
+            <Glyph name="arrow-up-right" size={13} color={theme.background} />
+          </Pressable>
+        </Pressable>
+      </View>
+    );
+  }
   const picture = entry?.png ?? null;
   const detail = file.length > 0 ? `Live page · ${file}` : 'Live page';
   const good = answeredColor(theme.light);
+  const barContent = (
+    <>
+      <View style={styles.dots}>
+        {[0, 1, 2].map((index) => (
+          <View key={index} style={[styles.dot, { backgroundColor: theme.muted, opacity: 0.3 }]} />
+        ))}
+      </View>
+      <Text numberOfLines={1} style={[styles.barLabel, { color: theme.muted }]}>
+        {file.length > 0 ? file : title}
+      </Text>
+      {/* Balances the dots so the name sits in the middle of the bar, and holds the collapse glyph in Summary view. */}
+      <View style={styles.dotsBalance}>
+        {collapsible ? <Glyph name="chevron-up" size={14} color={theme.muted} /> : null}
+      </View>
+    </>
+  );
   return (
     <Pressable
       style={({ pressed }) => [
@@ -134,18 +205,28 @@ function PageCardBody({
       accessibilityLabel={`Open page ${title}`}
       onLayout={onLayout}
     >
-      <View style={[styles.bar, { backgroundColor: theme.cardPanel, borderBottomColor: theme.border }]}>
-        <View style={styles.dots}>
-          {[0, 1, 2].map((index) => (
-            <View key={index} style={[styles.dot, { backgroundColor: theme.muted, opacity: 0.3 }]} />
-          ))}
+      {collapsible ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.bar,
+            { backgroundColor: theme.cardPanel, borderBottomColor: theme.border },
+            pressed ? singleLinePressed(theme) : null,
+          ]}
+          onPress={(event) => {
+            event.stopPropagation();
+            toggleExpanded();
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: true }}
+          accessibilityLabel="Collapse page preview"
+        >
+          {barContent}
+        </Pressable>
+      ) : (
+        <View style={[styles.bar, { backgroundColor: theme.cardPanel, borderBottomColor: theme.border }]}>
+          {barContent}
         </View>
-        <Text numberOfLines={1} style={[styles.barLabel, { color: theme.muted }]}>
-          {file.length > 0 ? file : title}
-        </Text>
-        {/* Balances the dots so the name sits in the middle of the bar. */}
-        <View style={styles.dotsBalance} />
-      </View>
+      )}
       <View style={[styles.preview, { backgroundColor: theme.background }]}>
         {picture !== null ? (
           <Image
@@ -252,7 +333,15 @@ const styles = StyleSheet.create({
   },
   dots: { flexDirection: 'row', gap: VISUAL.dotGap },
   dot: { width: VISUAL.dotSize, height: VISUAL.dotSize, borderRadius: VISUAL.dotSize / 2 },
-  dotsBalance: { width: VISUAL.dotSize * 3 + VISUAL.dotGap * 2 },
+  dotsBalance: { width: VISUAL.dotSize * 3 + VISUAL.dotGap * 2, alignItems: 'flex-end', justifyContent: 'center' },
+  compactHead: {
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TITLE_ROW_GAP,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+  },
+  compactTitle: { flex: 1, minWidth: 0 },
   barLabel: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 11.5 },
   preview: { height: VISUAL.previewHeight, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   // As wide as the card, cut at the bottom: the top of the page is what it opens on.

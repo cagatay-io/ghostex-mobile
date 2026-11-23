@@ -662,6 +662,9 @@ export type ChatDocument = {
   /** Question pages not answered whose questions were withdrawn, some or all, by page id
    * (gx-chat-core `open_questions.rs` `withdrawn_pages`). */
   withdrawnPages?: { [pageId: string]: { tags: string[]; total: number; replaced?: boolean } };
+  /** How many open questions each Live page still asks, by page id
+   * (gx-chat-core `questions/open_questions.rs` `page_open_question_counts`). */
+  pageOpenQuestions?: { [pageId: string]: number };
   /** Question pages and forms put off "For later" that still wait (gx-chat-core `questions/later.rs`). */
   laterQuestions?: string[];
   /** The pages the reader starred, each on the newest version of its file (gx-chat-core `questions::later::starred_page_ids`). */
@@ -951,6 +954,8 @@ export type ChatDocument = {
   summaryMode: boolean;
   /** The chat's one view level (gx-chat-core `transcript/view_level.rs`); draw from this, not the records. */
   viewLevel?: 'summary' | 'normal' | 'detailed';
+  /** Live page cards start folded to a single compact row in Summary view (gx-chat-core `view_level::collapse_page_cards`). */
+  collapsePageCards?: boolean;
   /** The user's verbose override, or null to follow the setting. Desktop: `appearance.rs`. */
   verboseOverride: boolean | null;
   /** Headline and detail of an empty transcript. Desktop: `new_session_welcome.rs`. */

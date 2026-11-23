@@ -250,6 +250,11 @@ export type TranscriptEnv = {
    */
   simple: boolean;
   /**
+   * Live page cards start folded to a single compact row: on in Summary view
+   * (`collapsePageCards`, desktop `ChatAppearance::collapse_page_cards`).
+   */
+  collapsePageCards?: boolean;
+  /**
    * The folds under each agent message (its tool calls, a thought's tools, a finished turn's
    * "Worked" log) start open: in Detailed view (desktop
    * `ChatAppearance::work_open`, CDXC:SessionChat 2026-10-14 DECISION).
@@ -300,6 +305,8 @@ export type TranscriptFlags = {
   answersBelow: ReadonlySet<string>;
   /** Question pages whose questions were withdrawn, some or all (desktop `page_card.rs`). */
   withdrawnPages: { [pageId: string]: { tags: string[]; total: number; replaced?: boolean } };
+  /** How many open questions each Live page still asks, by page id (desktop `page_card.rs`). */
+  pageOpenQuestions: { [pageId: string]: number };
   /** Question pages and forms still unanswered, which offer For later (gx-chat-core `questions/later.rs`). */
   unansweredQuestions: ReadonlySet<string>;
   /** Question pages and forms put off For later, which offer Back to unanswered. */
@@ -398,6 +405,7 @@ const EMPTY_FLAGS: TranscriptFlags = {
   answeredPages: new Set(),
   answersBelow: new Set(),
   withdrawnPages: {},
+  pageOpenQuestions: {},
   unansweredQuestions: new Set(),
   laterQuestions: new Set(),
   starredPages: new Set(),
@@ -463,6 +471,7 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     answeredPages: new Set(arr(document.answeredPages).filter((id): id is string => typeof id === 'string')),
     answersBelow: new Set(arr(document.answersBelow).filter((id): id is string => typeof id === 'string')),
     withdrawnPages: obj(document.withdrawnPages) === null ? {} : (document.withdrawnPages ?? {}),
+    pageOpenQuestions: obj(document.pageOpenQuestions) === null ? {} : (document.pageOpenQuestions ?? {}),
     unansweredQuestions: new Set(
       (document.openQuestions?.sections ?? [])
         .filter((section) => section.id === 'unanswered')

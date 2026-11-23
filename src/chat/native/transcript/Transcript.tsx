@@ -134,6 +134,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
   // The chat's one view level (gx-chat-core `transcript/view_level.rs`): only Detailed drops the
   // Normal look and opens the work under each reply; Summary shows the Normal look too.
   const simple = main && document?.viewLevel !== 'detailed';
+  const collapsePageCards = main && document?.collapsePageCards === true;
   const workOpen = main && !simple;
   const working = document?.working === true;
   // An answer sent from inside the main transcript stops it following the newest row (`answerHold.ts`).
@@ -150,6 +151,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
       dispatch,
       theme,
       simple,
+      collapsePageCards,
       workOpen,
       filePreviews: main && filePreviews,
       mutedThinking,
@@ -159,7 +161,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
       uploadFiles: chat.uploadFiles,
       queryAsync: chat.queryAsync,
     }),
-    [dispatch, chat.uploadFiles, chat.queryAsync, filePreviews, main, mutedThinking, simple, theme, workOpen, working, toolLines],
+    [dispatch, chat.uploadFiles, chat.queryAsync, collapsePageCards, filePreviews, main, mutedThinking, simple, theme, workOpen, working, toolLines],
   );
   // The document is parsed afresh per frame, so the flags are keyed by their content.
   const flagsSignature =
@@ -170,6 +172,7 @@ export function TranscriptScope({ chat, main, children }: { chat: RustChat; main
           document.answeredPages,
           document.answersBelow,
           document.withdrawnPages,
+          document.pageOpenQuestions,
           document.laterQuestions,
           document.starredPages,
           document.openQuestions?.sections,
