@@ -61,6 +61,7 @@ import { FeedEventSource, FeedUnavailableError, type FeedReadFailure } from './e
 import { FeedRequestError, markRowsRead, readFeed, updateFeed, updateWholeFeed, type FeedRpc, type FeedUpdate } from './feedClient';
 import { ACCOUNT_SESSION_PREFIX, isAccountRow, isSessionlessRow, type FeedRow, type FeedSnapshot } from './feedContract';
 import { NOTIFICATION_STREAM_CAPABILITY, openFeedStream } from './feedStream';
+import { noteSwitchRequestFrame } from './switchRequestStore';
 import { noteApprovalFrame } from '../security/approvalAlerts';
 import { redialAfterServerStop } from '../app/autoReconnect';
 import { installAskAfterPairing } from './askAfterPairing';
@@ -489,6 +490,7 @@ function ensureStream(machineId: string): void {
         () => redialAfterServerStop(machineId),
         () => logAppEvent(`gxserver: ${machineId} says it started`),
         (frame) => noteApprovalFrame(machineId, frame),
+        (frame) => noteSwitchRequestFrame(machineId, frame),
       );
       streams.set(machineId, close);
       source.setStreamed(machineId, true);

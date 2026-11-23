@@ -38,6 +38,7 @@ export function openFeedStream(
   onStopping?: () => void,
   onStarted?: () => void,
   onApproval?: (frame: { change?: unknown; request?: unknown }) => void,
+  onSwitchRequest?: (frame: { request?: unknown }) => void,
 ): () => void {
   const url = `ws://127.0.0.1:${link.localPort}/api/events?protocolVersion=${PROTOCOL_VERSION}&stream=notifications`;
   // React Native's WebSocket takes headers, so the token never travels in the URL. The cast holds: React
@@ -60,6 +61,7 @@ export function openFeedStream(
       else if (frame?.type === 'serverStopping') onStopping?.();
       if (frame?.type === 'serverStarted') onStarted?.();
       if (frame?.type === 'approvalRequestsChanged') onApproval?.(frame);
+      if (frame?.type === 'switchRequest') onSwitchRequest?.(frame);
     } catch {
       // Not a frame of this stream.
     }

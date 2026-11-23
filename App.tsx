@@ -92,6 +92,7 @@ import AutomationsScreen from './src/screens/AutomationsScreen';
 import SshPairingNotices from './src/components/security/SshPairingNotices';
 import EasyConnectFallbackAsk from './src/components/security/EasyConnectFallbackAsk';
 import ApprovalAlerts from './src/components/security/ApprovalAlerts';
+import SwitchRequestToast from './src/components/common/SwitchRequestToast';
 import TestFlightNotice from './src/components/common/TestFlightNotice';
 import { useWebPreviewStore } from './src/webPreview/store';
 import {
@@ -414,6 +415,8 @@ export default function App() {
         <EasyConnectFallbackAsk />
         {/* A connected computer's approval request, live (src/security/approvalAlerts.ts). */}
         <ApprovalAlerts />
+        {/* Agent switch requests shown as clickable toasts instead of switching automatically. */}
+        <SwitchRequestToast />
         {/* TestFlight installs only: switch to the App Store version (src/updates/testFlightNotice.ts). */}
         <TestFlightNotice />
       </SafeAreaProvider>
