@@ -220,13 +220,24 @@ export default function UsageView({ machineId, placement }: { machineId: string;
           />
         ))}
         {known ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('Accounts', { machineId })}
-            style={({ pressed }) => [styles.manage, pressed && styles.pressed]}
-          >
-            <Text style={styles.manageLabel}>{UsageCopy.manageAccounts}</Text>
-          </Pressable>
+          <View style={styles.footerRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Accounts', { machineId })}
+              style={({ pressed }) => [styles.manage, pressed && styles.pressed]}
+            >
+              <Text style={styles.manageLabel}>{UsageCopy.manageAccounts}</Text>
+            </Pressable>
+            {accounts?.some((account) => account.hub.length > 0) ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('CliProxyStatus', { machineId })}
+                style={({ pressed }) => [styles.manage, pressed && styles.pressed]}
+              >
+                <Text style={styles.manageLabel}>{UsageCopy.cliProxyStatus}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
     </FoldListFrame>
@@ -423,6 +434,7 @@ const createStyles = (appearance: Appearance) =>
     ignoredLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     undo: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
     accountRefresh: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    footerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     manage: {
       alignSelf: 'flex-start',
       paddingHorizontal: 12,

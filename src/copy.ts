@@ -1852,6 +1852,8 @@ export const UsageCopy = {
   onHub: (hub: string) => `on ${hub}`,
   /** Opens the Accounts screen on this computer: sign-ins and Reconnect (src/accounts/). */
   manageAccounts: 'Manage accounts',
+  /** Opens the CLIProxyAPI status screen for this computer. */
+  cliProxyStatus: 'CLIProxyAPI status',
   /** The amber line at the top of a signed-out account's section. */
   signedOutOn: (computer: string) => `Signed out on ${computer}`,
   /** The amber line for a signed-out usage-only account, which reconnects in desktop Settings > Accounts. */
@@ -1883,6 +1885,54 @@ export const UsageCopy = {
   widgetBar: (owner: string, window: string) => `${owner} ${window}`,
 } as const;
 
+/** The CLIProxyAPI status screen (src/accounts/CliProxyStatusScreen.tsx). */
+export const CliProxyCopy = {
+  title: 'CLIProxyAPI',
+  unknownComputer: 'this computer',
+  computerLabel: (computer: string) => `CLIProxyAPI on ${computer}`,
+  computerDescription: 'Shows hubs configured on this computer, their Claude and Codex accounts, and cooldown status.',
+  pickComputer: 'Show CLIProxyAPI on',
+  pickSubtitle: 'Pick the computer whose CLIProxyAPI hubs you want to check.',
+  asking: 'Checking…',
+  cantReachShort: "Couldn't reach it",
+  extensionOffShort: 'Extension off',
+  hubCount: (count: number) => (count === 1 ? '1 hub' : `${count} hubs`),
+  refresh: 'Refresh CLIProxyAPI status',
+  loading: (computer: string) => `Reading CLIProxyAPI status from ${computer}…`,
+  unreachable: (computer: string) =>
+    `Can't reach ${computer} right now. Come back once it is connected.`,
+  tryAgain: 'Try again',
+  extensionOffTitle: (computer: string) => `CLIProxyAPI is turned off on ${computer}`,
+  extensionOffBody:
+    'Enable CLIProxyAPI in desktop Settings > Accounts (or Extensions) on that computer to connect a hub and view its Claude and Codex accounts here.',
+  multiMachineNote:
+    'Built-in Ghostex accounts work well for 1 to 2 accounts on 1 to 2 machines. With more accounts or several machines, running CLIProxyAPI on one always-on machine keeps you from constantly re-logging in.',
+  warningTitle: 'Important warnings',
+  warningBody:
+    'Do not add Antigravity to CLIProxyAPI (account bans). Using 2 accounts of the same provider on the same PC is also not recommended.',
+  noHubsTitle: 'No CLIProxyAPI hubs added yet',
+  noHubsBody: (computer: string) =>
+    `CLIProxyAPI is enabled on ${computer}, but no hub address has been added yet. Add a hub in desktop Settings > Accounts.`,
+  statusReady: 'Connected',
+  statusUnavailable: 'Unavailable',
+  statusNoManagementKey: 'Client key only',
+  statusLoading: 'Loading',
+  readyCount: (count: number) => `${count} ready`,
+  coolingCount: (count: number) => `${count} cooling down`,
+  sessionAffinityOn: 'Session affinity on',
+  sessionAffinityOff: 'Session affinity off',
+  noManagementKeyNote:
+    'Add this hub’s management key in desktop Settings > Accounts to see its pooled Claude and Codex accounts, cooldowns, and session affinity here.',
+  noAccountsOnHub: 'No Claude or Codex accounts signed in on this hub yet. Sign them in from desktop Settings > Accounts.',
+  accountReady: 'Ready',
+  coolingDown: 'Cooling down',
+  disabled: 'Disabled',
+  needsSignIn: 'Sign in needed',
+  error: 'Error',
+  clearCooldown: 'Clear cooldown',
+  clearingCooldown: 'Clearing…',
+} as const;
+
 /** The Accounts screen: one computer's saved accounts and sign-ins (src/accounts/). */
 export const AccountsCopy = {
   title: 'Accounts',
@@ -1898,6 +1948,8 @@ export const AccountsCopy = {
   /** Q2781: the honest line in place of buttons that can't work. */
   unreachable: (computer: string) =>
     `Can't reach ${computer} right now. Its accounts sign in on ${computer}: reconnect there in Ghostex, or come back when it's connected.`,
+  cliProxyButton: 'CLIProxyAPI status',
+  cliProxyDescription: 'Check connected CLIProxyAPI hubs, account cooldowns, and session affinity.',
   tryAgain: 'Try again',
   noAccounts: (computer: string) => `No account is saved in Ghostex on ${computer} yet.`,
   provider: { claude: 'Claude', codex: 'Codex' },

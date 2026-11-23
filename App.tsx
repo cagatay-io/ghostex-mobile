@@ -86,6 +86,7 @@ import DocViewerScreen from './src/screens/DocViewerScreen';
 import SshAccessHelpScreen from './src/screens/SshAccessHelpScreen';
 import UsageScreen from './src/screens/UsageScreen';
 import AccountsScreen from './src/accounts/AccountsScreen';
+import CliProxyStatusScreen from './src/accounts/CliProxyStatusScreen';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
 import AutomationsScreen from './src/screens/AutomationsScreen';
 import SshPairingNotices from './src/components/security/SshPairingNotices';
@@ -347,6 +348,7 @@ export default function App() {
                   />
                   <Stack.Screen name="Usage" component={UsageScreen} options={{ title: PanesCopy.usageType }} />
                   <Stack.Screen name="Accounts" component={AccountsScreen} options={{ title: AccountsCopy.title }} />
+                  <Stack.Screen name="CliProxyStatus" component={CliProxyStatusScreen} options={{ title: 'CLIProxyAPI' }} />
                   <Stack.Screen name="Approvals" component={ApprovalsScreen} options={{ title: ApprovalsCopy.open }} />
                   <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: SettingsCopy.title }} />
                   <Stack.Screen

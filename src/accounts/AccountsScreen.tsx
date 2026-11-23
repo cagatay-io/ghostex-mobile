@@ -238,6 +238,7 @@ export default function AccountsScreen({ navigation, route }: Props) {
         onSendCode={onSendCode}
         onCancel={onCancel}
         onDone={onDone}
+        onOpenCliProxy={() => navigation.navigate('CliProxyStatus', { machineId })}
       />
       <ActionSheet
         visible={picking}
@@ -274,6 +275,7 @@ export function AccountsBody({
   onSendCode,
   onCancel,
   onDone,
+  onOpenCliProxy,
 }: {
   computer: string;
   canPick: boolean;
@@ -288,6 +290,7 @@ export function AccountsBody({
   onSendCode: (code: string) => void;
   onCancel: () => void;
   onDone: () => void;
+  onOpenCliProxy?: () => void;
 }) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
@@ -355,6 +358,20 @@ export function AccountsBody({
           onReconnect={onReconnect}
           onAdd={onAdd}
         />
+      ) : null}
+
+      {onOpenCliProxy !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenCliProxy}
+          style={({ pressed }) => [styles.computer, pressed && styles.pressed]}
+        >
+          <View style={styles.computerText}>
+            <Text style={styles.strong}>{AccountsCopy.cliProxyButton}</Text>
+            <Text style={styles.paragraph}>{AccountsCopy.cliProxyDescription}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
       ) : null}
     </ScrollView>
   );

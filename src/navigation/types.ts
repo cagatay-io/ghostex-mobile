@@ -155,6 +155,8 @@ export type RootStackParamList = {
    * panel's Reconnect).
    */
   Accounts: { machineId: string; reconnectAccountId?: string };
+  /** CLIProxyAPI status: hubs, session affinity, and Claude/Codex account status and cooldowns (JS-only OTA). */
+  CliProxyStatus: { machineId?: string } | undefined;
   /** Approvals (GitHub #495): the requests waiting on a computer for its owner, approved with Face ID / fingerprint. */
   Approvals: { machineId: string };
   ExtraKeysEditor: undefined;
