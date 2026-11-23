@@ -112,6 +112,9 @@ const KNOWN_GLYPHS = new Set<string>([
   'wand',
   'puzzle',
   'terminal',
+  'file-down',
+  'file-up',
+  'alarm-off',
 ]);
 
 function isGlyph(name: string): name is GlyphName {

@@ -138,7 +138,9 @@ function StatusMarker({ status, size, dim }: { status: string; size: number; dim
   const color = STATUS_COLOR[status] ?? P.cardMuted;
   const opacity = dim === true ? 0.8 : 1;
   if (status === 'finished') return <Glyph name="circle-check-filled" size={size} color={color} />;
-  if (status === 'dropped') return <Glyph name="x" size={size} color={P.muted} />;
+  if (status === 'dropped') return <Glyph name="circle-x" size={size} color={P.muted} />;
+  if (status === 'blocked') return <Glyph name="circle-minus-filled" size={size} color={color} />;
+  if (status === 'moving') return <Glyph name="circle-half" size={size} color={color} />;
   const box = { width: size, height: size, opacity };
   if (status === 'waiting') {
     return (
@@ -147,9 +149,6 @@ function StatusMarker({ status, size, dim }: { status: string; size: number; dim
         <View style={[styles.pauseBar, { backgroundColor: color }]} />
       </View>
     );
-  }
-  if (status === 'blocked' || status === 'moving') {
-    return <View style={[box, { borderRadius: size / 2, backgroundColor: color }]} />;
   }
   if (status === 'needs') {
     return (
@@ -459,7 +458,9 @@ export function WorkDock({
                       <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
                     );
                   const rowDismissLabel = str(row, 'dismissLabel');
-                  const isDoneDismiss =
+                  const isArchiveDismiss =
+                    rowDismissLabel === 'Archive' ||
+                    rowDismissLabel === 'Archive all' ||
                     rowDismissLabel === 'Done' ||
                     rowDismissLabel === 'Mark as read' ||
                     rowDismissLabel === 'Mark all done' ||
@@ -469,7 +470,7 @@ export function WorkDock({
                       <QuestionFlashFrame target={rowKey} light={P.light}>
                         <SwipeableInboxRow
                           canDismiss={dismissCmd !== null}
-                          dismissLabel={isDoneDismiss ? 'Done' : 'Dismiss'}
+                          dismissLabel={isArchiveDismiss ? 'Archive' : 'Dismiss'}
                           canSnooze={rowSnooze.length > 0}
                           onDismiss={() => {
                             if (dismissCmd !== null) dispatch(dismissCmd as never);
@@ -511,7 +512,7 @@ export function WorkDock({
                         onPress={() => dispatch(markAllSeen.command as never)}
                       >
                         <Text style={styles.dockMarkSeenText}>
-                          {str(markAllSeen, 'label').replace(/^Mark all read\b/, 'Mark all done') || 'Mark all done'}
+                          {str(markAllSeen, 'label').replace(/^Mark all (?:read|done)\b/, 'Archive all') || 'Archive all'}
                         </Text>
                       </Pressable>
                     ) : null}
@@ -521,7 +522,7 @@ export function WorkDock({
                   <View style={styles.dockUndoBar}>
                     <Glyph name="circle-check-filled" size={13} color="#2fa865" />
                     <Text style={styles.dockUndoText} numberOfLines={1}>
-                      {str(undoMarkAllRead, 'label').replace(/^Marked (\d+) read$/, 'Marked $1 done') || 'Marked done'}
+                      {str(undoMarkAllRead, 'label').replace(/^Marked (\d+) (?:read|done)$/, 'Archived $1') || 'Archived'}
                     </Text>
                     <Pressable
                       accessibilityRole="button"
@@ -815,7 +816,11 @@ function SwipeableInboxRow({
         {canDismiss ? (
           <View style={[styles.swipeActionRight, { backgroundColor: dismissBg }]}>
             <Text style={[styles.swipeActionText, { color: dismissFg }]}>{dismissLabel}</Text>
-            <Glyph name={dismissLabel === 'Done' ? 'check' : 'x'} size={14} color={dismissFg} />
+            <Glyph
+              name={dismissLabel === 'Archive' || dismissLabel === 'Done' ? 'check' : 'x'}
+              size={14}
+              color={dismissFg}
+            />
           </View>
         ) : (
           <View style={styles.swipeSpacer} />
@@ -851,14 +856,13 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
         style={({ pressed }) => [styles.dockPress, pressed && { backgroundColor: P.ink(0.04) }]}
       >
         <View style={styles.dockRow}>
-          <View style={styles.dockIconWithDot}>
-            {unread ? <View style={styles.unreadDot} /> : null}
+          <View style={styles.dockIcon}>
             <Glyph name="stack" size={14} color={STATUS_COLOR.needs} />
           </View>
           <View style={styles.dockMain}>
             <Text
               numberOfLines={1}
-              style={[styles.dockTitle, { color: body, fontWeight: unread ? '600' : '400' }]}
+              style={[styles.dockTitle, { color: unread ? P.foreground : P.cardMuted }]}
             >
               {str(row, 'title')}
             </Text>
@@ -879,7 +883,7 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
                 onPress={() => chat.dispatch(dismiss as never)}
                 style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
               >
-                <Text style={styles.bundleButtonText}>Mark all done</Text>
+                <Text style={styles.bundleButtonText}>Archive all</Text>
               </Pressable>
             ) : null}
           </View>
@@ -897,16 +901,15 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
                 onPress={() => (pageOpen !== null ? chat.dispatch(pageOpen as never) : undefined)}
                 style={({ pressed }) => [
                   styles.subRow,
-                  isRead && styles.readRowDim,
                   pressed && { backgroundColor: P.ink(0.04) },
                 ]}
               >
                 <Glyph
-                  name={isRead ? 'mail-opened' : 'note'}
+                  name="file"
                   size={12}
-                  color={isRead ? P.muted : STATUS_COLOR.needs}
+                  color={STATUS_COLOR.needs}
                 />
-                <Text style={[styles.subRowText, { color: body }]} numberOfLines={1}>
+                <Text style={[styles.subRowText, { color: isRead ? P.cardMuted : P.foreground }]} numberOfLines={1}>
                   {str(page, 'title')}
                 </Text>
                 {str(page, 'age').length > 0 ? <Text style={styles.foldTime}>{str(page, 'age')}</Text> : null}
@@ -1087,7 +1090,6 @@ function DockRow({
   const [dupesOpen, setDupesOpen] = useState(false);
   const kind = str(row, 'kind');
   const unread = onClose === undefined && isTrue(row, 'unread');
-  const openedRead = onClose === undefined && isTrue(row, 'opened');
   const duplicates = onClose === undefined
     ? arr(row.duplicates)
         .map(obj)
@@ -1123,7 +1125,8 @@ function DockRow({
   // An answered approval says so quietly for its few seconds, then leaves (gx-chat-core
   // extras/dock_approvals.rs); there is nothing to open.
   const settled = isTrue(row, 'settled');
-  const titleColor = settled ? P.cardMuted : body;
+  const inDock = onClose === undefined;
+  const titleColor = settled ? P.cardMuted : inDock ? (unread ? P.foreground : P.cardMuted) : body;
   // Why an approval's answer did not land.
   const error = str(row, 'error');
   // Why the agent flagged an approval ("Dangerous rm operation …"), on the row itself.
@@ -1214,6 +1217,7 @@ function DockRow({
           logos={logos}
           logosWidth={logosWidth}
           openLabel={openLabel}
+          isPage={page}
           details={details}
           iconOnly={!opened && !isThreadWait}
           context={obj(row.context)}
@@ -1237,25 +1241,25 @@ function DockRow({
         style={({ pressed }) => [
           styles.dockPress,
           opened && styles.dockPressOpen,
-          openedRead && styles.readRowDim,
           pressed && !opened && { backgroundColor: P.ink(0.04) },
         ]}
       >
         <View style={styles.dockRow}>
-          <View style={unread ? styles.dockIconWithDot : styles.dockIcon}>
-            {unread ? <View style={styles.unreadDot} /> : null}
-            {openedRead && page ? (
-              <Glyph name="mail-opened" size={14} color={P.muted} />
-            ) : threadWaitApproval ? (
-              <Glyph name="shield-check" size={14} color={SidebarPalette.ROW_APPROVAL} />
+          <View style={styles.dockIcon}>
+            {kind === 'approval' || threadWaitApproval ? (
+              <Glyph name="shield-alert" size={14} color={SidebarPalette.ROW_APPROVAL} />
             ) : threadWaitWarn ? (
               <Glyph name="alert-triangle" size={14} color={STATUS_COLOR.moving} />
             ) : kind === 'thread' && str(row, 'agentIcon').length > 0 ? (
               <AgentMark icon={str(row, 'agentIcon')} size={13} />
             ) : markStatus === 'page' ? (
-              <Glyph name="note" size={14} color={STATUS_COLOR.needs} />
+              <Glyph name="file" size={14} color={STATUS_COLOR.needs} />
             ) : markStatus === 'form' ? (
               <Glyph name="list-check" size={14} color={STATUS_COLOR.needs} />
+            ) : str(row, 'status') === 'needs' && (isTrue(row, 'needsYou') || str(row, 'key').startsWith('needs-you:')) ? (
+              <Glyph name="checkbox" size={14} color={STATUS_COLOR.needs} />
+            ) : str(row, 'status') === 'needs' ? (
+              <Glyph name="help-circle" size={14} color={STATUS_COLOR.needs} />
             ) : (
               <StatusMarker status={markStatus} size={13} />
             )}
@@ -1266,7 +1270,7 @@ function DockRow({
                 {direct && count.length > 0 ? (
                   <Text
                     numberOfLines={1}
-                    style={[styles.dockTitle, { color: body, fontWeight: unread ? '600' : '400' }]}
+                    style={[styles.dockTitle, { color: titleColor }]}
                   >
                     {str(row, 'title')}
                   </Text>
@@ -1275,7 +1279,7 @@ function DockRow({
                 ) : (
                   <Text
                     numberOfLines={2}
-                    style={[styles.dockTitle, { color: titleColor, fontWeight: unread ? '600' : '400' }]}
+                    style={[styles.dockTitle, { color: titleColor }]}
                   >
                     {str(row, 'title')}
                   </Text>
@@ -1334,7 +1338,7 @@ function DockRow({
             {markRead !== null ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Done"
+                accessibilityLabel="Archive"
                 hitSlop={{ top: 11, bottom: 11, left: 6, right: 6 }}
                 onPress={() => dispatch(markRead as never)}
                 style={({ pressed }) => [styles.dismiss, pressed && { backgroundColor: P.neutralFillPressed }]}
@@ -1406,7 +1410,7 @@ function DockRow({
                 style={({ pressed }) => [styles.subRow, pressed && { backgroundColor: P.ink(0.04) }]}
               >
                 <Glyph
-                  name={isTrue(dupe, 'page') ? 'note' : str(dupe, 'kind') === 'form' ? 'list-check' : 'help-circle'}
+                  name={isTrue(dupe, 'page') ? 'file' : str(dupe, 'kind') === 'form' ? 'list-check' : 'help-circle'}
                   size={12}
                   color={STATUS_COLOR.needs}
                 />
@@ -1779,11 +1783,11 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
         <Text style={[styles.title, { color: body }]}>{str(card, 'title')}</Text>
         {right.length > 0 ? <Text style={styles.right}>{right}</Text> : null}
         {/* A finished card in the dock goes away with its check (gx-chat-core `dock`). It asks no
-            question, so it reads Done, as the dock's finished row does; it sends nothing. */}
+            question, so it reads Archive, as the dock's finished row does; it sends nothing. */}
         {obj(card.dismiss) !== null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Done"
+            accessibilityLabel="Archive"
             hitSlop={8}
             onPress={() => dispatch(card.dismiss as never)}
             style={styles.dismiss}
@@ -2192,9 +2196,6 @@ const useStyles = themedStyles((P) => ({
   },
   dockCountNumber: { fontSize: WORKING_VISUAL.fontSize, color: P.foreground, fontVariant: ['tabular-nums'] },
   dockCountName: { fontSize: WORKING_VISUAL.fontSize, color: P.cardMuted },
-  dockIconWithDot: { flexDirection: 'row', alignItems: 'center', gap: 5, height: PROSE_LINE },
-  unreadDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: SidebarPalette.ROW_QUESTION },
-  readRowDim: { opacity: 0.62 },
   dockTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dockTitleFlex: { flex: 1, minWidth: 0 },
   sourcesChip: {

@@ -101,7 +101,7 @@ export function toneColor(tone: string): string | null {
 /** The leading icon on a thread-wait Needs you card (desktop `work_cards.rs` `row_mark`). */
 function ThreadWaitMark({ waitKind, needsApproval }: { waitKind: string; needsApproval: boolean }) {
   if (waitKind === 'approval' || (waitKind !== 'signIn' && waitKind !== 'usageLimit' && needsApproval)) {
-    return <Glyph name="shield-check" size={14} color={SidebarPalette.ROW_APPROVAL} />;
+    return <Glyph name="shield-alert" size={14} color={SidebarPalette.ROW_APPROVAL} />;
   }
   if (waitKind === 'signIn' || waitKind === 'usageLimit') {
     return <Glyph name="alert-triangle" size={14} color="#c68a06" />;
@@ -115,6 +115,8 @@ function GroupMarker({ group }: { group: string }) {
   const P = useTranscriptTheme();
   const color = GROUP_COLOR[group] ?? P.cardMuted;
   if (group === 'done') return <Glyph name="circle-check-filled" size={12} color={color} />;
+  if (group === 'blocked') return <Glyph name="circle-minus-filled" size={12} color={color} />;
+  if (group === 'moving') return <Glyph name="circle-half" size={12} color={color} />;
   // On hold: two bars, a pause (desktop `player-pause`).
   if (group === 'hold') {
     return (
@@ -123,9 +125,6 @@ function GroupMarker({ group }: { group: string }) {
         <View style={[styles.pauseBar, { backgroundColor: color }]} />
       </View>
     );
-  }
-  if (group === 'blocked' || group === 'moving') {
-    return <View style={[styles.disc, { backgroundColor: color }]} />;
   }
   if (group === 'needs') {
     return (
@@ -1092,6 +1091,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           replied={str(row, 'replied')}
                           open={obj(actions?.open) ?? obj(obj(row)?.open)}
                           openLabel={str(row, 'openLabel') || 'Open'}
+                          isPage={isTrue(obj(row), 'page') || isTrue(obj(obj(row)?.dock), 'page')}
                           busy={false}
                           divider
                           room={-80}

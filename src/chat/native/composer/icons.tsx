@@ -520,6 +520,33 @@ const GLYPHS = {
   },
   // New terminal (Tabler `terminal`), apart from Terminal View's `terminal-2`.
   terminal: { paths: ['M5 7l5 5l-5 5', 'M12 19l7 0'] },
+  // Export page / Import answers (Q4764, Lucide `file-down` / `file-up`).
+  'file-down': {
+    paths: [
+      'M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z',
+      'M14 2v5a1 1 0 0 0 1 1h5',
+      'M12 18v-6',
+      'm9 15 3 3 3-3',
+    ],
+  },
+  'file-up': {
+    paths: [
+      'M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z',
+      'M14 2v5a1 1 0 0 0 1 1h5',
+      'M12 12v6',
+      'm15 15-3-3-3 3',
+    ],
+  },
+  // Unsnooze (Q4762, Tabler `alarm-off`).
+  'alarm-off': {
+    paths: [
+      'M7.587 7.566a7 7 0 1 0 9.833 9.864m1.35 -2.645a7 7 0 0 0 -8.536 -8.56',
+      'M12 12v1h1',
+      'M5.261 5.265l-1.011 .735',
+      'M17 4l2.75 2',
+      'M3 3l18 18',
+    ],
+  },
 } satisfies Record<string, GlyphSpec>;
 
 export type GlyphName = keyof typeof GLYPHS;

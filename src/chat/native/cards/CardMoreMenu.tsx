@@ -47,8 +47,8 @@ export function starRow(pageId: string, starred: boolean): MenuRow {
 /** A page's Export page and Import answers rows. */
 export function pageRows(pageId: string): MenuRow[] {
   return [
-    { label: 'Export page', iconPath: 'titlebar/file-export.svg', command: { type: 'exportPage', pageId } },
-    { label: 'Import answers', iconPath: 'titlebar/file.svg', command: { local: 'importAnswers' } },
+    { label: 'Export page', iconPath: 'titlebar/file-down.svg', command: { type: 'exportPage', pageId } },
+    { label: 'Import answers', iconPath: 'titlebar/file-up.svg', command: { local: 'importAnswers' } },
   ];
 }
 

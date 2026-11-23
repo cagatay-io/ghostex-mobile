@@ -171,11 +171,13 @@ function ItemPills({ pills, fit, dispatch }: { pills: JsonRecord[]; fit: PillFit
 
 /** A square icon button's side (`WorkButton` `iconOnly`): a one-line button's height. */
 const ICON_BUTTON = 30;
-/** The one glyph of a Needs you row's Details, whatever it opens (desktop `DETAILS_ICON`). */
-const DETAILS_GLYPH: GlyphName = 'note';
+/** The glyph of a Needs you row's Details button for a question or form popup (desktop `DETAILS_ICON`). */
+const DETAILS_GLYPH: GlyphName = 'message-question';
+/** The glyph of a Needs you row's Open button for a Live page (desktop `PAGE_OPEN_ICON`). */
+const PAGE_OPEN_GLYPH: GlyphName = 'external-link';
 /** A Needs you row's Jump to context (desktop `CONTEXT_ICON`). */
-const CONTEXT_GLYPH: GlyphName = 'focus-2';
-/** A Needs you row's Done action (desktop `MARK_READ_ICON`). */
+const CONTEXT_GLYPH: GlyphName = 'message-share';
+/** A Needs you row's Archive action (desktop `MARK_READ_ICON`). */
 const MARK_READ_GLYPH: GlyphName = 'check';
 
 /** A Reply button's width as `WorkAnswerLine` measures it. */
@@ -214,7 +216,7 @@ export function rowAsksQuestion(row: JsonRecord): boolean {
   if (key.startsWith('work-ask:')) return true;
   if (key.startsWith('dock-questions:')) {
     const label = str(row, 'dismissLabel');
-    return label !== 'Done' && label !== 'Mark as read';
+    return label !== 'Archive' && label !== 'Done' && label !== 'Mark as read';
   }
   const onlyDone = buttons.length === 0 || (buttons.length === 1 && str(buttons[0], 'label') === 'Done');
   if (key.startsWith('needs-you:')) return !onlyDone;
@@ -486,6 +488,7 @@ export function WorkAnswerLine({
   logos,
   logosWidth = 0,
   openLabel = 'Open',
+  isPage = false,
   details = null,
   iconOnly = false,
   context = null,
@@ -515,6 +518,8 @@ export function WorkAnswerLine({
   logosWidth?: number;
   /** What a form's or page's button says: Answer while it asks something (gx-chat-core `openLabel`). */
   openLabel?: string;
+  /** Whether this row opens a Live page (external-link icon) rather than a question/form popup (message-question icon). */
+  isPage?: boolean;
   /** A closed row whose question has details: Details (which shows them, with the answers under
    * them) and Reply in the answers' place (gx-chat-core `details_fields`). */
   details?: (() => void) | null;
@@ -602,7 +607,7 @@ export function WorkAnswerLine({
         key="read"
         keep
         iconOnly
-        label="Done"
+        label="Archive"
         icon={MARK_READ_GLYPH}
         onPress={() => dispatch(markRead as never)}
       />
@@ -640,14 +645,21 @@ export function WorkAnswerLine({
       </>
     );
     if (open != null) {
+      const openGlyph = isPage === true ? PAGE_OPEN_GLYPH : DETAILS_GLYPH;
       return (
         <View style={styles.line}>
           {lead}
           {markReadButton}
           {iconOnly ? (
-            <WorkButton keep iconOnly label="Details" icon={DETAILS_GLYPH} onPress={() => dispatch(open as never)} />
+            <WorkButton
+              keep
+              iconOnly
+              label={isPage === true ? 'Open page' : 'Details'}
+              icon={openGlyph}
+              onPress={() => dispatch(open as never)}
+            />
           ) : (
-            <WorkButton keep label={openLabel} icon="external-link" onPress={() => dispatch(open as never)} />
+            <WorkButton keep label={openLabel} icon={openGlyph} onPress={() => dispatch(open as never)} />
           )}
           {contextButton}
           {replyButton}
@@ -874,34 +886,43 @@ export function workMenuRows(
   const rows: WorkMenuRow[] = [];
   // A snoozed row's Unsnooze (gx-chat-core `dock_with`'s `snoozed`): back under Needs you now.
   const unsnooze = obj(actions.unsnooze);
-  if (unsnooze !== null) rows.push({ label: 'Unsnooze', icon: 'arrow-back-up', command: unsnooze });
+  if (unsnooze !== null) rows.push({ label: 'Unsnooze', icon: 'alarm-off', command: unsnooze });
   // A Needs you to-do's command (gx-chat-core `extras::needs_you`), as its chip copies it.
   const command = str(actions, 'command').trim();
   if (command.length > 0) rows.push({ label: 'Copy command', icon: 'copy', copy: command });
   const show = obj(actions.showInChat);
-  if (show !== null) rows.push({ label: 'Show in chat', icon: 'arrow-down-left', command: show });
+  if (show !== null) rows.push({ label: 'Show in chat', icon: 'message-share', command: show });
   // Mark answered, beside Dismiss: one answered in the chat box closes by hand (gx-chat-core
   // `questions::later::mark_answered`, CDXC:Coordinators 2026-11-16 DECISION).
   const markAnswered = obj(actions.markAnswered);
   if (markAnswered !== null) rows.push({ label: 'Mark answered', icon: 'circle-check', command: markAnswered });
   const dismiss = obj(actions.dismiss);
-  // Dismiss, or Done on a row that asks no question (a Needs you to-do, a page that only
+  // Dismiss, or Archive on a row that asks no question (a Needs you to-do, a page that only
   // waits to be seen, what the newest turn finished): gx-chat-core's `dismissLabel`. Both send the
   // agent nothing; gxserver tells it with its next message (server/src/session_chat_dismissed.rs).
   if (dismiss !== null) {
     const label = str(actions, 'dismissLabel');
-    const done = label === 'Done' || label === 'Mark as read';
-    rows.push({ label: done ? 'Done' : label || 'Dismiss', icon: done ? 'check' : 'x', command: dismiss });
+    const archive =
+      label === 'Archive' ||
+      label === 'Archive all' ||
+      label === 'Done' ||
+      label === 'Mark all done' ||
+      label === 'Mark as read';
+    rows.push({
+      label: archive ? (label === 'Archive all' ? 'Archive all' : 'Archive') : label || 'Dismiss',
+      icon: archive ? 'check' : 'x',
+      command: dismiss,
+    });
   }
   const snooze = arr(actions.snooze)
     .map(obj)
     .filter((choice): choice is JsonRecord => choice !== null);
   if (snooze.length > 0) rows.push({ label: 'Snooze', icon: 'clock', snooze });
-  if (markdown.length > 0) rows.push({ label: 'Copy as Markdown', icon: 'copy', copy: markdown });
+  if (markdown.length > 0) rows.push({ label: 'Copy as Markdown', icon: 'markdown', copy: markdown });
   if (mention.length > 0) {
     rows.push({
       label: 'Mention in chat box',
-      icon: 'message-plus',
+      icon: 'quote',
       command: { type: 'insertBoardReference', reference: mention, text: composerText },
     });
   }

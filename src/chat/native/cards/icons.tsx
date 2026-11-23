@@ -7,7 +7,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { COORDINATOR_CROWN_PATHS, COORDINATOR_CROWN_STROKE } from '../../../components/sessions/icons';
 
-type GlyphSpec = { paths: string[]; strokeWidth?: number; filled?: boolean };
+type GlyphSpec = { paths: string[]; strokeWidth?: number; filled?: boolean; fills?: string[] };
 
 const GLYPHS = {
   /** The "+N" pill and its sheet (desktop `titlebar/dots.svg`). */
@@ -434,6 +434,68 @@ const GLYPHS = {
   'arrows-diagonal-minimize': {
     paths: ['M4 4l6 6', 'M4 10h6v-6', 'M20 20l-6 -6', 'M20 14h-6v6', 'M20 4l-6 6', 'M14 4v6h6', 'M4 20l6 -6', 'M10 20v-6h-6'],
   },
+  /** Inbox icons (Q4755-Q4764 and Keep desktop parity, desktop `titlebar/<name>.svg`). */
+  'message-question': {
+    paths: [
+      'M8 9h8',
+      'M8 13h6',
+      'M14 18h-1l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v4.5',
+      'M19 22v.01',
+      'M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483',
+    ],
+  },
+  'message-share': {
+    paths: [
+      'M8 9h8',
+      'M8 13h6',
+      'M13 18l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v6',
+      'M16 22l5 -5',
+      'M21 21.5v-4.5h-4.5',
+    ],
+  },
+  'shield-alert': {
+    paths: [
+      'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z',
+      'M12 8v4',
+      'M12 16h.01',
+    ],
+  },
+  checkbox: {
+    paths: ['M9 11l3 3l8 -8', 'M20 12v6a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h9'],
+    strokeWidth: 1.8,
+  },
+  'alarm-off': {
+    paths: [
+      'M7.587 7.566a7 7 0 1 0 9.833 9.864m1.35 -2.645a7 7 0 0 0 -8.536 -8.56',
+      'M12 12v1h1',
+      'M5.261 5.265l-1.011 .735',
+      'M17 4l2.75 2',
+      'M3 3l18 18',
+    ],
+  },
+  file: {
+    paths: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2'],
+  },
+  'circle-half': {
+    paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0'],
+    fills: ['M12 6a6 6 0 0 1 0 12z'],
+  },
+  'circle-x': {
+    paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M10 10l4 4m0 -4l-4 4'],
+  },
+  markdown: {
+    paths: [
+      'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10',
+      'M7 15v-6l2 2l2 -2v6',
+      'M14 13l2 2l2 -2m-2 2v-6',
+    ],
+  },
+  quote: {
+    paths: [
+      'M10 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5',
+      'M19 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5',
+    ],
+  },
 } satisfies Record<string, GlyphSpec>;
 
 export type GlyphName = keyof typeof GLYPHS;
@@ -468,6 +530,9 @@ export function Glyph({
           />
         ),
       )}
+      {(spec.fills ?? []).map((d, index) => (
+        <Path key={`fill-${index}`} d={d} fill={color} stroke="none" />
+      ))}
     </Svg>
   );
 }
