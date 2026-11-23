@@ -1472,6 +1472,9 @@ export type WorkingCard = {
   /** A tool label in runs for the two-row top row, file paths shortened (`dim` folders); empty
    * otherwise (gx-chat-core `extras/working_card_label.rs`). Absent from an older core. */
   labelParts?: { text: string; dim?: boolean }[];
+  /** Optional segments for a worked turn summary so tight layouts truncate item titles before wait
+   * reasons (gx-chat-core `extras/work_cards.rs` `turn_summary_parts`). Absent from an older core. */
+  labelSegments?: { text: string; truncate?: boolean }[];
   /** Status line in the chat draws this line as the transcript's last row (the transcript has rows); absent, the capsule shows. */
   inTranscript?: boolean;
   /** When the finished turn's last message came (epoch ms), while the Worked line shows: the line

@@ -135,19 +135,36 @@ export function WorkingLine({ card }: { card: WorkingCardValue }) {
   const label = card.label ?? '';
   const strong = card.labelKind === 'tool' || card.labelKind === 'activity';
   const parts = card.labelParts ?? [];
+  const segments = card.labelSegments ?? [];
+  const textStyle = strong ? styles.labelStrong : styles.label;
   return (
     <>
       <Lead card={card} />
       <View style={styles.labelSlot}>
-        <Text style={strong ? styles.labelStrong : styles.label} numberOfLines={1} ellipsizeMode="tail">
-          {parts.length > 0
-            ? parts.map((part, index) => (
-                <Text key={index} style={part.dim === true ? styles.dim : null}>
-                  {part.text}
-                </Text>
-              ))
-            : label}
-        </Text>
+        {segments.length > 0 ? (
+          <View style={styles.segmentRow}>
+            {segments.map((segment, index) => (
+              <Text
+                key={index}
+                style={[textStyle, segment.truncate === true ? styles.segmentTruncate : styles.segmentFixed]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {segment.text}
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={textStyle} numberOfLines={1} ellipsizeMode="tail">
+            {parts.length > 0
+              ? parts.map((part, index) => (
+                  <Text key={index} style={part.dim === true ? styles.dim : null}>
+                    {part.text}
+                  </Text>
+                ))
+              : label}
+          </Text>
+        )}
         {card.labelKind === 'activity' ? <ActivityTrailing activity={obj(card.activity)} /> : null}
       </View>
     </>
@@ -399,6 +416,20 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: VISUAL.gap,
+  },
+  segmentRow: {
+    flexShrink: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  segmentTruncate: {
+    flexShrink: 1,
+    minWidth: 24,
+  },
+  segmentFixed: {
+    flexShrink: 0,
   },
   label: {
     flexShrink: 1,
