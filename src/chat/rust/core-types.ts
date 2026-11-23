@@ -264,7 +264,11 @@ export type ChatCoreQuery =
   /** `attachmentReferencePaths(text)`: the paths of the draft's `[Image #N](path)`-style attachment references. */
   | 'attachmentReferencePaths'
   /** `retargetAttachmentReferences(text, [[from, to], …])`: the draft with those references pointing at the copies. */
-  | 'retargetAttachmentReferences';
+  | 'retargetAttachmentReferences'
+  /** `replyMentions(text, caret)`: compact `*`, `+`, `/` or `$` mention popup for a Reply box. */
+  | 'replyMentions'
+  /** `completeReplyMention(text, caret, index)`: Reply box text and caret after picking a mention row. */
+  | 'completeReplyMention';
 
 export class ChatCoreError extends Error {
   readonly code: string;

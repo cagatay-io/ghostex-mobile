@@ -16,6 +16,7 @@ import { arr, obj, str, type JsonRecord } from '../json';
 import { QuestionFlashFrame } from '../OpenQuestions';
 import { useQuestionFormState } from '../QuestionForm';
 import { openQuestionReply } from '../QuestionReply';
+import { replyDraftScopeOf, SESSION_REPLY_ROW, useReplyDraft } from '../../cards/replyDrafts';
 
 /** The reader's own answer as the status quotes it: its first line, at most 48 characters. */
 function short(text: string): string {
@@ -101,6 +102,8 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   if (covered) return null;
   const divider = StyleSheet.hairlineWidth * 2;
   const own = clickable ? '✎' : null;
+  const replyDraftText = useReplyDraft(replyDraftScopeOf(dispatch), SESSION_REPLY_ROW);
+  const hasReplyDraft = own !== null && replyDraftText.trim().length > 0;
   // The words a segment shows, the same in the drawn pill and in the measured copy.
   const content = (choice: JsonRecord, index: number, wrap: boolean) => {
     const label = str(choice, 'label');
@@ -141,62 +144,76 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
             ) : null}
           </View>
         </View>
-        <View
-          style={[styles.pill, stacked && styles.stackedPill, { borderColor: edge }]}
-          accessibilityRole="radiogroup"
-        >
-          {choices.map((choice, index) => {
-            const label = str(choice, 'label');
-            const chosen = sent && picked === index;
-            const recommended = choice.recommended === true && !sent;
-            const faded = (sent && !chosen && !changing) || withdrawn;
-            const active = clickable && !(chosen && !changing);
-            return (
+        <View style={[styles.pillWrap, stacked && styles.stackedPillWrap]}>
+          <View
+            style={[styles.pill, stacked && styles.stackedPill, { borderColor: edge }]}
+            accessibilityRole="radiogroup"
+          >
+            {choices.map((choice, index) => {
+              const label = str(choice, 'label');
+              const chosen = sent && picked === index;
+              const recommended = choice.recommended === true && !sent;
+              const faded = (sent && !chosen && !changing) || withdrawn;
+              const active = clickable && !(chosen && !changing);
+              return (
+                <Pressable
+                  key={index}
+                  disabled={!active}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: chosen, disabled: !active }}
+                  accessibilityLabel={recommended ? `${label}, recommended` : label}
+                  onPress={() => dispatch({ type: 'inlineAnswer', form: formId, choice: index })}
+                  style={({ pressed }) => [
+                    styles.segment,
+                    stacked && styles.stackedSegment,
+                    index > 0 &&
+                      (stacked
+                        ? { borderTopWidth: divider, borderTopColor: edge }
+                        : { borderLeftWidth: divider, borderLeftColor: edge }),
+                    {
+                      backgroundColor: chosen
+                        ? theme.foreground
+                        : withAlpha(theme.foreground, pressed && active ? 0.1 : 0.035),
+                    },
+                    faded && styles.faded,
+                  ]}
+                >
+                  {content(choice, index, stacked)}
+                </Pressable>
+              );
+            })}
+            {own !== null ? (
               <Pressable
-                key={index}
-                disabled={!active}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: chosen, disabled: !active }}
-                accessibilityLabel={recommended ? `${label}, recommended` : label}
-                onPress={() => dispatch({ type: 'inlineAnswer', form: formId, choice: index })}
+                accessibilityRole="button"
+                accessibilityLabel="Write your own answer"
+                onPress={() => openQuestionReply({ form: formId, tag, name: shortName(str(mark, 'question')) })}
                 style={({ pressed }) => [
                   styles.segment,
                   stacked && styles.stackedSegment,
-                  index > 0 &&
+                  choices.length > 0 &&
                     (stacked
                       ? { borderTopWidth: divider, borderTopColor: edge }
                       : { borderLeftWidth: divider, borderLeftColor: edge }),
-                  {
-                    backgroundColor: chosen
-                      ? theme.foreground
-                      : withAlpha(theme.foreground, pressed && active ? 0.1 : 0.035),
-                  },
-                  faded && styles.faded,
+                  { backgroundColor: withAlpha(theme.foreground, pressed ? 0.1 : 0.035) },
                 ]}
               >
-                {content(choice, index, stacked)}
+                <Text style={[styles.label, stacked && styles.wrapped, { color: theme.cardMuted }]}>
+                  {stacked ? `${own}  Write your own answer` : own}
+                </Text>
+                {stacked && hasReplyDraft ? (
+                  <View
+                    pointerEvents="none"
+                    style={[styles.draftDotInset, { backgroundColor: theme.light ? theme.foreground : '#ffffff' }]}
+                  />
+                ) : null}
               </Pressable>
-            );
-          })}
-          {own !== null ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Write your own answer"
-              onPress={() => openQuestionReply({ form: formId, tag, name: shortName(str(mark, 'question')) })}
-              style={({ pressed }) => [
-                styles.segment,
-                stacked && styles.stackedSegment,
-                choices.length > 0 &&
-                  (stacked
-                    ? { borderTopWidth: divider, borderTopColor: edge }
-                    : { borderLeftWidth: divider, borderLeftColor: edge }),
-                { backgroundColor: withAlpha(theme.foreground, pressed ? 0.1 : 0.035) },
-              ]}
-            >
-              <Text style={[styles.label, stacked && styles.wrapped, { color: theme.cardMuted }]}>
-                {stacked ? `${own}  Write your own answer` : own}
-              </Text>
-            </Pressable>
+            ) : null}
+          </View>
+          {!stacked && hasReplyDraft ? (
+            <View
+              pointerEvents="none"
+              style={[styles.draftDot, { backgroundColor: theme.light ? theme.foreground : '#ffffff' }]}
+            />
           ) : null}
         </View>
         {status !== null ? (
@@ -220,8 +237,12 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  pillWrap: { position: 'relative', flexShrink: 1 },
+  stackedPillWrap: { width: '100%' },
   pill: { flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth * 2, borderRadius: 9, overflow: 'hidden', flexShrink: 1 },
   stackedPill: { flexDirection: 'column', width: '100%' },
+  draftDot: { position: 'absolute', top: -2, right: -2, width: 6, height: 6, borderRadius: 3 },
+  draftDotInset: { position: 'absolute', top: 4, right: 6, width: 6, height: 6, borderRadius: 3 },
   measureRoom: { position: 'absolute', left: 0, top: 0, width: 20000, flexDirection: 'row', opacity: 0 },
   measured: { flexShrink: 0, borderColor: 'transparent' },
   segment: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32, paddingHorizontal: 13 },

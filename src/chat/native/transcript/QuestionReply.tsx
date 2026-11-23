@@ -78,6 +78,7 @@ export function QuestionReplyHost({ chat }: { chat: RustChat }) {
     <ReplySheet
       quote={target !== null ? '' : null}
       question={target?.name ?? ''}
+      chat={chat}
       initialText={initial}
       onChangeText={scope !== null && row !== null ? (text) => keepReplyDraft(scope, row, text) : undefined}
       onClose={closeQuestionReply}

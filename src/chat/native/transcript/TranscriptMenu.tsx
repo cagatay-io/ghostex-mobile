@@ -199,6 +199,7 @@ export function TranscriptMenuSheet({
       />
       <ReplySheet
         quote={replyQuote}
+        chat={chat}
         onClose={() => setReplyQuote(null)}
         onReply={onReply}
         // The session's one Reply draft, as a question's Reply keeps it (`replyDrafts.ts`).

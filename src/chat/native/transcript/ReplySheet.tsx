@@ -19,17 +19,25 @@
  * offers it again (`voice/dictation.ts`), so a dictation is never lost.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import GhostexImageIntakeView from '../../../../modules/ghostex-native/src/GhostexImageIntakeView';
 import type { MachineConnectionTarget } from '../../../machines/credentials';
+import { CoordinatorGlyph } from '../../../components/sessions/icons';
+import { sidebarInk } from '../../../components/sessions/rows';
+import { SidebarPalette } from '../../../theme/palette';
 import { forgetRecording, saveAndTranscribe, startRecording, stopRecording } from '../../../voice/dictation';
+import type { RustChat } from '../../rust/useRustChat';
+import { AgentMark } from '../cards/agentMark';
 import { pickAttachments, type PickedFile } from '../composer/attachments';
 import { Glyph } from '../composer/icons';
 import { imagesFromIntake } from '../composer/imageIntake';
+import { arr, isTrue, num, obj, str, type JsonRecord } from '../composer/json';
 import { Sheet } from '../composer/Sheet';
 import { themedStyles, useTranscriptTheme } from './theme';
+
+const WORKING_COLOR = '#f5a524';
 
 export type ReplyAction = 'add' | 'send';
 
@@ -77,6 +85,7 @@ function withPictures(reply: string, pictures: readonly Picture[]): string {
 export function ReplySheet({
   quote,
   question,
+  chat,
   onClose,
   onReply,
   initialText = '',
@@ -91,6 +100,8 @@ export function ReplySheet({
    * opener has no name for it.
    */
   question?: string;
+  /** The chat core, for `*` Boosts, `+` agents and `/` or `$` skills mention menus. */
+  chat?: RustChat;
   onClose: () => void;
   onReply: (quote: string, reply: string, action: ReplyAction) => void;
   /** The words it opens with: a work item Reply's kept draft (`replyDrafts.ts`). */
@@ -103,6 +114,8 @@ export function ReplySheet({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [text, setText] = useState('');
+  const [caret, setCaret] = useState(0);
+  const [mentionPopup, setMentionPopup] = useState<JsonRecord | null>(null);
   const [pictures, setPictures] = useState<Picture[]>([]);
   const [voice, setVoice] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null);
@@ -112,6 +125,9 @@ export function ReplySheet({
   textRef.current = text;
   const open = useRef(false);
   open.current = quote !== null;
+  const mentionReq = useRef(0);
+  const refreshedBoostsAt = useRef<number | null>(null);
+  const dismissedMention = useRef<{ kind: string; start: number } | null>(null);
   /** Where the draft is kept, as it was while the sheet was open: words or a picture that arrive after it closed are kept there too. */
   const keep = useRef(onChangeText);
   if (quote !== null) keep.current = onChangeText;
@@ -120,13 +136,73 @@ export function ReplySheet({
     if (quote !== null) {
       const kept = splitPictures(initialText);
       setText(kept.text);
+      setCaret(kept.text.length);
       selection.current = { start: kept.text.length, end: kept.text.length };
       setPictures(kept.pictures);
       setStatus(null);
+      setMentionPopup(null);
+      dismissedMention.current = null;
+      refreshedBoostsAt.current = null;
+    } else {
+      setMentionPopup(null);
     }
     // Only a new opening resets the field; the draft follows the typing, not the other way round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote]);
+  // Compact mention menu (`*` Boosts, `+` agents, `/` or `$` skills), driven by the Rust chat core.
+  useEffect(() => {
+    if (quote === null || chat === undefined) {
+      setMentionPopup(null);
+      return;
+    }
+    const id = ++mentionReq.current;
+    void chat
+      .queryAsync('replyMentions', [text, caret])
+      .then((answer) => {
+        if (id !== mentionReq.current) return;
+        const popup = obj(answer);
+        if (popup === null) {
+          dismissedMention.current = null;
+          refreshedBoostsAt.current = null;
+          setMentionPopup(null);
+          return;
+        }
+        const kind = str(popup, 'kind');
+        const start = num(popup, 'triggerStart') ?? -1;
+        if (
+          dismissedMention.current !== null &&
+          dismissedMention.current.kind === kind &&
+          dismissedMention.current.start === start
+        ) {
+          setMentionPopup(null);
+          return;
+        }
+        if (kind === 'boost' && refreshedBoostsAt.current !== start) {
+          refreshedBoostsAt.current = start;
+          chat.dispatch({ type: 'refreshBoosts' });
+        }
+        setMentionPopup(popup);
+      })
+      .catch(() => {
+        if (id === mentionReq.current) setMentionPopup(null);
+      });
+  }, [quote, chat, text, caret]);
+  const pickMention = (index: number) => {
+    if (chat === undefined) return;
+    const at = selection.current.start;
+    void chat
+      .queryAsync('completeReplyMention', [textRef.current, at, index])
+      .then((answer) => {
+        const result = obj(answer);
+        const nextText = typeof result?.text === 'string' ? result.text : null;
+        const nextCaret = num(result, 'caret');
+        if (nextText === null || nextCaret === null) return;
+        dismissedMention.current = null;
+        setMentionPopup(null);
+        write(nextText, nextCaret);
+      })
+      .catch(() => undefined);
+  };
   // The draft is kept on every change of its words or pictures, also one that arrives after the
   // sheet closed (a transcription, a picture saved).
   const loaded = useRef(false);
@@ -143,10 +219,11 @@ export function ReplySheet({
   useEffect(() => {
     if (placed !== null) setPlaced(null);
   }, [placed]);
-  const write = (next: string, caret: number) => {
+  const write = (next: string, nextCaret: number) => {
     setText(next);
-    selection.current = { start: caret, end: caret };
-    setPlaced({ start: caret, end: caret });
+    setCaret(nextCaret);
+    selection.current = { start: nextCaret, end: nextCaret };
+    setPlaced({ start: nextCaret, end: nextCaret });
   };
   // Closing while it records stops the microphone; the recording waits on the phone for the chat
   // box's Transcribe (it is never lost).
@@ -260,9 +337,17 @@ export function ReplySheet({
   const field = (
     <TextInput
       value={text}
-      onChangeText={setText}
+      onChangeText={(next) => {
+        setText(next);
+        // Update caret immediately when typing at the end so the mention query doesn't lag a frame.
+        if (selection.current.start === text.length && selection.current.end === text.length) {
+          selection.current = { start: next.length, end: next.length };
+          setCaret(next.length);
+        }
+      }}
       onSelectionChange={(event) => {
         selection.current = event.nativeEvent.selection;
+        setCaret(event.nativeEvent.selection.start);
       }}
       selection={placed ?? undefined}
       multiline
@@ -273,6 +358,11 @@ export function ReplySheet({
       style={styles.input}
     />
   );
+  const mentionRows = mentionPopup !== null ? arr(mentionPopup.rows) : [];
+  const mentionKind = mentionPopup !== null ? str(mentionPopup, 'kind') : '';
+  const mentionHeading = mentionPopup !== null ? str(mentionPopup, 'heading') : '';
+  const mentionStatus = mentionPopup !== null ? str(mentionPopup, 'status') : '';
+  const mentionVisible = mentionPopup !== null && (mentionRows.length > 0 || mentionStatus.length > 0);
   return (
     <Sheet visible={quote !== null} onClose={onClose} title={question === undefined ? 'Reply' : question.length > 0 ? question : 'Your answer'}>
       <View style={styles.body}>
@@ -294,6 +384,81 @@ export function ReplySheet({
         ) : (
           field
         )}
+        {mentionVisible ? (
+          <View style={styles.mentionPopup} accessibilityRole="menu" accessibilityLabel={mentionHeading}>
+            <View style={styles.mentionHeaderRow}>
+              <Text style={styles.mentionHeading}>{mentionHeading.toUpperCase()}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close menu"
+                hitSlop={8}
+                onPress={() => {
+                  if (mentionPopup !== null) {
+                    dismissedMention.current = {
+                      kind: mentionKind,
+                      start: num(mentionPopup, 'triggerStart') ?? -1,
+                    };
+                  }
+                  setMentionPopup(null);
+                }}
+                style={styles.mentionClose}
+              >
+                <Glyph name="x" size={13} color={P.muted} />
+              </Pressable>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="always" style={styles.mentionScroll} contentContainerStyle={styles.mentionContent}>
+              {mentionStatus.length > 0 && mentionRows.length === 0 ? (
+                <Text style={styles.mentionStatus}>{mentionStatus}</Text>
+              ) : null}
+              {mentionRows.map((row, index) => (
+                <Fragment key={`${index}:${str(row, 'label')}`}>
+                  {str(row, 'section').length > 0 ? (
+                    <Text style={styles.mentionSection} accessibilityRole="header">
+                      {str(row, 'section').toUpperCase()}
+                    </Text>
+                  ) : null}
+                  <Pressable
+                    accessibilityRole="menuitem"
+                    onPress={() => pickMention(index)}
+                    style={({ pressed }) => [styles.mentionRow, pressed ? styles.mentionRowPressed : null]}
+                  >
+                    {mentionKind === 'boost' ? (
+                      <Glyph name="sparkles" size={15} color={P.link.boost} strokeWidth={1.6} />
+                    ) : null}
+                    {mentionKind === 'session' ? (
+                      isTrue(row, 'coordinator') ? (
+                        <CoordinatorGlyph
+                          size={15}
+                          color={
+                            isTrue(row, 'mainCoordinator')
+                              ? sidebarInk(P.light).mainCrown
+                              : P.light
+                                ? '#000000'
+                                : SidebarPalette.ROW_COORDINATOR_CROWN
+                          }
+                        />
+                      ) : (
+                        <AgentMark icon={str(row, 'agentIcon') || null} size={15} />
+                      )
+                    ) : null}
+                    <Text style={styles.mentionLabel} numberOfLines={1}>
+                      {str(row, 'label')}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.mentionDetail,
+                        mentionKind === 'session' && isTrue(row, 'working') ? { color: WORKING_COLOR } : null,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {str(row, 'detail')}
+                    </Text>
+                  </Pressable>
+                </Fragment>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
         {pictures.length > 0 ? (
           <View style={styles.tiles}>
             {pictures.map((picture, index) => (
@@ -424,4 +589,44 @@ const useStyles = themedStyles((P) => ({
   primaryPressed: { opacity: 0.8 },
   buttonText: { color: P.foreground, fontSize: 14, fontWeight: '600' as const },
   primaryText: { color: P.background },
+  mentionPopup: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: P.composerBorder,
+    backgroundColor: P.menu,
+    overflow: 'hidden' as const,
+  },
+  mentionHeaderRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  mentionHeading: { color: P.muted, fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.4 },
+  mentionSection: {
+    color: P.muted,
+    fontSize: 11,
+    fontWeight: '600' as const,
+    letterSpacing: 0.4,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  mentionClose: { width: 22, height: 22, alignItems: 'center' as const, justifyContent: 'center' as const },
+  mentionScroll: { maxHeight: 168 },
+  mentionContent: { padding: 4 },
+  mentionStatus: { color: P.muted, fontSize: 12, paddingHorizontal: 8, paddingVertical: 6 },
+  mentionRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  mentionRowPressed: { backgroundColor: P.neutralFillPressed },
+  mentionLabel: { color: P.foreground, fontSize: 13, fontWeight: '500' as const, flexShrink: 0, maxWidth: '58%' },
+  mentionDetail: { color: P.muted, fontSize: 12, flex: 1 },
 }));

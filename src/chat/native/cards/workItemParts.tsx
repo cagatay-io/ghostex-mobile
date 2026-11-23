@@ -38,7 +38,7 @@ import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/them
 import { openQuestionReply } from '../transcript/QuestionReply';
 import { Markdown } from '../transcript/markdown/Markdown';
 import { messageCommands } from '../transcript/markdown/runCommands';
-import { replyDraftRow, type ReplyDraftScope } from './replyDrafts';
+import { replyDraftRow, SESSION_REPLY_ROW, useReplyDraft, type ReplyDraftScope } from './replyDrafts';
 
 /** Every button's touch area: 8 above and below a 28-point button make Apple's 44. */
 export const WORK_BUTTON_SLOP = { top: 8, bottom: 8, left: 3, right: 3 };
@@ -346,6 +346,7 @@ function WorkButton({
   accessibilityLabel,
   keep,
   iconOnly,
+  hasDot,
 }: {
   label: string;
   icon?: GlyphName;
@@ -358,6 +359,8 @@ function WorkButton({
   accessibilityLabel?: string;
   /** Hold the label's whole width: the line was measured to fit it, so it never squeezes. */
   keep?: boolean;
+  /** Small top-right dot when the inline Reply button has an unsent draft. */
+  hasDot?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -382,6 +385,12 @@ function WorkButton({
         <Text style={[styles.buttonLabel, keep === true && styles.kept, { color: P.foreground }]}>{label}</Text>
       )}
       {iconOnly === true ? null : trailing}
+      {hasDot === true ? (
+        <View
+          pointerEvents="none"
+          style={[styles.draftDot, { backgroundColor: P.light ? P.foreground : '#ffffff' }]}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -547,6 +556,7 @@ export function WorkAnswerLine({
     setLineWidth((was) => (was === next ? was : next));
   }, []);
   const row = reply !== null ? replyDraftRow(reply as never) : null;
+  const replyDraftText = useReplyDraft(scope, row !== null ? SESSION_REPLY_ROW : null);
   const given = answers.some((answer) => isTrue(answer, 'picked'));
   const locked = given || answers.some((answer) => isTrue(answer, 'locked'));
   const lineRoom = lineWidth > 0 ? lineWidth : room > 0 ? room : width + room;
@@ -556,6 +566,7 @@ export function WorkAnswerLine({
         key="reply"
         keep={replied.length === 0}
         iconOnly={iconOnly}
+        hasDot={!iconOnly && replied.length === 0 && !locked && replyDraftText.trim().length > 0}
         accessibilityLabel={iconOnly && replied.length > 0 ? `Replied: ${replied}` : undefined}
         label={replyLabel(replied)}
         icon={replied.length > 0 ? 'check' : 'arrow-back-up'}
@@ -1048,4 +1059,5 @@ const useStyles = themedStyles((P) => ({
   menuText: { color: P.foreground, fontSize: PROSE_SIZE + 1 },
   flex: { flex: 1 },
   dots: { width: 26, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  draftDot: { position: 'absolute', top: -2, right: -2, width: 6, height: 6, borderRadius: 3 },
 }));
