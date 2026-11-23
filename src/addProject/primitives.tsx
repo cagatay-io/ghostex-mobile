@@ -10,6 +10,7 @@ import { useAppearance, type Appearance } from '../theme/useAppearance';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CountBadge } from '../components/common/CountBadge';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { CaretRightGlyph } from '../components/sessions/icons';
@@ -181,6 +182,7 @@ export function MetadataBadge({
 
 export function InlineActionButton({
   active,
+  count,
   disabled,
   icon,
   label,
@@ -190,6 +192,7 @@ export function InlineActionButton({
   testID,
 }: {
   active?: boolean;
+  count?: number;
   disabled?: boolean;
   icon?: ReactNode;
   label: string;
@@ -204,7 +207,7 @@ export function InlineActionButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={count !== undefined ? `${label}, ${count}` : label}
       accessibilityState={{ disabled: isDisabled, busy: loading === true, selected: active === true }}
       testID={testID}
       disabled={isDisabled}
@@ -235,6 +238,7 @@ export function InlineActionButton({
           >
             {label}
           </Text>
+          {count !== undefined ? <CountBadge count={count} /> : null}
         </>
       )}
     </Pressable>

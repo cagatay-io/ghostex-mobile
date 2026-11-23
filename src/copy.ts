@@ -733,7 +733,7 @@ export const AddProjectCopy = {
   emptyRepositoryError: 'Enter a repository.',
   emptyUrlError: 'Enter a Git clone URL.',
   suggestedSection: 'Suggested repositories',
-  suggestedShowAll: (count: number) => `Show all (${count})`,
+  suggestedShowAll: 'Show all',
   suggestedShowLess: 'Show fewer',
   suggestedFromOtherApps: 'Found in other apps',
   suggestedFromFolder: (folder: string) => `In ${folder}`,

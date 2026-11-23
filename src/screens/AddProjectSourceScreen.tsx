@@ -205,11 +205,8 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
             action={
               hasHiddenSuggestions ? (
                 <InlineActionButton
-                  label={
-                    showAllSuggestions
-                      ? AddProjectCopy.suggestedShowLess
-                      : AddProjectCopy.suggestedShowAll(suggestions.length)
-                  }
+                  label={showAllSuggestions ? AddProjectCopy.suggestedShowLess : AddProjectCopy.suggestedShowAll}
+                  count={showAllSuggestions ? undefined : suggestions.length}
                   onPress={() => setShowAllSuggestions((prev) => !prev)}
                 />
               ) : undefined
