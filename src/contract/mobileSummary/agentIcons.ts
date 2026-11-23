@@ -150,7 +150,7 @@ export function isCustomAgentId(value: string): boolean {
 /** The built-in agents' names by icon (gxserver `DEFAULT_SIDEBAR_AGENTS`), for a session whose computer names none. */
 const AGENT_ICON_NAMES: Partial<Record<AgentIconId, string>> = {
   'amp-cli': 'Amp CLI',
-  'antigravity-cli': 'Antigravity CLI',
+  'antigravity-cli': 'Antigravity',
   claude: 'Claude',
   codebuddy: 'CodeBuddy',
   'cursor-cli': 'Cursor CLI',

@@ -143,7 +143,7 @@ const IGNORED_PLACEHOLDER_SESSION_TITLES: readonly string[] = [
 ];
 
 const DEFAULT_SESSION_AGENT_TITLE_NAMES: readonly string[] = [
-  'Antigravity CLI',
+  'Antigravity',
   'Amp CLI',
   'Claude',
   'CodeBuddy',

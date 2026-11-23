@@ -195,7 +195,7 @@
         { "id": "codex", "icon": "codex", "name": "Codex", "active": false, "handoff": true },
         { "id": "cursor", "icon": "cursor-cli", "name": "Cursor CLI", "active": false, "handoff": true },
         { "id": "grok", "icon": "grok-build", "name": "Grok Build", "active": false, "handoff": true },
-        { "id": "antigravity", "icon": "antigravity-cli", "name": "Antigravity CLI", "active": false, "handoff": true }
+        { "id": "antigravity", "icon": "antigravity-cli", "name": "Antigravity", "active": false, "handoff": true }
       ],
       "rows": [
         {
