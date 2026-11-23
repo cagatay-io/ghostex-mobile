@@ -1,4 +1,8 @@
+import { Fragment } from 'react';
+import { Platform } from 'react-native';
+
 import type { CursorStyle } from '../../../modules/ghostex-native/src/GhostexNative.types';
+import { AdvancedSettingsCopy } from '../../copy/advancedSettings';
 import {
   KEEP_ALIVE_INTERVAL_MAX_SEC,
   KEEP_ALIVE_INTERVAL_MIN_SEC,
@@ -66,10 +70,16 @@ function PaneLayoutDebugRow() {
   return <ValueRow label="Pane layout, upright (debug)" value={paneLayoutSummary(stacked)} />;
 }
 
-/** Terminal toggles carried over from the older Android app, in its order. */
-const LEGACY_TERMINAL_TOGGLES: { key: BooleanSettingKey; label: string }[] = [
+/**
+ * Terminal toggles carried over from the older Android app, in its order. `iosNote` stands under the row on iOS.
+ *
+ * CDXC:Settings 2026-11-21 DECISION:
+ * User: on the iPhone no tap on a terminal brings the keyboard, so "Soft keyboard" changes nothing there; the row
+ * stays, with a note that it applies only on Android, rather than being hidden.
+ */
+const LEGACY_TERMINAL_TOGGLES: { key: BooleanSettingKey; label: string; iosNote?: string }[] = [
   { key: 'autoScroll', label: 'Auto scroll' },
-  { key: 'softKeyboardEnabled', label: 'Soft keyboard' },
+  { key: 'softKeyboardEnabled', label: 'Soft keyboard', iosNote: AdvancedSettingsCopy.softKeyboardIosNote },
   { key: 'refreshButtonVisible', label: 'Show refresh button' },
   { key: 'fileUploadButtonVisible', label: 'Show file upload button' },
   { key: 'keyboardButtonVisible', label: 'Show keyboard button' },
@@ -110,7 +120,10 @@ export default function AdvancedPage() {
       <SettingsSection name="settings:advanced:terminal">
         <SectionHeader title="Terminal" />
         {LEGACY_TERMINAL_TOGGLES.map((toggle) => (
-          <SettingToggle key={toggle.key} settingKey={toggle.key} label={toggle.label} />
+          <Fragment key={toggle.key}>
+            <SettingToggle settingKey={toggle.key} label={toggle.label} />
+            {Platform.OS === 'ios' && toggle.iosNote !== undefined ? <Caption>{toggle.iosNote}</Caption> : null}
+          </Fragment>
         ))}
       </SettingsSection>
       <SettingsSection name="settings:advanced:cursor">
