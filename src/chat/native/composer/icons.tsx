@@ -285,9 +285,13 @@ const GLYPHS = {
   'layout-columns': {
     paths: ['M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12', 'M12 4l0 16'],
   },
-  // Inbox it! and Fix and prove (desktop titlebar/inbox.svg and bug.svg).
+  // Inbox it!, Fix and prove, and Add to Pings (desktop titlebar/inbox.svg, bug.svg and circle-dot.svg).
   inbox: {
     paths: ['M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12', 'M4 13h3l3 3h4l3 -3h3'],
+  },
+  'circle-dot': {
+    paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0'],
+    fills: ['M9.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0'],
   },
   bug: {
     paths: [
