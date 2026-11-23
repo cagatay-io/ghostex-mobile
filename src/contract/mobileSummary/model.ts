@@ -259,7 +259,7 @@ export type GhostexWorkspace = {
   letter: string;
   /**
    * The icon drawn in white on a disc of `color` (gx-protocol `WORKSPACE_ICONS`): the one picked
-   * in Settings, else `briefcase` for a work workspace and `home` for a personal one, as
+   * in Settings, else `briefcase` for a work workspace and `user` for a personal one, as
    * `SidebarWorkspace::icon_id` resolves it on the desktop.
    */
   icon: string;

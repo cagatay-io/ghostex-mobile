@@ -66,7 +66,7 @@ export default function WorkspaceTile({
 
 /** A workspace's mark: its icon in white on a filled disc of its colour, `size` across. */
 export function WorkspaceBadge({ workspace, size }: { workspace: GhostexWorkspace; size: number }) {
-  const Icon = WORKSPACE_ICONS[workspace.icon] ?? WORKSPACE_ICONS.home;
+  const Icon = WORKSPACE_ICONS[workspace.icon] ?? WORKSPACE_ICONS.user;
   return (
     <View
       style={{

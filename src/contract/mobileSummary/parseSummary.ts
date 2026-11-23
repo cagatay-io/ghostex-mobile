@@ -408,12 +408,12 @@ const WORKSPACE_ICON_IDS: readonly string[] = [
 
 /**
  * A workspace's icon as gx-protocol `SidebarWorkspace::icon_id` resolves it: the picked one while
- * it is a workspace icon, else `briefcase` for a work workspace and `home` for any other, which
+ * it is a workspace icon, else `briefcase` for a work workspace and `user` for any other, which
  * is also what an older desktop that sends no `icon` gets.
  */
 export function workspaceIconId(icon: string, kind: string): string {
   if (WORKSPACE_ICON_IDS.includes(icon)) return icon;
-  return kind === 'work' ? 'briefcase' : 'home';
+  return kind === 'work' ? 'briefcase' : 'user';
 }
 
 /**
