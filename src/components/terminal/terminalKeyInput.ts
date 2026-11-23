@@ -59,7 +59,13 @@ export type TerminalKeyInputOptions = {
   haptics: { click: () => void; lock: () => void };
   /** The user's key haptics setting, read at each press (`keyBarHapticsEnabled`). */
   hapticsEnabled: () => boolean;
+  /** Called after a bare Escape keystroke (no Ctrl/Alt/Shift) is sent to the terminal. */
+  onEscape?: () => void;
 };
+
+function isBareEscape(key: TerminalKey, mods: KeyModifiers | undefined): boolean {
+  return key === 'escape' && mods?.ctrl !== true && mods?.alt !== true && mods?.shift !== true;
+}
 
 /** The screen's upload as the pad's Upload key sees it. */
 export type PadUpload = {
@@ -143,7 +149,7 @@ export class TerminalKeyInput {
   /** An agent hotkey: its steps in order, `AGENT_HOTKEY_SEQUENCE_DELAY_MS` apart. */
   sendSequence(steps: readonly AgentHotkeyStep[]): void {
     this.beginAction();
-    const { native, sessionKey } = this.options;
+    const { native, sessionKey, onEscape } = this.options;
     void (async () => {
       for (const [index, step] of steps.entries()) {
         if (index > 0) {
@@ -152,6 +158,7 @@ export class TerminalKeyInput {
           });
         }
         await native.sendKey(sessionKey, step.key, step.mods);
+        if (isBareEscape(step.key, step.mods)) onEscape?.();
       }
     })().catch(ignoreClosedTerminal);
   }
@@ -265,6 +272,7 @@ export class TerminalKeyInput {
 
   private send(key: TerminalKey, mods: KeyModifiers): void {
     void this.options.native.sendKey(this.options.sessionKey, key, mods).catch(ignoreClosedTerminal);
+    if (isBareEscape(key, mods)) this.options.onEscape?.();
   }
 
   /** The tick of a press that sends nothing itself, such as switching a layer (`keyBarHapticsEnabled`). */

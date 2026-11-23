@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import { GhostexNative } from '../../../modules/ghostex-native/src';
 import { useSettingsStore } from '../../settings/store';
+import { reportTerminalEscape } from '../../terminal/attention';
 import { TerminalKeyInput, type ModifierState } from './terminalKeyInput';
 
 const haptics = {
@@ -39,7 +40,14 @@ export type TerminalKeyInputState = { input: TerminalKeyInput; modifiers: Modifi
 /** `sessionKey` null: no terminal is shown; the input exists but nothing renders that uses it. */
 export function useTerminalKeyInput(sessionKey: string | null): TerminalKeyInputState {
   const input = useMemo(
-    () => new TerminalKeyInput({ sessionKey: sessionKey ?? '', native: GhostexNative, haptics, hapticsEnabled }),
+    () =>
+      new TerminalKeyInput({
+        sessionKey: sessionKey ?? '',
+        native: GhostexNative,
+        haptics,
+        hapticsEnabled,
+        onEscape: sessionKey === null ? undefined : () => reportTerminalEscape(sessionKey),
+      }),
     [sessionKey],
   );
   useEffect(() => {

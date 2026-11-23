@@ -6,6 +6,7 @@
  * inventory dot; the poll loop restores server truth if the CLI call fails.
  */
 
+import { chatMachineLink } from '../chat/rust/machine-link';
 import { acknowledgeAttentionCommand, acknowledgeCoordinatorThreadsCommand } from '../commands/ghostexCli';
 import { runGhostexCli } from '../components/sessions/cli';
 import {
@@ -15,8 +16,12 @@ import {
   type GhostexSession,
   type GhostexSummaryCapabilities,
 } from '../contract/mobileSummary';
+import { isDemoMachine } from '../demo/identity';
 import { useInventoryStore } from '../inventory/store';
 import { useMachinesStore } from '../machines/store';
+import { useTerminalStore } from './sessions';
+
+const TERMINAL_ESCAPE_RPC_TIMEOUT_MS = 5_000;
 
 /**
  * Fire-and-forget: no-op unless the session's current display status is
@@ -45,6 +50,44 @@ export function acknowledgeSessionAttention(machineId: string, sessionId: string
       // Failed acknowledge: the cleared fingerprint makes the next poll
       // restore the server-side attention state.
     });
+}
+
+/**
+ * Bare Escape pressed in the phone's SSH terminal (key bar or command pad): clears any local
+ * attention dot immediately and reports `event: "escape"` to gxserver over the computer's HTTP
+ * forward so an interrupted turn settles to idle without raising a blue finished dot or
+ * notification, matching desktop (`gx_store_terminal_escape`) and web (`terminal_ws.rs`).
+ */
+export function reportTerminalEscape(sessionKey: string): void {
+  const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
+  if (tab === undefined || tab.kind !== 'attach' || tab.ghostexSessionId === undefined) return;
+  const sessionId = tab.ghostexSessionId;
+  const machine = useMachinesStore.getState().machines.find((entry) => entry.id === tab.machineId);
+  if (machine === undefined || isDemoMachine(machine)) return;
+  const session = useInventoryStore
+    .getState()
+    .inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === sessionId);
+  const projectId = (tab.ghostexProjectId?.trim() || session?.projectId.trim() || '');
+  if (projectId.length === 0) return;
+  if (session !== undefined && displayStatus(session) === 'attention') {
+    useInventoryStore.getState().acknowledgeAttentionLocally(machine.id, sessionId);
+  }
+  void (async () => {
+    const link = chatMachineLink(machine);
+    const route = await link.routeOrRepair();
+    if (route !== 'socket') return;
+    await link.rpc(
+      'updateAgentActivity',
+      {
+        projectId,
+        sessionId,
+        event: 'escape',
+      },
+      TERMINAL_ESCAPE_RPC_TIMEOUT_MS,
+    );
+  })().catch(() => {
+    // Best effort: the Escape keystroke already went straight to the SSH terminal.
+  });
 }
 
 /**
