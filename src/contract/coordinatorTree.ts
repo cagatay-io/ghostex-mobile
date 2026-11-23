@@ -178,10 +178,13 @@ function addFoldedStatus(
     return;
   }
   const question = hasQuestion(session.pendingQuestionCount, capabilities.awaitingAnswer && session.awaitingAnswer);
-  // A thread waiting on the user (gxserver's `waiting`: a permission prompt, a bell) is the pink needs-you dot (the
-  // user's choice, gx-core `FoldedStatus::add`); only a finished turn is the stack's blue, so the blue is exactly what
-  // opening the orchestrator clears.
-  const waiting = session.activity === 'attention' && session.coordinatorThreadState === 'waiting';
+  // A row waiting on the user (a thread in gxserver's `waiting` state, or any row whose
+  // `attentionKind` is `needsInput` such as a terminal bell or prompt) is the pink needs-you dot
+  // (gx-core `FoldedStatus::add`); only a finished turn is the stack's blue, so working threads
+  // hide blue finished dots without hiding the coordinator's own `needsInput` alert.
+  const waiting =
+    session.activity === 'attention' &&
+    (session.coordinatorThreadState === 'waiting' || session.attentionKind === 'needsInput');
   status.working ||= session.activity === 'working';
   status.question ||= question || waiting;
   status.attention ||= !question && session.activity === 'attention' && !waiting;

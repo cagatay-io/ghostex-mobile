@@ -72,6 +72,7 @@ export function unifiedSessionInput(
     coordinatorProjectId: session.coordinatorProjectId,
     coordinatorSessionId: session.coordinatorSessionId,
     threadState: session.coordinatorThreadState,
+    attentionNeedsInput: session.attentionKind === 'needsInput',
     isCoordinator: session.isCoordinator,
     stuck: session.stuckSince.length > 0,
     quotaWaitState: session.quotaWaitState,

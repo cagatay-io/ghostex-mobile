@@ -65,6 +65,8 @@ export type UnifiedSessionInput = {
   coordinatorSessionId?: string;
   /** On a thread: waiting, working, finished… as its coordinator's computer reports it. */
   threadState?: string;
+  /** gxserver's `attention.kind === "needsInput"`: the attention waits on the user rather than being a finished turn. */
+  attentionNeedsInput?: boolean;
   /** A coordinator session (its crown). */
   isCoordinator?: boolean;
   /** Working with no output for long enough to count as stuck. */
