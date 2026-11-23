@@ -1,10 +1,10 @@
 /**
- * Single source of truth for user-visible Inbox and Asks labels on the phone.
+ * Single source of truth for user-visible Inbox and Pings labels on the phone.
  * Swap `ASKS_GROUP_NAME` / `ASKS_GROUP_SINGULAR` / `ASKS_GROUP_PLURAL` here to rename the group in one place.
  */
-export const ASKS_GROUP_NAME = 'Asks';
-export const ASKS_GROUP_SINGULAR = 'ask';
-export const ASKS_GROUP_PLURAL = 'asks';
+export const ASKS_GROUP_NAME = 'Pings';
+export const ASKS_GROUP_SINGULAR = 'ping';
+export const ASKS_GROUP_PLURAL = 'pings';
 export const INBOX_NAME = 'Inbox';
 export const INBOX_FULL_NAME = 'Session Inbox';
 
