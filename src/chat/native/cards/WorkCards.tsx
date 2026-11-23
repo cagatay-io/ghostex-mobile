@@ -317,6 +317,7 @@ export function WorkDock({
   // The row whose ask is shown in its sheet (`DockRow` with `onClose`), by key.
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [doneOpen, setDoneOpen] = useState(false);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
   const [answeredOpen, setAnsweredOpen] = useState(false);
   const [swipeSnoozeRow, setSwipeSnoozeRow] = useState<JsonRecord | null>(null);
@@ -359,6 +360,9 @@ export function WorkDock({
   const shownCollapsed = useRef<boolean | null>(null);
   const dock = obj(dockValue);
   const rows = dockRows(document);
+  const done = dockDone(document);
+  const doneArchiveAll = obj(dock?.doneArchiveAll);
+  const doneArchiveAllCmd = obj(doneArchiveAll?.command);
   const snoozed = dockSnoozed(document);
   const answered = dockAnswered(document);
   const undoMarkAllRead = obj(dock?.undoMarkAllRead);
@@ -373,7 +377,10 @@ export function WorkDock({
   // User: "when question is marked as answered give a toast at least that it has been answered",
   // then yes to the same toast on the phone (Q3109).
   const sheetGone =
-    sheetKey !== null && !rows.some((row) => str(row, 'key') === sheetKey) && !snoozed.some((row) => str(row, 'key') === sheetKey);
+    sheetKey !== null &&
+    !rows.some((row) => str(row, 'key') === sheetKey) &&
+    !done.some((row) => str(row, 'key') === sheetKey) &&
+    !snoozed.some((row) => str(row, 'key') === sheetKey);
   const settledValue = document?.workAsksSettled;
   useEffect(() => {
     if (!sheetGone || sheetKey === null) return;
@@ -389,7 +396,8 @@ export function WorkDock({
     return null;
   }
   // With nothing docked the bar is one line: no chevron, nothing to open.
-  const collapsible = rows.length > 0 || snoozed.length > 0 || answered.length > 0 || undoMarkAllRead !== null;
+  const collapsible =
+    rows.length > 0 || done.length > 0 || snoozed.length > 0 || answered.length > 0 || undoMarkAllRead !== null;
   const hiddenInCore = isTrue(dock, 'hidden');
   // An approval the agent waits on (or one just answered) keeps the dock open while typing: it is
   // drawn nowhere else (gx-chat-core extras/dock_approvals.rs; desktop `render_work_dock`).
@@ -404,7 +412,7 @@ export function WorkDock({
   const markAllSummary = str(markAllSeen, 'summary');
   const soonestSnoozeAge = snoozed.length > 0 ? str(snoozed[0], 'age') : '';
   const sheetRow =
-    sheetKey === null ? null : ([...rows, ...snoozed].find((row) => str(row, 'key') === sheetKey) ?? null);
+    sheetKey === null ? null : ([...rows, ...done, ...snoozed].find((row) => str(row, 'key') === sheetKey) ?? null);
   const swipeSnoozeChoices = swipeSnoozeRow === null
     ? []
     : arr(swipeSnoozeRow.snooze)
@@ -555,6 +563,61 @@ export function WorkDock({
                     </Pressable>
                   </View>
                 ) : null}
+                {done.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Done, ${done.length}`}
+                    accessibilityState={{ expanded: doneOpen }}
+                    style={styles.dockSnoozed}
+                    onPress={() => setDoneOpen((was) => !was)}
+                  >
+                    <StatusMarker status="finished" size={13} />
+                    <View style={styles.dockSnoozedMain}>
+                      <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
+                        Done
+                      </Text>
+                      <CountBadge count={done.length} light={P.light} />
+                    </View>
+                    {doneOpen && doneArchiveAllCmd !== null ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Archive all, ${done.length}`}
+                        hitSlop={6}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          dispatch(doneArchiveAllCmd as never);
+                        }}
+                        style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
+                      >
+                        <Text style={styles.bundleButtonText}>Archive all</Text>
+                      </Pressable>
+                    ) : null}
+                    <View style={doneOpen ? styles.dockSnoozedChevronOpen : null}>
+                      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
+                    </View>
+                  </Pressable>
+                ) : null}
+                {doneOpen
+                  ? done.map((row) => {
+                      const rowKey = str(row, 'key');
+                      const dismissCmd = obj(row.dismiss);
+                      return (
+                        <View key={rowKey} style={styles.dockSnoozedRow}>
+                          <SwipeableInboxRow
+                            canDismiss={dismissCmd !== null}
+                            dismissLabel="Archive"
+                            canSnooze={false}
+                            onDismiss={() => {
+                              if (dismissCmd !== null) dispatch(dismissCmd as never);
+                            }}
+                            onSnooze={() => undefined}
+                          >
+                            <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
+                          </SwipeableInboxRow>
+                        </View>
+                      );
+                    })
+                  : null}
                 {snoozed.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
@@ -696,6 +759,13 @@ function dockRows(document: ChatDocument | null): JsonRecord[] {
     .filter((row): row is JsonRecord => row !== null);
 }
 
+/** The dock's finished items folded in the Done drawer (gx-chat-core `dock_with`'s `done`). */
+function dockDone(document: ChatDocument | null): JsonRecord[] {
+  return arr(obj(document?.workDock)?.done)
+    .map(obj)
+    .filter((row): row is JsonRecord => row !== null);
+}
+
 /** The dock's snoozed asks, forms, pages and to-dos (gx-chat-core `dock_with`'s `snoozed`). */
 function dockSnoozed(document: ChatDocument | null): JsonRecord[] {
   return arr(obj(document?.workDock)?.snoozed)
@@ -742,6 +812,7 @@ export function workDockShown(document: ChatDocument, status: WorkingCardValue |
   const dock = obj(document.workDock);
   if (
     dockRows(document).length > 0 ||
+    dockDone(document).length > 0 ||
     dockSnoozed(document).length > 0 ||
     dockAnswered(document).length > 0 ||
     obj(dock?.undoMarkAllRead) !== null
