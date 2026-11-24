@@ -109,31 +109,19 @@ function ThreadWaitMark({ waitKind, needsApproval }: { waitKind: string; needsAp
   return <GroupMarker group="needs" />;
 }
 
-/** The group's marker: a ring with a dot, a filled disc, a dashed ring or a check. */
+/** The group's marker: Tabler SVGs matching desktop `group_look` (Q4775-Q4783). */
 function GroupMarker({ group }: { group: string }) {
-  const styles = useStyles();
   const P = useTranscriptTheme();
   const color = GROUP_COLOR[group] ?? P.cardMuted;
-  if (group === 'done') return <Glyph name="circle-check-filled" size={12} color={color} />;
+  if (group === 'done') return <Glyph name="circle-check" size={12} color={color} />;
   if (group === 'blocked') return <Glyph name="circle-minus-filled" size={12} color={color} />;
   if (group === 'moving') return <Glyph name="circle-half" size={12} color={color} />;
-  // On hold: two bars, a pause (desktop `player-pause`).
-  if (group === 'hold') {
-    return (
-      <View style={styles.pause}>
-        <View style={[styles.pauseBar, { backgroundColor: color }]} />
-        <View style={[styles.pauseBar, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-  if (group === 'needs') {
-    return (
-      <View style={[styles.ring, { borderColor: color }]}>
-        <View style={[styles.ringDot, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-  return <View style={[styles.ring, { borderColor: color, borderStyle: 'dashed' }]} />;
+  if (group === 'hold') return <Glyph name="player-pause" size={12} color={color} />;
+  if (group === 'needs') return <Glyph name="circle-dot" size={12} color={color} />;
+  if (group === 'later') return <Glyph name="calendar-clock" size={12} color={color} />;
+  if (group === 'removed') return <Glyph name="circle-off" size={12} color={color} />;
+  if (group === 'ideas') return <Glyph name="archive" size={12} color={color} />;
+  return <Glyph name="circle-dashed" size={12} color={color} />;
 }
 
 /**
@@ -248,7 +236,7 @@ function CardMenu({
             }}
             style={styles.cardMenuRow}
           >
-            <Glyph name="clock" size={15} color={P.cardMuted} />
+            <Glyph name="moon" size={15} color={P.cardMuted} />
             <Text style={styles.cardMenuText}>{str(choice, 'label')}</Text>
           </Pressable>
         ))}

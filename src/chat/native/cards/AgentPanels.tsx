@@ -84,9 +84,9 @@ export function TaskRow({ row }: { row: unknown }) {
         {group === 'in_progress' ? (
           <Spinner size={13} color={P.controlPrimary} />
         ) : group === 'completed' ? (
-          <Glyph name="circle-check-filled" size={13} color={P.primary} />
+          <Glyph name="circle-check" size={13} color={P.primary} />
         ) : (
-          <View style={styles.pendingRing} />
+          <Glyph name="circle-dashed" size={13} color={P.muted} />
         )}
       </View>
       <Text style={[styles.taskSubject, group === 'completed' && styles.taskDone]} numberOfLines={1}>
@@ -179,6 +179,7 @@ export function CoordinatorThreadsMenu({
 
 function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone: () => void }) {
   const styles = useStyles();
+  const P = useTranscriptTheme();
   const title = str(row, 'title');
   // Two lines, as on the desktop: the title line (with its work item refs) and the stats line, in
   // place of its newest chat words (gx-chat-core `RowStat`, CDXC:Coordinators 2026-11-18: "no need
@@ -194,6 +195,7 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
   const computer = remoteWorkerComputer(row);
   const status = str(row, 'status');
   const isPaused = status === 'paused' && !isTrue(row, 'working') && !isTrue(row, 'needsApproval');
+  const showApprovalTag = !isPaused && isTrue(row, 'needsApproval');
   const openThread = () => {
     if (computer !== null) {
       const notice = remoteWorkerNotice(computer);
@@ -226,18 +228,18 @@ function ThreadRow({ row, chat, onDone }: { row: unknown; chat: RustChat; onDone
         ) : isPaused ? (
           <Glyph name="player-pause" size={12} color={THREAD_PAUSED} />
         ) : (
-          <View style={styles.pendingRing} />
+          <Glyph name="circle-check" size={12} color={P.muted} />
         )}
       </View>
       <View style={styles.threadText}>
         <View style={styles.threadTitleLine}>
           <WorkerPill row={row} title={title} remote={computer !== null} />
-          {!isPaused && isTrue(row, 'needsApproval') ? (
+          {showApprovalTag ? (
             <Text style={styles.approvalTag}>{NEEDS_APPROVAL_LABEL}</Text>
           ) : null}
           <WorkItemRefs row={row} shown={itemShown} onToggle={setItemShown} />
         </View>
-        <ThreadStats row={row} branch={branch} />
+        <ThreadStats row={row} branch={branch} hideApprovalStat={showApprovalTag} />
         {nowShown && nowLine.length > 0 ? (
           <View style={[styles.itemCard, styles.rowCard]}>
             <Text style={styles.itemCardText}>{nowLine}</Text>
@@ -269,9 +271,9 @@ const STAT_GLYPHS: Record<string, GlyphName> = {
   signIn: 'alert-triangle',
   usageLimit: 'clock',
   waitingReset: 'clock',
-  stalled: 'clock',
+  stalled: 'alert-circle',
   untested: 'flask',
-  delivered: 'circle-check',
+  delivered: 'mail-check',
   finished: 'circle-check',
   files: 'pencil',
 };
@@ -280,21 +282,36 @@ const STAT_GLYPHS: Record<string, GlyphName> = {
  * "Building · 46 tool calls · 3 files": the row's phase in its muted text, then its turn's counts
  * in the quieter grey, each after its icon, and the worktree branch when it has one.
  */
-function ThreadStats({ row, branch }: { row: unknown; branch: string }) {
+function ThreadStats({
+  row,
+  branch,
+  hideApprovalStat = false,
+}: {
+  row: unknown;
+  branch: string;
+  hideApprovalStat?: boolean;
+}) {
   const styles = useStyles();
   const theme = useTranscriptTheme();
-  const stats = arr(obj(row)?.stats);
+  const stats = arr(obj(row)?.stats).filter(
+    (stat) => !(hideApprovalStat && str(stat, 'kind') === 'approval'),
+  );
   if (stats.length === 0 && branch.length === 0) return null;
   return (
     <View style={styles.statsLine}>
-      {stats.map((stat, index) => (
-        <View key={`${str(stat, 'kind')}-${index}`} style={[styles.stat, index === 0 && styles.statPhase]}>
-          <Glyph name={STAT_GLYPHS[str(stat, 'kind')] ?? 'tool'} size={12} color={theme.muted} />
-          <Text style={index === 0 ? styles.statPhaseText : styles.statText} numberOfLines={1}>
-            {str(stat, 'label')}
-          </Text>
-        </View>
-      ))}
+      {stats.map((stat, index) => {
+        const kind = str(stat, 'kind');
+        const iconColor =
+          kind === 'stalled' ? THREAD_WORKING : kind === 'delivered' ? '#2fa865' : theme.muted;
+        return (
+          <View key={`${kind}-${index}`} style={[styles.stat, index === 0 && styles.statPhase]}>
+            <Glyph name={STAT_GLYPHS[kind] ?? 'tool'} size={12} color={iconColor} />
+            <Text style={index === 0 ? styles.statPhaseText : styles.statText} numberOfLines={1}>
+              {str(stat, 'label')}
+            </Text>
+          </View>
+        );
+      })}
       {branch.length > 0 ? (
         <Text style={[styles.statText, styles.statBranch]} numberOfLines={1}>
           {branch}

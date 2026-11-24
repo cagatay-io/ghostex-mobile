@@ -132,33 +132,25 @@ export function workCardIndex(document: ChatDocument | null): WorkCardIndex {
   return index;
 }
 
-/** A status's marker: the board's ring with a dot, disc, pause, check or dashed ring. */
+/** A status's marker: Tabler SVGs matching desktop `status_look` (Q4775-Q4783). */
 function StatusMarker({ status, size, dim }: { status: string; size: number; dim?: boolean }) {
-  const styles = useStyles();
   const P = useTranscriptTheme();
   const color = STATUS_COLOR[status] ?? P.cardMuted;
   const opacity = dim === true ? 0.8 : 1;
-  if (status === 'finished') return <Glyph name="circle-check-filled" size={size} color={color} />;
-  if (status === 'dropped') return <Glyph name="circle-x" size={size} color={P.muted} />;
-  if (status === 'blocked') return <Glyph name="circle-minus-filled" size={size} color={color} />;
-  if (status === 'moving') return <Glyph name="circle-half" size={size} color={color} />;
-  const box = { width: size, height: size, opacity };
-  if (status === 'waiting') {
-    return (
-      <View style={[styles.pause, box]}>
-        <View style={[styles.pauseBar, { backgroundColor: color }]} />
-        <View style={[styles.pauseBar, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-  if (status === 'needs') {
-    return (
-      <View style={[box, styles.ring, { borderRadius: size / 2, borderColor: color }]}>
-        <View style={[styles.ringDot, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-  return <View style={[box, styles.ring, { borderRadius: size / 2, borderColor: color, borderStyle: 'dashed' }]} />;
+  const glyph = (() => {
+    if (status === 'finished') return <Glyph name="circle-check" size={size} color={color} />;
+    if (status === 'approved') return <Glyph name="shield-check" size={size} color={STATUS_COLOR.finished} />;
+    if (status === 'denied') return <Glyph name="shield-x" size={size} color={STATUS_COLOR.blocked} />;
+    if (status === 'dropped') return <Glyph name="circle-x" size={size} color={P.muted} />;
+    if (status === 'blocked') return <Glyph name="circle-minus-filled" size={size} color={color} />;
+    if (status === 'moving') return <Glyph name="circle-half" size={size} color={color} />;
+    if (status === 'waiting') return <Glyph name="player-pause" size={size} color={color} />;
+    if (status === 'needs') return <Glyph name="circle-dot" size={size} color={color} />;
+    if (status === 'later') return <Glyph name="calendar-clock" size={size} color={P.muted} />;
+    if (status === 'removed') return <Glyph name="circle-off" size={size} color={P.muted} />;
+    return <Glyph name="circle-dashed" size={size} color={P.muted} />;
+  })();
+  return opacity < 1 ? <View style={{ opacity }}>{glyph}</View> : glyph;
 }
 
 /** The cards under one reply or summary-mode turn. `gap` spaces the cards when given (an opened Quiet View line's rail, `quietView.tsx`). */
@@ -537,7 +529,7 @@ export function WorkDock({
                 ) : null}
                 {undoMarkAllRead !== null ? (
                   <View style={styles.dockUndoBar}>
-                    <Glyph name="circle-check-filled" size={13} color="#2fa865" />
+                    <Glyph name="archive" size={13} color={P.muted} />
                     <Text style={styles.dockUndoText} numberOfLines={1}>
                       {str(undoMarkAllRead, 'label').replace(/^Marked (\d+) (?:read|done)$/, 'Archived $1') || 'Archived'}
                     </Text>
@@ -630,7 +622,7 @@ export function WorkDock({
                     style={styles.dockSnoozed}
                     onPress={() => setSnoozedOpen((was) => !was)}
                   >
-                    <Glyph name="clock" size={13} color={P.cardMuted} />
+                    <Glyph name="moon" size={13} color={P.cardMuted} />
                     <View style={styles.dockSnoozedMain}>
                       <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
                         Snoozed
@@ -662,7 +654,7 @@ export function WorkDock({
                     style={styles.dockSnoozed}
                     onPress={() => setAnsweredOpen((was) => !was)}
                   >
-                    <Glyph name="circle-check-filled" size={13} color="#2fa865" />
+                    <Glyph name="message-circle-check" size={13} color="#2fa865" />
                     <View style={styles.dockSnoozedMain}>
                       <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
                         Answered
@@ -677,7 +669,11 @@ export function WorkDock({
                 {answeredOpen
                   ? answered.map((row, idx) => {
                       const showInChat = obj(row.showInChat);
-                      const outcome = str(row, 'outcome');
+                      const outcome = str(row, 'outcome').trim();
+                      const showOutcome =
+                        outcome.length > 0 &&
+                        outcome.toLowerCase() !== 'answered' &&
+                        outcome.toLowerCase() !== 'done';
                       const age = str(row, 'age');
                       return (
                         <Pressable
@@ -689,11 +685,11 @@ export function WorkDock({
                             pressed && showInChat !== null && { backgroundColor: P.ink(0.04) },
                           ]}
                         >
-                          <Glyph name="circle-check-filled" size={12} color="#2fa865" />
+                          <Glyph name="message-circle-check" size={12} color="#2fa865" />
                           <Text style={styles.dockAnsweredTitle} numberOfLines={1}>
                             {str(row, 'title')}
                           </Text>
-                          {outcome.length > 0 ? (
+                          {showOutcome ? (
                             <Text style={styles.dockAnsweredOutcome} numberOfLines={1}>
                               {outcome}
                             </Text>
@@ -734,7 +730,7 @@ export function WorkDock({
                   pressed && { backgroundColor: P.ink(0.06) },
                 ]}
               >
-                <Glyph name="clock" size={15} color={P.cardMuted} />
+                <Glyph name="moon" size={15} color={P.cardMuted} />
                 <Text style={styles.snoozeSheetLabel}>{str(choice, 'label')}</Text>
               </Pressable>
             ))}
@@ -902,7 +898,7 @@ function SwipeableInboxRow({
       <View style={styles.swipeBackdrop} pointerEvents="none">
         {canSnooze ? (
           <View style={[styles.swipeActionLeft, { backgroundColor: snoozeBg }]}>
-            <Glyph name="clock" size={14} color={snoozeFg} />
+            <Glyph name="moon" size={14} color={snoozeFg} />
             <Text style={[styles.swipeActionText, { color: snoozeFg }]}>Snooze</Text>
           </View>
         ) : (
@@ -1343,6 +1339,12 @@ function DockRow({
           <View style={styles.dockIcon}>
             {kind === 'approval' || threadWaitApproval ? (
               <Glyph name="shield-alert" size={14} color={SidebarPalette.ROW_APPROVAL} />
+            ) : kind === 'approvalSettled' ? (
+              str(row, 'status') === 'denied' || str(row, 'status') === 'dropped' ? (
+                <Glyph name="shield-x" size={14} color={SidebarPalette.ROW_APPROVAL} />
+              ) : (
+                <Glyph name="shield-check" size={14} color={STATUS_COLOR.finished} />
+              )
             ) : threadWaitWarn ? (
               <Glyph name="alert-triangle" size={14} color={STATUS_COLOR.moving} />
             ) : kind === 'thread' && str(row, 'agentIcon').length > 0 ? (

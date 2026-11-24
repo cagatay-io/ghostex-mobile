@@ -93,6 +93,11 @@ const GLYPHS = {
     'M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463',
   ],
   check: ['m5 12 4 4L19 6'],
+  'mail-check': [
+    'M11 19h-6a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v6',
+    'M3 7l9 6l9 -6',
+    'M15 19l2 2l4 -4',
+  ],
   // The chat look's quiet steps (`titlebar/loader2.svg`, `circle-dashed.svg`).
   'loader-2': ['M12 3a9 9 0 1 0 9 9'],
   'circle-dashed': [

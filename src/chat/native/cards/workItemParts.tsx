@@ -917,7 +917,7 @@ export function workMenuRows(
   const snooze = arr(actions.snooze)
     .map(obj)
     .filter((choice): choice is JsonRecord => choice !== null);
-  if (snooze.length > 0) rows.push({ label: 'Snooze', icon: 'clock', snooze });
+  if (snooze.length > 0) rows.push({ label: 'Snooze', icon: 'moon', snooze });
   if (markdown.length > 0) rows.push({ label: 'Copy as Markdown', icon: 'markdown', copy: markdown });
   if (mention.length > 0) {
     rows.push({
@@ -967,7 +967,7 @@ export function WorkMenuList({
             }}
             style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
           >
-            <Glyph name="clock" size={15} color={P.cardMuted} />
+            <Glyph name="moon" size={15} color={P.cardMuted} />
             <Text style={styles.menuText}>{str(choice, 'label')}</Text>
           </Pressable>
         ))}

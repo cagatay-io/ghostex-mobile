@@ -26,7 +26,7 @@ import { pickExportedAnswers } from './pageExport';
 export function snoozeRow(id: string): MenuRow {
   return {
     label: 'Snooze',
-    iconPath: 'titlebar/clock.svg',
+    iconPath: 'titlebar/moon.svg',
     children: [
       { label: '1 hour', hours: 1 },
       { label: '6 hours', hours: 6 },

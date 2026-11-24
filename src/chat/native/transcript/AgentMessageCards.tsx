@@ -91,7 +91,7 @@ function Status({ status }: { status: JsonRecord }) {
   const { theme } = useTranscriptEnv();
   const color = toneColor(str(status, 'tone'), theme);
   const icon = str(status, 'icon');
-  const glyph: GlyphName = icon === 'alert' ? 'alert-triangle' : icon === 'clock' ? 'clock' : 'check';
+  const glyph: GlyphName = icon === 'alert' ? 'alert-triangle' : icon === 'clock' ? 'clock' : 'mail-check';
   return (
     <View accessibilityRole="text" accessibilityLabel={str(status, 'hint')}>
       <SingleLinePill icon={glyph} label={str(status, 'label')} color={color} />
