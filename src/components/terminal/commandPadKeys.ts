@@ -65,7 +65,7 @@ export type CommandPadKey = {
   face: string;
   glyph?: CommandPadGlyph;
   action: CommandPadAction;
-  /** Held, it repeats (arrows, Home, End, PgUp, PgDn). */
+  /** Held, it repeats (arrows, Backspace, Home, End, PgUp, PgDn). */
   repeats: boolean;
 };
 
@@ -83,6 +83,7 @@ const REPEATING_KEYS: Readonly<Record<string, true>> = {
   down: true,
   left: true,
   right: true,
+  backspace: true,
   home: true,
   end: true,
   pageUp: true,

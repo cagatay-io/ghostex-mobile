@@ -77,7 +77,7 @@ const CATALOG_KEYS: CatalogKeyEntry[] = [
   { id: 'enter', label: 'ENTER', key: 'enter' },
   // NEWLN = Ctrl-J: newline without submitting in most agent composers.
   { id: 'newln', label: 'NEWLN', key: 'j', mods: { ctrl: true }, returnGlyph: true },
-  { id: 'backspace', label: 'BKSP', key: 'backspace' },
+  { id: 'backspace', label: 'BKSP', key: 'backspace', repeatable: true },
   { id: 'delete', label: 'DEL', key: 'delete' },
   { id: 'insert', label: 'INS', key: 'insert' },
   { id: 'home', label: 'HOME', key: 'home', repeatable: true },

@@ -4,7 +4,7 @@
  *   controls + either 2 rows × 7 equal key pills or a Termux-style composer.
  * - Modifier latching: tap for one-shot; long-press to lock until tapped again.
  *   One-shot and locked states use distinct colors.
- * - Repeat-on-hold for arrows/Home/End/PGUP/PGDN: fires once on press-in,
+ * - Repeat-on-hold for arrows/BKSP/Home/End/PGUP/PGDN: fires once on press-in,
  *   then after 350ms repeats every 50ms until press-out/cancel; repeats reuse
  *   the modifiers captured on the initial press.
  */
