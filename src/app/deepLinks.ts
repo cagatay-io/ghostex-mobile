@@ -20,8 +20,10 @@ import type { RootStackParamList } from '../navigation/types';
 import { usePaneStore } from '../panes/store';
 import { sessionHasChatView, sessionOpensInChatView } from '../screens/terminal-screen/session-lookups';
 import { useSettingsStore } from '../settings/store';
-import { attachSessionKey, useTerminalStore } from '../terminal/sessions';
+import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../terminal/sessions';
+import { holdTerminal } from '../terminal/terminalHold';
 import { revealSessionWorkspace } from '../workspaces/store';
+import { beginOpening, noteNavigation } from './currentOpening';
 import { handleDeepLink, type DeepLinkDeps } from './deepLinkHandler';
 
 /**
@@ -43,7 +45,8 @@ let pendingNavigation: (() => void) | null = null;
  * The person's navigation so far: every change of the navigation's state and every change of the Terminal screen's
  * selected tab, except the app's own: the first screen at launch, and going to (or selecting) the session the latest
  * tapped notification opens (`tapOpens`). A tapped notification's opening counts it at the tap and stops once it
- * changed: the person left for another screen or session (`feedStore.ts`).
+ * changed: the person left for another screen or session (`feedStore.ts`). Each such change also reaches the latest
+ * opening of any entry path (`noteNavigation` in `currentOpening.ts`).
  */
 let personNavigationCount = 0;
 let firstScreenShown = false;
@@ -58,11 +61,13 @@ navigationRef.addListener('state', () => {
   const route = navigationRef.getCurrentRoute();
   const params = route?.name === 'Terminal' ? route.params : undefined;
   const sessionKey = params !== undefined && 'sessionKey' in params ? params.sessionKey : undefined;
+  noteNavigation(sessionKey);
   if (tapTarget !== null && sessionKey === tapTarget) return;
   personNavigationCount += 1;
 });
 useTerminalStore.subscribe((state, previous) => {
   if (state.selectedSessionKey === previous.selectedSessionKey) return;
+  noteNavigation(state.selectedSessionKey ?? undefined);
   if (tapTarget !== null && state.selectedSessionKey === tapTarget) return;
   personNavigationCount += 1;
 });
@@ -72,9 +77,14 @@ export function personNavigations(): number {
   return personNavigationCount;
 }
 
-/** A tapped notification opens this session: going there, or selecting its tab, is the app's doing. */
-export function tapOpens(machineId: string, sessionId: string): void {
+/**
+ * A tapped notification opens this session: going there, or selecting its tab, is the app's doing. The tap also
+ * begins its entry-path opening (`beginOpening`), whose check it returns: an earlier opening of any entry path stops
+ * being current at the tap, not only once its link is handled.
+ */
+export function tapOpens(machineId: string, sessionId: string): () => boolean {
   tapTarget = attachSessionKey(machineId, sessionId);
+  return beginOpening(tapTarget).current;
 }
 
 /** Flush a navigation deferred until NavigationContainer became ready. */
@@ -146,7 +156,8 @@ const appDeps: DeepLinkDeps = {
   },
   navigate: (route, current) =>
     navigateWhenReady(() => {
-      // A tapped notification's opening that was superseded while the screens got ready navigates nothing.
+      // An opening that was superseded, or that the person moved on from, while the screens got ready navigates
+      // nothing (a tapped notification's, or one whose attach ended at the time limit).
       if (current?.() === false) return;
       if (route.name === 'Terminal') navigationRef.navigate('Terminal', route.params);
       else if (route.name === 'Voice') navigationRef.navigate('Voice');
@@ -160,14 +171,17 @@ const appDeps: DeepLinkDeps = {
     }),
   later: (retry) => setTimeout(retry, 250),
   markOpened: (machineId, sessionId) => markOpenedHandler(machineId, sessionId),
+  openTimedOut: (error) => (error instanceof TerminalOpenTimedOut ? error.sessionKey : null),
+  holdTerminal,
+  beginOpening: (machineId, sessionId) => beginOpening(attachSessionKey(machineId, sessionId)).current,
 };
 
 /**
- * Opens a ghostex:// link from inside the app: an agent notification's tap (with its opening's check `current`, see
- * `handleDeepLink`) or an attention-list row.
+ * Opens a ghostex:// link from inside the app: an agent notification's tap (with its opening's check `current`, and
+ * `opening`, the entry-path opening begun at the tap, see `handleDeepLink`) or an attention-list row.
  */
-export function openDeepLink(url: string, current?: () => boolean): void {
-  handleDeepLink(url, appDeps, current);
+export function openDeepLink(url: string, current?: () => boolean, opening?: () => boolean): void {
+  handleDeepLink(url, appDeps, current, opening);
 }
 
 /** Install once at app startup; handles both cold-start and warm URLs. */

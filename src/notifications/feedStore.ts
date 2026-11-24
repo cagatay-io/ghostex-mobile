@@ -861,13 +861,20 @@ let taps = 0;
  * reached) ends that wait without a further step. Every opening, the question card's too, happens only while the
  * tap's opening is `current` (no later tap, and the person did not leave for another screen or session); otherwise
  * nothing opens, and the question stays in the attention list and the session. No question text is read or carried.
+ * `opening` is the tap's entry-path opening (`tapOpens`), which an attach ended at its time limit also needs.
  */
-async function openWaitingPush(machineId: string, sessionId: string, current: () => boolean): Promise<void> {
+async function openWaitingPush(
+  machineId: string,
+  sessionId: string,
+  current: () => boolean,
+  opening: () => boolean,
+): Promise<void> {
   const open = (question: boolean): void => {
     if (!current()) return;
     openDeepLink(
       sessionDeepLink({ machineId, sessionId, ...(question ? { view: 'question' as const } : {}) }),
       current,
+      opening,
     );
   };
   // Superseded while it waited for the saved computers: no session list is read for it.
@@ -911,7 +918,8 @@ async function openWaitingPush(machineId: string, sessionId: string, current: ()
  * `openWaitingPush`, once the saved computers are loaded). Both mark their row read once the computer is there. The
  * opening is current while no later tap came and the person did not leave for another screen or session since the
  * tap (`personNavigations`; the app's own opening of this session is not theirs, `tapOpens`); the link handler
- * checks that at each of its steps, up to the navigation.
+ * checks that at each of its steps, up to the navigation. The tap also begins its entry-path opening (`tapOpens`),
+ * which an attach that ended at the terminal open's time limit needs as well before it opens the terminal.
  */
 function openTapped(data: Partial<NotificationData>): void {
   const { machineId, sessionId, notificationId } = data;
@@ -920,14 +928,15 @@ function openTapped(data: Partial<NotificationData>): void {
   const tap = taps;
   const isAccount = sessionId.startsWith(ACCOUNT_SESSION_PREFIX);
   const accountsLink = typeof data.url === 'string' ? parseAccountsLink(data.url) : null;
-  if (!isAccount && accountsLink === null) tapOpens(machineId, sessionId);
+  const opening = isAccount || accountsLink !== null ? undefined : tapOpens(machineId, sessionId);
   const navigations = personNavigations();
   const current = (): boolean => tap === taps && personNavigations() === navigations;
   if (accountsLink !== null) openDeepLink(accountsDeepLink(accountsLink.machineId ?? machineId), current);
-  else if (typeof data.url === 'string') openDeepLink(data.url, current);
+  else if (typeof data.url === 'string') openDeepLink(data.url, current, opening);
   else if (isAccount) openDeepLink(accountsDeepLink(machineId), current);
-  else if (data.kind === 'needsInput') whenComputersLoaded(() => void openWaitingPush(machineId, sessionId, current));
-  else openDeepLink(sessionDeepLink({ machineId, sessionId }), current);
+  else if (data.kind === 'needsInput' && opening !== undefined) {
+    whenComputersLoaded(() => void openWaitingPush(machineId, sessionId, current, opening));
+  } else openDeepLink(sessionDeepLink({ machineId, sessionId }), current, opening);
   if (notificationId !== undefined && notificationId.length > 0) {
     whenComputersLoaded(() => void updateAttentionFeed(machineId, { action: 'markRead', notificationId }));
   }

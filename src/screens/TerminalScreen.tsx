@@ -120,6 +120,7 @@ import { FORK_AGENT_ICONS, renameInitialTitle } from '../sessions/sessionCommand
 import { useSettingsStore } from '../settings/store';
 import { acknowledgeSessionAttention } from '../terminal/attention';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
+import { saveTerminalView, toggleSessionView, useSavedChatView } from '../terminal/terminalHold';
 import { setChatGridSessionKey } from '../terminal/chatGridClaim';
 import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { colorWithOpacity, GhostexPalette } from '../theme/palette';
@@ -327,7 +328,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const sessionNotesOn = useInventoryStore((state) =>
     activeTab === null ? true : sessionNotesOnIn(state.inventoriesByMachineId[activeTab.machineId]?.summary),
   );
-  const sessionViewModeBySessionKey = useTerminalStore((state) => state.sessionViewModeBySessionKey);
   const sessionLinkOpenTarget = useInventoryStore((state) =>
     activeTab === null
       ? 'embedded'
@@ -353,11 +353,9 @@ export default function TerminalScreen({ navigation, route }: Props) {
       activeTab === null ? undefined : state.inventoriesByMachineId[activeTab.machineId]?.summary,
     ),
   );
-  // The selected session's saved view (its tab's, else the Default Agent View setting): what one content area shows.
-  const savedChatMode =
-    chatCapable &&
-    activeTab !== null &&
-    (sessionViewModeBySessionKey[activeTab.sessionKey] ?? settings.preferredAgentInterface) === 'chat';
+  // The selected session's saved view (its tab's, else the Default Agent View setting), unless its terminal is held
+  // after an open that ended at its time limit (`terminalHold.ts`): what one content area shows.
+  const savedChatMode = useSavedChatView(activeTab?.sessionKey ?? null) && chatCapable;
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // The iPhone Duo half folded like a laptop (`laptopMode.ts`): the output above the fold, the keyboard and the pad's
@@ -908,13 +906,15 @@ export default function TerminalScreen({ navigation, route }: Props) {
     const sessionKey = store.selectedSessionKey;
     if (sessionKey === null) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // With two panes the selected session's pane turns, and only there: one chat per screen,
-    // the other pane's back to its terminal, the session's saved view kept; with one, the session's saved view.
-    const enteringChat = showsPanes ? paneChatKey !== sessionKey : !store.chatModeArmed(sessionKey);
     // Each surface owns its own input focus. Dismiss before either direction
     // so the retained hidden WebView cannot leave its keyboard attached to the
     // terminal, and the terminal keyboard cannot linger over chat.
     dismissKeyboard();
+    // With two panes the selected session's pane turns, and only there: one chat per screen,
+    // the other pane's back to its terminal, the session's saved view kept; with one, the session's view
+    // (`toggleSessionView`: a held terminal gives way to the Chat View without saving a view).
+    const shownView = toggleSessionView(sessionKey, showsPanes);
+    const enteringChat = showsPanes ? paneChatKey !== sessionKey : shownView === 'chat';
     if (enteringChat) {
       // Desktop parity: reading the session's chat is looking at the session,
       // so it clears attention the same way selecting its tab does.
@@ -924,7 +924,6 @@ export default function TerminalScreen({ navigation, route }: Props) {
       }
     }
     if (showsPanes) setPaneChat(enteringChat ? sessionKey : null);
-    else store.toggleChatMode(sessionKey);
   }, [dismissKeyboard, showsPanes, paneChatKey, setPaneChat]);
 
   // The keyboard's way to the composer of the chat in a pane (`focusRequestId`, each new value focuses it).
@@ -1012,12 +1011,12 @@ export default function TerminalScreen({ navigation, route }: Props) {
   const tabDrag = useTabDrag({ canSplit: canSplitTab, onDrop: handleTabDrop });
   // The split's handle: one bar again, the selected tab kept.
   const mergeTabs = useCallback((): void => useTerminalStore.getState().mergeTabs(), []);
-  // A side's chat asks for its terminal: that needs the whole screen, so the sides merge first.
+  // A side's chat asks for its terminal, which needs the whole screen: the sides merge, then `saveTerminalView`.
   const showSplitTabTerminal = useCallback((sessionKey: string): void => {
     const store = useTerminalStore.getState();
     store.mergeTabs();
     store.selectTab(sessionKey);
-    store.setSessionViewMode(sessionKey, 'terminal');
+    saveTerminalView(sessionKey);
   }, []);
   // A touch in a side's chat: that side's tab is the selected one, quietly (no tap, the chat keeps its place).
   const focusSplitTab = useCallback((sessionKey: string): void => {

@@ -14,11 +14,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { NativeChatScreenProps } from '../../chat/native/NativeChatScreen';
 import type { TabSwipe } from '../../chat/native/TabSwipe';
+import TerminalStateOverlay from '../../components/terminal/TerminalStateOverlay';
 import TerminalTabsBar from '../../components/terminal/TerminalTabsBar';
 import { ChatDropZone, type TabDrag } from '../../components/terminal/tabDrag/TabDrag';
 import SessionChatSurface from '../../demo/SessionChatSurface';
+import { summarizeFailure } from '../../inventory/client';
 import { useInventoryStore } from '../../inventory/store';
-import type { TerminalTab } from '../../terminal/sessions';
+import { useTerminalStore, type TerminalTab } from '../../terminal/sessions';
+import { useTerminalHeld } from '../../terminal/terminalHold';
 import type { SplitView, TabSide } from '../../terminal/tabSplit';
 import { colorWithOpacity } from '../../theme/palette';
 import { terminalChrome } from '../../theme/terminalColours';
@@ -155,7 +158,10 @@ function useFocusedRequests(requestId: number, focused: boolean): number {
   return taken;
 }
 
-/** One side's chat: the session's own chat view, at the side's size. */
+/**
+ * One side's chat: the session's own chat view, at the side's size; while its terminal is held, that terminal's failure
+ * with Retry.
+ */
 export function SplitPaneChat({
   tab,
   focused,
@@ -192,6 +198,22 @@ export function SplitPaneChat({
       if (next !== undefined) select(next);
     },
   }));
+  const held = useTerminalHeld(tab.sessionKey);
+  // An open the person started that ended at its time limit holds the tab on its terminal (`terminalHold.ts`): its
+  // side shows the terminal's failure with Retry instead of its chat until the hold ends.
+  if (held) {
+    return (
+      <View style={styles.chat}>
+        <TerminalStateOverlay
+          tab={tab}
+          errorCaption={tab.error !== undefined ? summarizeFailure(tab.error, true) : null}
+          onRetry={() => void useTerminalStore.getState().reopenTab(tab.sessionKey)}
+          onReconnect={() => void useTerminalStore.getState().reopenTab(tab.sessionKey)}
+          onResetConnection={() => void useInventoryStore.getState().retryMachine(tab.machineId)}
+        />
+      </View>
+    );
+  }
   if (machine === null) {
     return (
       <Pressable accessibilityRole="button" style={styles.noChat} onPress={() => onSwitchToTerminal(tab.sessionKey)}>

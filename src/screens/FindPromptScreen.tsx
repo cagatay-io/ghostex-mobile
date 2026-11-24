@@ -19,6 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { beginOpening, type OpeningCheck } from '../app/currentOpening';
 import ActionSheet from '../components/common/ActionSheet';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { CopyGlyph, GitForkGlyph, PlayGlyph, StarGlyph } from '../components/sessions/icons';
@@ -36,7 +37,8 @@ import {
 } from '../find/promptSearch';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
-import { useTerminalStore } from '../terminal/sessions';
+import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../terminal/sessions';
+import { holdTerminal } from '../terminal/terminalHold';
 import { revealSessionWorkspace } from '../workspaces/store';
 import { GhostexRadii, GhostexStrokeWidth } from '../theme/palette';
 import type { Appearance } from '../theme/useAppearance';
@@ -70,13 +72,25 @@ export default function FindPromptScreen({ navigation, route }: Props) {
   }, [machine, row]);
 
   const openPlan = useCallback(
-    async (plan: FindPromptLaunchResult) => {
+    async (plan: FindPromptLaunchResult, opening: OpeningCheck) => {
       if (machine === undefined) return;
       if (plan.mode === 'focus') {
         revealSessionWorkspace(machine.id, plan.sessionId);
-        const sessionKey = await useTerminalStore
-          .getState()
-          .attachSession(machine, { projectId: plan.projectId, sessionId: plan.sessionId });
+        opening.opens(attachSessionKey(machine.id, plan.sessionId));
+        let sessionKey: string;
+        try {
+          sessionKey = await useTerminalStore
+            .getState()
+            .attachSession(machine, { projectId: plan.projectId, sessionId: plan.sessionId });
+        } catch (error) {
+          if (!(error instanceof TerminalOpenTimedOut)) throw error;
+          // Ended at the time limit: the tab shows the failure with Retry. Only while this opening is current
+          // (`currentOpening.ts`) does the Terminal open, as on success, and is the tab held on its terminal
+          // (`terminalHold.ts`); otherwise nothing opens.
+          if (!opening.current()) return;
+          holdTerminal(error.sessionKey);
+          sessionKey = error.sessionKey;
+        }
         // Find and this screen give way to the Terminal, as if it had been opened from the sessions list.
         navigation.dispatch((state) =>
           CommonActions.reset({
@@ -101,8 +115,10 @@ export default function FindPromptScreen({ navigation, route }: Props) {
       if (machine === undefined || busy) return;
       setBusy(true);
       setStatus(null);
+      // The opening begins with the press, before the computer names the session it opens.
+      const opening = beginOpening(null);
       try {
-        await openPlan(await resolveFindPromptLaunch(machine, promptKey, action, forkAgent));
+        await openPlan(await resolveFindPromptLaunch(machine, promptKey, action, forkAgent), opening);
       } catch (error) {
         setStatus({
           kind: 'error',
