@@ -321,6 +321,14 @@ export class DisclosureStore {
     return this.expanded.has(key) || (openByDefault && !this.collapsed.has(key));
   }
 
+  /** Open a row directly (e.g. the last inner group when expanding a Quiet View line). */
+  open(key: string): void {
+    this.collapsed.delete(key);
+    this.expanded.add(key);
+    this.listeners.get(key)?.forEach((listener) => listener());
+    this.anyListeners.forEach((listener) => listener());
+  }
+
   /** Flip a row; `open` is what the row showed when it was pressed. The change eases (`foldMotion.ts`). */
   toggle(key: string, open: boolean): void {
     animateNextFold();

@@ -404,8 +404,12 @@ export type QuietStretch = {
    *  full view (gx-chat-core `QuietTurnLook`). */
   turns?: QuietTurnLook[];
   /** The reads opening the line dispatches (`{type: 'loadWork', id, work}` each): the rows still
-   *  on the computer of the turns it draws straight on its rail. */
+   *  on the computer of the turns it draws straight on its rail, or of the deferred turn card
+   *  `openInner` opens with it. */
   loads?: { id: string; work: Json }[];
+  /** The disclosure key of the last collapsible inner group this line holds, opened alongside the
+   *  line on its expanding click (gx-chat-core `quiet_inner.rs`). */
+  openInner?: string;
 };
 
 /** How one finished turn's row (`completed-work`, or a Reduced `grouped-work` line) draws on an

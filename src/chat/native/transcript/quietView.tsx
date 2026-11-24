@@ -106,6 +106,7 @@ export function QuietRow({
   rowGap: number;
 }) {
   const lines = useContext(QuietLinesContext);
+  const { disclosures } = useNativeChatUi();
   const { dispatch } = useTranscriptEnv();
   const parts: { node: ReactNode; gap: number }[] = [];
   const { line, open } = state;
@@ -113,11 +114,13 @@ export function QuietRow({
     parts.push({ node: <QuietItem item={item} />, gap: 0 });
   } else {
     if (index === line.start) {
-      // Opening the line reads back the rows of the turns it draws straight on its rail, which
-      // have no card or line of their own to open (gx-chat-core `QuietStretch::loads`).
+      // Opening the line reads back the rows of the turns it draws straight on its rail (or a
+      // deferred turn card `openInner` opens) and opens its last collapsible inner group on that
+      // expanding click (gx-chat-core `QuietStretch::loads`, `QuietStretch::open_inner`).
       const onPress = () => {
         if (!open) {
           for (const load of line.loads ?? []) dispatch({ type: 'loadWork', id: load.id, work: load.work as never });
+          if (line.openInner) disclosures.open(line.openInner);
         }
         state.toggle();
       };
@@ -276,9 +279,13 @@ function useElapsed(startedAt: number | null): string | null {
 export function SummaryQuietRun({ line, rows }: { line: QuietStretch; rows: ProjectedMessage[] }) {
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, line.key, line.open === true);
+  const onPress = () => {
+    if (!open && line.openInner) disclosures.open(line.openInner);
+    toggle();
+  };
   return (
     <View style={[styles.column, { gap: 4 }]}>
-      <StretchLine line={line} open={open} onPress={toggle} />
+      <StretchLine line={line} open={open} onPress={onPress} />
       {open ? (
         <DisclosureBody onCollapse={toggle} label="Collapse" rail="work">
           {rows.map((row) => (
