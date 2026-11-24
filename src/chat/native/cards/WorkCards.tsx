@@ -402,7 +402,6 @@ export function WorkDock({
   const shown = all && hidden > 0 ? rows : rows.slice(0, limit);
   const markAllSeen = obj(dock?.markAllSeen);
   const markAllSummary = str(markAllSeen, 'summary');
-  const soonestSnoozeAge = snoozed.length > 0 ? str(snoozed[0], 'age') : '';
   const sheetRow =
     sheetKey === null ? null : ([...rows, ...done, ...snoozed].find((row) => str(row, 'key') === sheetKey) ?? null);
   const swipeSnoozeChoices = swipeSnoozeRow === null
@@ -613,11 +612,7 @@ export function WorkDock({
                 {snoozed.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={
-                      !snoozedOpen && soonestSnoozeAge.length > 0
-                        ? `Snoozed, ${snoozed.length}, ${soonestSnoozeAge}`
-                        : `Snoozed, ${snoozed.length}`
-                    }
+                    accessibilityLabel={`Snoozed, ${snoozed.length}`}
                     accessibilityState={{ expanded: snoozedOpen }}
                     style={styles.dockSnoozed}
                     onPress={() => setSnoozedOpen((was) => !was)}
@@ -628,11 +623,6 @@ export function WorkDock({
                         Snoozed
                       </Text>
                       <CountBadge count={snoozed.length} light={P.light} />
-                      {!snoozedOpen && soonestSnoozeAge.length > 0 ? (
-                        <Text style={styles.dockSnoozedAge} numberOfLines={1}>
-                          {`\u00b7 ${soonestSnoozeAge}`}
-                        </Text>
-                      ) : null}
                     </View>
                     <View style={snoozedOpen ? styles.dockSnoozedChevronOpen : null}>
                       <Glyph name="chevron-down" size={12} color={P.cardMuted} />
@@ -1014,7 +1004,7 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
 }
 
 /**
- * The Inbox header (Q4680 B + E, Q4688 A): `[inbox icon] Inbox · [tappable ghost count chips]`
+ * The Inbox header (Q4680 B + E, Q4688 A): `[inbox icon] Inbox [tappable ghost count chips]`
  * plus Work button and chevron.
  */
 function DockHeader({
@@ -1084,11 +1074,10 @@ function DockHeader({
       )}
       {status === null ? null : <View style={styles.dockSpacer} />}
       <View style={status === null ? styles.dockCounts : styles.dockCountsBeside}>
-        <View style={styles.inboxTitleSlot}>
+        <View style={[styles.inboxTitleSlot, counts.length > 0 && styles.inboxTitleGap]}>
           <Glyph name="inbox" size={14} color={P.foreground} />
           {showInboxLabel ? <Text style={styles.inboxTitleText}>{INBOX_NAME}</Text> : null}
         </View>
-        {counts.length > 0 ? <Text style={styles.inboxDot}>{'\u00b7'}</Text> : null}
         {counts.map(({ group, count }) => {
           const groupTitle = group.id === 'needs' ? ASKS_GROUP_NAME : group.id === 'blocked' ? 'Blocked' : 'In progress';
           const chipLabel = `${count} ${count === 1 ? group.one : group.many}`;
@@ -2252,11 +2241,10 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.cardPanel,
   },
   dockRows: { padding: 4 },
-  // The Snoozed row: the "N more need you" line's quiet words, with a clock and a chevron.
+  // The Snoozed row: the "N more need you" line's quiet words, with a moon and a chevron.
   dockSnoozed: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8 },
   dockSnoozedMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
   dockSnoozedLabel: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.muted },
-  dockSnoozedAge: { flexShrink: 1, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },
   dockSnoozedChevronOpen: { transform: [{ rotate: '180deg' }] },
   dockSnoozedRow: { opacity: 0.72 },
   // The header: the band over the rows while open, as the desktop's (`work_dock_header`).
@@ -2272,8 +2260,8 @@ const useStyles = themedStyles((P) => ({
   dockCounts: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
   dockCountsBeside: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   inboxTitleSlot: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
+  inboxTitleGap: { marginRight: 6 },
   inboxTitleText: { fontSize: WORKING_VISUAL.fontSize, fontWeight: '600', color: P.foreground },
-  inboxDot: { fontSize: WORKING_VISUAL.fontSize, color: P.muted, paddingHorizontal: 2 },
   dockStatus: { flexShrink: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'hidden' },
   dockSpacer: { flexGrow: 1, minWidth: 8 },
   dockCount: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
