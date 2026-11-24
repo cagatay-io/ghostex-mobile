@@ -17,6 +17,7 @@ import { Linking } from 'react-native';
 import { useInventoryStore } from '../inventory/store';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
+import { requestOpenAskDetails } from '../notifications/pendingAskDetails';
 import { usePaneStore } from '../panes/store';
 import { sessionHasChatView, sessionOpensInChatView } from '../screens/terminal-screen/session-lookups';
 import { useSettingsStore } from '../settings/store';
@@ -142,10 +143,12 @@ const appDeps: DeepLinkDeps = {
   },
   revealWorkspace: revealSessionWorkspace,
   openChatTab: (machine, session) => useTerminalStore.getState().openChatTab(machine, session),
-  // A question's chat view stands full screen, also where panes are open.
+  // A question's chat view stands full screen, also where panes are open, and opens its ask
+  // details sheet if an open question with details is waiting (CDXC:Coordinators 2026-11-24).
   showChatView: (sessionKey) => {
     useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat');
     usePaneStore.getState().setQuestionHold(sessionKey);
+    requestOpenAskDetails(sessionKey);
   },
   attachSession: (machine, session, current) => useTerminalStore.getState().attachSession(machine, session, { current }),
   defaultMachineId: () => {

@@ -352,6 +352,7 @@ function WorkButton({
   accessibilityLabel,
   keep,
   iconOnly,
+  quiet,
   hasDot,
 }: {
   label: string;
@@ -359,6 +360,9 @@ function WorkButton({
   /** Only its icon, in a square at the buttons' height: the dock's Details and Reply (its label
    * is what a screen reader says). */
   iconOnly?: boolean;
+  /** Quiet neutral button (the folded row's "Details" button beside answer buttons: subtle neutral
+   * fill and border, muted text, never accent-coloured). */
+  quiet?: boolean;
   trailing?: ReactNode;
   disabled?: boolean;
   onPress: () => void;
@@ -370,6 +374,7 @@ function WorkButton({
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  const labelColor = quiet === true ? P.cardMuted : P.foreground;
   return (
     <Pressable
       accessibilityRole="button"
@@ -382,13 +387,18 @@ function WorkButton({
         styles.button,
         keep === true && styles.kept,
         iconOnly === true && styles.iconButton,
-        { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
+        quiet === true
+          ? {
+              backgroundColor: pressed ? P.ink(0.11) : P.ink(0.05),
+              borderColor: P.ink(0.12),
+            }
+          : { backgroundColor: pressed ? P.neutralFillPressed : P.neutralFill },
         disabled === true && styles.disabled,
       ]}
     >
-      {icon !== undefined ? <Glyph name={icon} size={iconOnly === true ? 16 : 14} color={P.foreground} /> : null}
+      {icon !== undefined ? <Glyph name={icon} size={iconOnly === true ? 16 : 14} color={labelColor} /> : null}
       {iconOnly === true ? null : (
-        <Text style={[styles.buttonLabel, keep === true && styles.kept, { color: P.foreground }]}>{label}</Text>
+        <Text style={[styles.buttonLabel, keep === true && styles.kept, { color: labelColor }]}>{label}</Text>
       )}
       {iconOnly === true ? null : trailing}
       {hasDot === true ? (
@@ -613,18 +623,16 @@ export function WorkAnswerLine({
         onPress={() => dispatch(markRead as never)}
       />
     ) : null;
-  const contextWidth = (contextButton !== null ? ICON_BUTTON + 6 : 0) + (markReadButton !== null ? ICON_BUTTON + 6 : 0);
+  // CDXC:Coordinators 2026-11-24 DECISION (ask-details-page, Layout C + "Details"):
+  // Keep answer buttons visible on the folded row and put a quiet neutral "Details" button beside
+  // them to open the full bottom sheet.
+  const detailsButton =
+    details != null ? <WorkButton key="details" keep quiet label="Details" onPress={details} /> : null;
+  const detailsWidth =
+    detailsButton !== null ? (measured.details ?? buttonWidth('Details', false, false, fontScale)) + 6 : 0;
+  const contextWidth =
+    detailsWidth + (contextButton !== null ? ICON_BUTTON + 6 : 0) + (markReadButton !== null ? ICON_BUTTON + 6 : 0);
   const pillRoom = pillWidths(pills, fontScale);
-  if (details != null) {
-    return (
-      <View style={styles.line}>
-        {markReadButton}
-        <WorkButton keep iconOnly={iconOnly} label="Details" icon={DETAILS_GLYPH} onPress={details} />
-        {contextButton}
-        {replyButton}
-      </View>
-    );
-  }
   if (answers.length === 0) {
     // A form or page offers Reply after its Open (gx-chat-core `questionsReply`).
     const alone =
@@ -667,10 +675,11 @@ export function WorkAnswerLine({
         </View>
       );
     }
-    return replyButton !== null || contextButton !== null || pills.length > 0 || logos != null ? (
+    return detailsButton !== null || replyButton !== null || contextButton !== null || pills.length > 0 || logos != null ? (
       <View style={styles.line}>
         {lead}
         {markReadButton}
+        {detailsButton}
         {contextButton}
         {replyButton}
       </View>
@@ -707,7 +716,8 @@ export function WorkAnswerLine({
       measured[answerKey(choice)] ??
       buttonWidth(str(choice, 'label'), isTrue(choice, 'picked'), isTrue(choice, 'recommended'), fontScale),
   );
-  const replyAlone = reply !== null ? (measured[replyKey] ?? replyWidthOf(replied, fontScale)) : 0;
+  const replyAlone =
+    reply !== null ? (measured[replyKey] ?? (iconOnly ? ICON_BUTTON : replyWidthOf(replied, fontScale))) : 0;
   const replyWidth = (reply !== null ? replyAlone + 6 + (divider ? 13 : 0) : 0) + contextWidth;
   const chooseWidth = measured.choose ?? buttonWidth(CHOOSE_ANSWER, true, false, fontScale);
   const answersWidth = widths.reduce((sum, value) => sum + value, 0) + 6 * Math.max(0, widths.length - 1);
@@ -755,6 +765,11 @@ export function WorkAnswerLine({
             {replyButton}
           </View>
         ) : null}
+        {detailsButton !== null ? (
+          <View style={styles.measureItem} onLayout={measure('details')}>
+            {detailsButton}
+          </View>
+        ) : null}
         <View style={styles.measureItem} onLayout={measure('choose')}>
           <WorkButton keep label={CHOOSE_ANSWER} icon="chevron-down" onPress={() => undefined} />
         </View>
@@ -783,6 +798,7 @@ export function WorkAnswerLine({
         ) : (
           shown.map((choice) => answerButton(choice, answers.indexOf(choice), fits))
         )}
+        {detailsButton}
         {contextButton}
         {replyButton !== null && divider && !replyInList ? <View style={styles.divider} /> : null}
         {replyInList ? null : replyButton}
@@ -1019,7 +1035,7 @@ export function WorkMenuButton({ onPress, active }: { onPress: () => void; activ
 }
 
 const useStyles = themedStyles((P) => ({
-  column: { gap: 6 },
+  column: { width: '100%', minWidth: 0, gap: 6 },
   // One line: its buttons shrink and wrap their words rather than run past it or wrap below.
   line: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   // An item pill (desktop `item_pill_elements`): small and round, a dot and a short id.

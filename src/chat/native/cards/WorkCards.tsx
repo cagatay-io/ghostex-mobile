@@ -25,6 +25,12 @@ import {
 import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
 import { CountBadge } from '../../../components/common/CountBadge';
+import {
+  consumePendingAskDetails,
+  hasPendingAskDetails,
+  subscribeOpenAskDetails,
+} from '../../../notifications/pendingAskDetails';
+import { attachSessionKey } from '../../../terminal/sessions';
 import { SidebarPalette } from '../../../theme/palette';
 import { Glyph, type GlyphName } from './icons';
 import {
@@ -358,6 +364,27 @@ export function WorkDock({
   const shownCollapsed = useRef<boolean | null>(null);
   const dock = obj(dockValue);
   const rows = dockRows(document);
+  // Notification tap opens the first open ask's details bottom sheet automatically once its row
+  // is loaded (CDXC:Coordinators 2026-11-24, Q3).
+  const dockSessionKey =
+    machine !== null && (sessionId ?? '').length > 0 ? attachSessionKey(machine.id, sessionId ?? '') : null;
+  const [pendingDetailsTick, setPendingDetailsTick] = useState(0);
+  useEffect(() => subscribeOpenAskDetails(() => setPendingDetailsTick((n) => n + 1)), []);
+  useEffect(() => {
+    if (dockSessionKey === null || sheetKey !== null || !hasPendingAskDetails(dockSessionKey)) return;
+    const askRow = rows.find((row) => {
+      const rowKind = str(row, 'kind');
+      return (
+        (rowKind === 'ask' || rowKind === 'question') &&
+        !isTrue(row, 'settled') &&
+        (isTrue(row, 'details') || str(row, 'body').trim().length > 0)
+      );
+    });
+    if (askRow === undefined) return;
+    if (consumePendingAskDetails(dockSessionKey)) {
+      setSheetKey(str(askRow, 'key'));
+    }
+  }, [dockSessionKey, sheetKey, rows, pendingDetailsTick]);
   const snoozed = dockSnoozed(document);
   const recent = dockRecent(document);
   const recentArchiveAll = obj(dock?.recentArchiveAll) ?? obj(dock?.doneArchiveAll);
@@ -1426,10 +1453,10 @@ function DockRow({
                 </Pressable>
               ) : null}
             </View>
-            {/* A short description that is not Details, quiet under the title, its answers still on
-                the row (gx-chat-core `details_fields`' 2026-11-20 decision; desktop `dock_row_look`). */}
-            {!opened && !isTrue(row, 'details') && str(row, 'preview').length > 0 ? (
-              <Text numberOfLines={2} style={styles.dockNote}>
+            {/* First description line shows quietly under the title on folded rows, while the
+                quiet Details button opens the full sheet (CDXC:Coordinators 2026-11-24, Layout C). */}
+            {!opened && str(row, 'preview').length > 0 ? (
+              <Text numberOfLines={1} style={styles.dockNote}>
                 {str(row, 'preview')}
               </Text>
             ) : null}

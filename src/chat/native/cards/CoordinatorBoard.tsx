@@ -915,6 +915,13 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                         {threadWaitPreview}
                       </Text>
                     ) : null}
+                    {/* Folded card preview: first description line under the title when answers are
+                        shown on the closed card (CDXC:Coordinators 2026-11-24, Layout C). */}
+                    {!expanded && answers.length > 0 && str(obj(row)?.dock, 'preview').length > 0 ? (
+                      <Text style={styles.cardLine} numberOfLines={1}>
+                        {str(obj(row)?.dock, 'preview')}
+                      </Text>
+                    ) : null}
                     {/* A work ask's longer explanation under its short title, whole (desktop `ask_markdown`).
                         Opened, only the title line shuts the card: what is under it takes a tap
                         itself (`TextArea`), and a long press on the description offers Copy. */}
@@ -966,26 +973,28 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                             // `details_fields`); a computer too old to say so keeps Details.
                             (obj(obj(row)?.dock)?.details === undefined || isTrue(obj(obj(row)?.dock), 'details')) &&
                             toggle !== null ? (
-                            // An ask with details shows Details and Reply on its closed card; its
-                            // answers wait under the details once it opens (gx-chat-core
-                            // `details_fields`).
-                            <WorkAnswerLine
-                              answers={answerRecords}
-                              reply={reply}
-                              replied={str(row, 'replied')}
-                              busy={false}
-                              divider={false}
-                              room={-80}
-                              scope={scope}
-                              dispatch={chat.dispatch as never}
-                              iconOnly
-                              details={() => {
-                                setMenuFor(null);
-                                chat.dispatch(asJson(toggle) as unknown as UserAction);
-                              }}
-                              context={obj(actions?.context)}
-                              before={(kind) => (kind === 'reply' ? onDone() : undefined)}
-                            />
+                            // Layout C (CDXC:Coordinators 2026-11-24): keep answers visible on the
+                            // closed card with a quiet "Details" button beside them to expand.
+                            <View style={styles.flex}>
+                              <WorkAnswerLine
+                                answers={answerRecords}
+                                reply={reply}
+                                replied={str(row, 'replied')}
+                                busy={false}
+                                divider={false}
+                                room={-80}
+                                chooser="inline"
+                                scope={scope}
+                                dispatch={chat.dispatch as never}
+                                iconOnly
+                                details={() => {
+                                  setMenuFor(null);
+                                  chat.dispatch(asJson(toggle) as unknown as UserAction);
+                                }}
+                                context={obj(actions?.context)}
+                                before={(kind) => (kind === 'reply' ? onDone() : undefined)}
+                              />
+                            </View>
                           ) : answers.length > 0 ? (
                             <>
                               {/* A Work panel ask names the work it belongs to before its answers (gx-chat-core work_panel.rs). */}

@@ -674,7 +674,7 @@ export default function AttentionList({
       onOpenSession({
         machineId: row.machineId,
         sessionId,
-        question: questionSessions.has(sessionKey(row.machineId, sessionId)),
+        question: row.kind === 'needsInput' || questionSessions.has(sessionKey(row.machineId, sessionId)),
       });
     },
     [questions, closed, onOpenSession],
