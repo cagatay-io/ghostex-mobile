@@ -55,6 +55,20 @@ export function mobileViewForRoute(routeName: string | undefined): MobileView | 
   return Object.prototype.hasOwnProperty.call(VIEW_BY_ROUTE, routeName) ? VIEW_BY_ROUTE[routeName] : null;
 }
 
+const VIEW_BY_PANE_KIND: Record<string, MobileView> = {
+  session: 'mobile_terminal',
+  browser: 'mobile_browser',
+  files: 'mobile_files',
+  git: 'mobile_changes',
+  agents: 'mobile_sessions',
+};
+
+/** The view a split-pane content kind counts as (tablet/Duo), or null when not in the surface table. */
+export function mobileViewForPaneKind(kind: string | undefined): MobileView | null {
+  if (kind === undefined) return null;
+  return Object.prototype.hasOwnProperty.call(VIEW_BY_PANE_KIND, kind) ? VIEW_BY_PANE_KIND[kind] : null;
+}
+
 /** The computer a route names in its `machineId` parameter, if any. */
 export function machineIdForRoute(params: unknown): string | null {
   if (typeof params !== 'object' || params === null) return null;

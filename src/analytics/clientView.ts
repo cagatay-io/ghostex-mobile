@@ -1,40 +1,127 @@
-import { execRemoteCommand } from '../remote/commands';
-import { isDemoMachineId } from '../demo/identity';
-import { lastHelloMachineId } from './clientHello';
-import { clientViewCommand, machineIdForRoute, mobileViewForRoute, type MobileView } from './mobileViews';
-
 /**
- * Mobile screen-opened ping.
+ * Mobile screen-opened ping (`surface.opened`).
  *
- * Like the hello, this never talks to an analytics service: it runs
- * `ghostex client-view` on one computer, whose own usage-analytics setting
- * decides whether anything is recorded. The computer is the one the screen
- * belongs to (its `machineId` parameter), else the last computer that got a
- * hello, so a phone paired with two computers reports each screen once, not
- * twice. One ping per computer per screen per hour, matching the daemon's
- * window. Fire-and-forget: a computer whose Ghostex predates the verb answers
- * with a usage dump, and that is ignored.
+ * Like the hello, this never talks to an analytics service: it posts
+ * `{"event": "surface.opened", "properties": {"surface": "<mobile_*>", "client": "mobile"}}`
+ * to one computer's `gxserver` (`POST /api/recordClientEvent` over the warm forward, falling
+ * back to `ghostex client-view` over SSH when forwarding is unavailable). The computer's own
+ * usage-analytics setting decides whether anything is recorded.
+ *
+ * The computer is the one the screen belongs to (its `machineId` parameter), else the last
+ * computer that got a hello; phone-wide screens without a `machineId` parameter are throttled
+ * globally so a phone paired with two computers reports each screen once per hour, not twice.
+ * Matching desktop (`apps/desktop/src/app/helpers/telemetry.rs`) and gxserver
+ * (`SURFACE_OPENED_THROTTLE`), each surface is throttled to at most one accepted ping per hour,
+ * with a short cooldown on transient failures so offline/busy links never get spammed.
  */
 
+import { AppState, type AppStateStatus } from 'react-native';
+
+import { onChatLinkHandshake } from '../chat/rust/machine-link';
+import { isCloudBoxMachineId } from '../cloudBoxes/types';
+import { isDemoMachineId } from '../demo/identity';
+import { lastHelloMachineId, onFirstHelloMachine, reportClientHello } from './clientHello';
+import {
+  clientViewCommand,
+  machineIdForRoute,
+  mobileViewForPaneKind,
+  mobileViewForRoute,
+  type MobileView,
+} from './mobileViews';
+import { lookupMachineTarget, sendMobileClientEvent } from './recordEvent';
+
 const VIEW_INTERVAL_MS = 60 * 60 * 1000;
-const VIEW_EXEC_TIMEOUT_MS = 10_000;
+const VIEW_FAILURE_COOLDOWN_MS = 60 * 1000;
+const VIEW_TIMEOUT_MS = 10_000;
 
-const lastViewAt = new Map<string, number>();
+/** Next timestamp at which a view ping may go out for a given throttle key. */
+const nextViewAt = new Map<string, number>();
+const inFlightViews = new Set<string>();
 
-function shouldReport(machineId: string, view: MobileView, now: number): boolean {
-  const key = `${machineId}\u0000${view}`;
-  const last = lastViewAt.get(key);
-  if (last !== undefined && now - last < VIEW_INTERVAL_MS) return false;
-  lastViewAt.set(key, now);
-  return true;
+let installed = false;
+let currentRoute: { name: string; params?: unknown } | undefined;
+
+function reportSurface(
+  targetMachineId: string | null,
+  view: MobileView,
+  scope: 'machine' | 'global',
+): void {
+  const resolvedMachineId =
+    targetMachineId !== null && !isCloudBoxMachineId(targetMachineId) ? targetMachineId : lastHelloMachineId();
+  if (resolvedMachineId === null || isDemoMachineId(resolvedMachineId)) return;
+
+  const target = lookupMachineTarget(resolvedMachineId);
+  if (target === null) return;
+
+  const throttleKey = scope === 'global' ? `global\u0000${view}` : `${target.id}\u0000${view}`;
+  const now = Date.now();
+  const nextAllowedAt = nextViewAt.get(throttleKey);
+  if (nextAllowedAt !== undefined && now < nextAllowedAt) return;
+  if (inFlightViews.has(throttleKey)) return;
+
+  inFlightViews.add(throttleKey);
+  void sendMobileClientEvent(
+    target,
+    { event: 'surface.opened', properties: { surface: view, client: 'mobile' } },
+    clientViewCommand(view),
+    VIEW_TIMEOUT_MS,
+  )
+    .then((outcome) => {
+      const waitMs = outcome === 'failed' ? VIEW_FAILURE_COOLDOWN_MS : VIEW_INTERVAL_MS;
+      nextViewAt.set(throttleKey, Date.now() + waitMs);
+    })
+    .catch(() => {
+      nextViewAt.set(throttleKey, Date.now() + VIEW_FAILURE_COOLDOWN_MS);
+    })
+    .finally(() => {
+      inFlightViews.delete(throttleKey);
+    });
 }
 
-/** Report the current route as a phone screen, if it is one. Never throws. */
+/** Report the current navigation route as a phone screen, if it is one. Never throws. */
 export function reportMobileView(route: { name: string; params?: unknown } | undefined): void {
+  currentRoute = route;
   const view = mobileViewForRoute(route?.name);
   if (view === null) return;
-  const machineId = machineIdForRoute(route?.params) ?? lastHelloMachineId();
-  if (machineId === null || isDemoMachineId(machineId)) return;
-  if (!shouldReport(machineId, view, Date.now())) return;
-  void execRemoteCommand(machineId, clientViewCommand(view), VIEW_EXEC_TIMEOUT_MS).catch(() => undefined);
+  const routeMachineId = machineIdForRoute(route?.params);
+  const scope = routeMachineId !== null && !isCloudBoxMachineId(routeMachineId) ? 'machine' : 'global';
+  reportSurface(routeMachineId, view, scope);
+}
+
+/** Report a split-pane content surface (tablet/Duo) for `machineId`, if it maps to a known view. */
+export function reportMobilePaneView(machineId: string | null | undefined, paneKind: string): void {
+  const view = mobileViewForPaneKind(paneKind);
+  if (view === null) return;
+  const resolved = typeof machineId === 'string' && machineId.length > 0 ? machineId : null;
+  const scope = resolved !== null && !isCloudBoxMachineId(resolved) ? 'machine' : 'global';
+  reportSurface(resolved, view, scope);
+}
+
+/**
+ * Install once at app startup:
+ * - Reports the initial active screen (e.g. `Sessions`) as soon as the first computer connects.
+ * - Reports `client.connected` (with `client_os`) whenever any computer finishes its warm link handshake.
+ * - Re-checks the active screen when returning from background (throttled to 1/hr) so long-lived
+ *   sessions without route transitions still record active hours.
+ */
+export function initMobileAnalytics(): void {
+  if (installed) return;
+  installed = true;
+
+  onFirstHelloMachine(() => {
+    if (currentRoute !== undefined) reportMobileView(currentRoute);
+  });
+
+  onChatLinkHandshake((machine) => {
+    reportClientHello(machine);
+  });
+
+  let lastState: AppStateStatus = AppState.currentState as AppStateStatus;
+  AppState.addEventListener('change', (next) => {
+    const cameFromBackground = lastState === 'background' || lastState === 'inactive';
+    lastState = next;
+    if (next === 'active' && cameFromBackground && currentRoute !== undefined) {
+      reportMobileView(currentRoute);
+    }
+  });
 }

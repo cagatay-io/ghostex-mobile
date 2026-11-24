@@ -8,8 +8,9 @@
  */
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 
+import { reportMobilePaneView } from '../analytics/clientView';
 import type { GhostexSession } from '../contract/mobileSummary';
 import type { RootStackParamList } from '../navigation/types';
 import type { OpenSessionTarget } from '../notifications/AttentionList';
@@ -74,6 +75,10 @@ export default function PaneContentView({
   onOpenAttention,
   navigation,
 }: PaneContentViewProps) {
+  useEffect(() => {
+    reportMobilePaneView(machineId, content.kind);
+  }, [machineId, content.kind]);
+
   switch (content.kind) {
     case 'session':
       if (chat?.sessionKey === content.sessionKey) return chat.view;

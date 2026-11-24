@@ -18,7 +18,7 @@ import { initAlerts } from './src/app/alerts';
 import { initAutoReconnect, redialAfterServerStop } from './src/app/autoReconnect';
 import { installEasyConnectLinkKeys } from './src/machines/easyConnectLinkKey';
 import { checkForCrashReport, noteCrashRoute } from './src/app/crashReports';
-import { reportMobileView } from './src/analytics/clientView';
+import { initMobileAnalytics, reportMobileView } from './src/analytics/clientView';
 import { flushPendingDeepLink, initDeepLinks, navigationRef } from './src/app/deepLinks';
 import { initAppLifecycle } from './src/app/lifecycle';
 import { reconcileInheritedNative } from './src/app/inheritedNative';
@@ -187,6 +187,7 @@ export default function App() {
     initSettingsSync();
     initTerminalKeepAwake();
     initChatGridClaim();
+    initMobileAnalytics();
     initPaneLayouts();
     initAppUpdates();
     // 11.8.0 is the last TestFlight build: a TestFlight install is asked once to switch to the App Store.
@@ -232,7 +233,9 @@ export default function App() {
             theme={navigationTheme}
             onReady={() => {
               flushPendingDeepLink();
-              noteCrashRoute(navigationRef.getCurrentRoute()?.name);
+              const current = navigationRef.getCurrentRoute();
+              noteCrashRoute(current?.name);
+              reportMobileView(current);
               // The 11.0.1 notice opens straight into the scanner when a computer needs this phone paired again.
               void securityNoticeTarget(useMachinesStore.getState().machines).then((target) => {
                 if (target === null || !navigationRef.isReady()) return;

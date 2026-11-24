@@ -21,6 +21,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, type AppStateStatus } from 'react-native';
 
+import { reportClientHello } from '../analytics/clientHello';
 import { holdSessionsAwakeCommand } from '../commands/ghostexCli';
 import { runGhostexCli } from '../components/sessions/cli';
 import { FailureCopy } from '../copy';
@@ -38,6 +39,19 @@ export const KEEP_AWAKE_TTL_MS = 180_000;
 export const KEEP_AWAKE_RENEW_INTERVAL_MS = 60_000;
 
 const HOLDER_STORAGE_KEY = 'terminal.keepAwakeHolder.v1';
+/**
+ * CDXC:Telemetry 2026-11-24 WHY:
+ * `gxserver` (`server/src/server/http_endpoints.rs`) treats a keep-awake holder id starting with
+ * `mobile-` as a legacy pre-2026-09-03 phone fallback and emits `client.connected` with
+ * `client_os = null`. Whenever keep-awake raced ahead of `client-hello` (cold start, foreground
+ * resume, hourly throttle drift, or a gxserver restart), modern phones double-fired
+ * `client_os = null` alongside their real `android`/`ios` hello. `gxphone-` keeps the exact same
+ * lease and auto-sleep semantics on every gxserver version (opaque per-device key, not a
+ * `desktop-`/`web-` full-screen reporter) while ensuring this phone only reports `client.connected`
+ * with its real OS via `reportClientHello`.
+ */
+const HOLDER_PREFIX = 'gxphone-';
+const LEGACY_HOLDER_PREFIX = 'mobile-';
 
 /** projectId by session id, per machine. */
 type HeldSessions = Map<string, Map<string, string>>;
@@ -62,13 +76,20 @@ async function resolveHolderId(): Promise<string> {
   try {
     const stored = await AsyncStorage.getItem(HOLDER_STORAGE_KEY);
     if (stored !== null && stored.trim().length > 0) {
-      holderId = stored.trim();
+      const trimmed = stored.trim();
+      const migrated = trimmed.startsWith(LEGACY_HOLDER_PREFIX)
+        ? `${HOLDER_PREFIX}${trimmed.slice(LEGACY_HOLDER_PREFIX.length)}`
+        : trimmed;
+      holderId = migrated;
+      if (migrated !== trimmed) {
+        void AsyncStorage.setItem(HOLDER_STORAGE_KEY, migrated).catch(() => undefined);
+      }
       return holderId;
     }
   } catch {
     // An unreadable store just means a fresh id for this app run.
   }
-  const generated = `mobile-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  const generated = `${HOLDER_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
   holderId = generated;
   void AsyncStorage.setItem(HOLDER_STORAGE_KEY, generated).catch(() => undefined);
   return generated;
@@ -133,6 +154,7 @@ async function runHoldCommand(
   if (sessions.length === 0) return;
   const target = machineTarget(machineId);
   if (target === null) return;
+  if (!release) reportClientHello(target);
   try {
     await runGhostexCli(
       target,
