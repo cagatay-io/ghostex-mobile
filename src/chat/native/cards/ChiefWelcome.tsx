@@ -1,8 +1,8 @@
 /**
  * Ask Ghostex AI's welcome card, the phone's copy of desktop `native_chat/chief_welcome.rs` (the rules are gx-chat-core
  * `extras/chief_welcome.rs`): the clipboard ghost, then First steps for a new user or the live status and prompts once
- * they are set up. A step, chip or prompt fills the chat box; the white ask button only focuses it. One column on a
- * phone; the chips wrap.
+ * they are set up. A step, chip or prompt fills the chat box; the ask card only focuses it. One column on a phone; the
+ * chips wrap.
  *
  * CDXC:Chief 2026-11-21 DECISION (gx-chat-core `extras/chief_welcome.rs`): the approved spec cos-welcome-card-v3. The
  * ghost floats, waves and blinks, and holds still while the phone asks for reduced motion.
@@ -98,7 +98,6 @@ export function ChiefWelcome({ chat, card }: { chat: RustChat; card: ChiefWelcom
   const focus = () => chat.composer?.replace(chat.state?.composer.text ?? '');
   const newUser = card.card === 'newUser';
   const done = card.steps.filter((step) => step.done).length;
-  const ink = P.light ? '#27272a' : '#0d0d0d';
   const glyph = (name: string) => name as GlyphName;
   const prompt = (row: ChiefWelcomePrompt, kind: 'chip' | 'prompt') => (
     <Pressable
@@ -171,14 +170,14 @@ export function ChiefWelcome({ chat, card }: { chat: RustChat; card: ChiefWelcom
         accessibilityRole="button"
         accessibilityLabel={card.askTitle}
         onPress={focus}
-        style={({ pressed }) => [styles.ask, P.light ? styles.askLight : null, pressed ? styles.pressed : null]}
+        style={({ pressed }) => [styles.ask, pressed ? styles.askPressed : null]}
       >
-        <Glyph name="message-circle" size={18} color={ink} />
+        <Glyph name="message-circle" size={18} color={P.ink(0.85)} />
         <View style={styles.askWords}>
-          <Text style={[styles.askTitle, { color: ink }]}>{card.askTitle}</Text>
-          <Text style={[styles.askDetail, { color: ink }]}>{card.askDetail}</Text>
+          <Text style={styles.askTitle}>{card.askTitle}</Text>
+          <Text style={styles.askDetail}>{card.askDetail}</Text>
         </View>
-        <Glyph name="chevron-right" size={15} color={ink} />
+        <Glyph name="chevron-right" size={15} color={P.ink(0.55)} />
       </Pressable>
       {newUser ? null : <View style={styles.prompts}>{card.prompts.map((row) => prompt(row, 'prompt'))}</View>}
       {/* The new user's four asks and Report a bug; on the set-up card Report a bug alone. */}
@@ -261,19 +260,14 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: P.light ? '#ffffff' : '#fcfcfc',
-  },
-  askLight: {
+    backgroundColor: P.ink(P.light ? 0.08 : 0.1),
     borderWidth: 1,
-    borderColor: 'rgba(39,39,42,0.10)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    borderColor: P.ink(P.light ? 0.13 : 0.14),
   },
+  askPressed: { backgroundColor: P.ink(P.light ? 0.16 : 0.18) },
   askWords: { flex: 1, minWidth: 0 },
-  askTitle: { fontSize: 14, fontWeight: '600' },
-  askDetail: { marginTop: 1, fontSize: 12, opacity: 0.62 },
+  askTitle: { fontSize: 14, fontWeight: '600', color: P.foreground },
+  askDetail: { marginTop: 1, fontSize: 12, color: P.muted },
   chips: { maxWidth: 440, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
   chip: {
     flexDirection: 'row',
