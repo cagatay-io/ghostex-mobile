@@ -30,6 +30,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewInstance 
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
 import type { CoordinatorBadge, FoldedStatus, RowNesting } from '../../contract/coordinatorTree';
+import type { MachineFoldInfo } from '../../contract/grouping';
 import {
   agentIconTint,
   hasQuestion,
@@ -432,6 +433,10 @@ export type SessionRowProps = {
    * connected (machines/computerIcons.ts, the desktop's native_sidebar/computer_mark.rs).
    */
   machineId?: string;
+  /** Main Hub per-computer folding (Ask Ghostex AI, Autopilot supervisor): lead `+N` chip or unfolded child row. */
+  machineFold?: MachineFoldInfo;
+  /** Toggles a Main Hub per-computer fold's `+N` chip. */
+  onToggleMachineFold?: (key: string) => void;
 };
 
 /**
@@ -460,15 +465,23 @@ export default function SessionRow({
   worktree,
   openerTag,
   machineId,
+  machineFold,
+  onToggleMachineFold,
 }: SessionRowProps) {
   const rowRef = useRef<ViewInstance | null>(null);
   const ink = useSidebarInk();
   const computerIcon = useSessionComputerIcon(machineId);
+  const foldLead = machineFold?.role === 'lead' ? machineFold : null;
+  const foldChild = machineFold?.role === 'child' ? machineFold : null;
   const inkStyle = inkStyles(ink);
   const iconId = resolveAgentArtId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   const iconSize = iconId === 'terminal' || iconId === 'browser' ? ds(15) : ds(13);
-  const title = session.displayTitle.length > 0 ? session.displayTitle : SessionCopy.fallbackTitle;
+  const title = foldChild !== null
+    ? foldChild.machineLabel
+    : session.displayTitle.length > 0
+      ? session.displayTitle
+      : SessionCopy.fallbackTitle;
   const nowMs = useRowLabelClock(session);
   const flashOpacity = useCompletionFlash(session);
   const renameShake = useRenameShake(session);
@@ -516,12 +529,13 @@ export default function SessionRow({
    * title (off by default) bolds the coordinator's title for people who want it.
    */
   const boldCoordinatorTitle = useSettingsStore((state) => state.settings.sessionsBoldCoordinatorTitle);
-  const coordinatorTitle = session.isCoordinator === true;
-  const threadTitle = !coordinatorTitle && depth > 0;
-  const indent = ds(depth * THREAD_INDENT);
+  const coordinatorTitle = foldChild === null && session.isCoordinator === true;
+  const threadTitle = foldChild !== null || (!coordinatorTitle && depth > 0);
+  const indent = ds((depth + (foldChild !== null ? 1 : 0)) * THREAD_INDENT);
   const iconLeft = (inCard ? ds(5) : ds(26)) + indent;
-  const showChevron = onToggleThreads !== undefined && (nesting?.threadCount ?? 0) > 0;
+  const showChevron = foldChild === null && onToggleThreads !== undefined && (nesting?.threadCount ?? 0) > 0;
   const titleIndent = indent + (showChevron ? ds(CHEVRON_EXTRA) : 0);
+  const showTrailingComputerIcon = foldChild === null && foldLead === null && computerIcon !== null;
   const activeBackground = selectedFill(expandedGroupSurface, ink);
   // The desktop's hover fill (appearance.rs `session_hover`) is the phone's pressed state: the chrome ink at 6%.
   const pressedBackground = mixHexColors(ink.light ? '#000000' : '#FFFFFF', expandedGroupSurface, 6);
@@ -634,7 +648,9 @@ export default function SessionRow({
             ]}
           >
             {/* The clock is 18dp inside the 15dp slot, overhanging it evenly, as on the desktop. */}
-            {timerClockColor !== null ? (
+            {foldChild !== null ? (
+              <ComputerIconGlyph drawing={computerIcon ?? 'desktop'} size={ds(13)} color={ink.muted} />
+            ) : timerClockColor !== null ? (
               <ClockGlyph size={ds(18)} color={timerClockColor} />
             ) : TagIcon !== undefined && tagColor !== null ? (
               <TagIcon size={ds(15)} color={tagColor} strokeWidth={1.9} />
@@ -727,7 +743,8 @@ export default function SessionRow({
           shownCoordinatorBadge !== undefined ||
           linksBadge !== null ||
           voiceCall ||
-          computerIcon !== null ||
+          foldLead !== null ||
+          showTrailingComputerIcon ||
           session.agentbox !== undefined ||
           session.cloudBox !== undefined ? (
             <View style={styles.trailing}>
@@ -771,8 +788,38 @@ export default function SessionRow({
               ) : null}
               {session.agentbox !== undefined ? <AgentboxBadge agentbox={session.agentbox} /> : null}
               {session.cloudBox !== undefined ? <CloudBoxBadge cloudBox={session.cloudBox} /> : null}
+              {foldLead !== null && onToggleMachineFold !== undefined ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: foldLead.expanded }}
+                  accessibilityLabel={
+                    foldLead.expanded
+                      ? 'Hide other computers'
+                      : `Show ${plural(foldLead.count, 'other computer', 'other computers')}`
+                  }
+                  hitSlop={{ top: ds(6), bottom: ds(6), left: ds(4), right: ds(4) }}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onToggleMachineFold(foldLead.key);
+                  }}
+                  style={({ pressed }) => [
+                    styles.machineFoldChip,
+                    inkStyle.machineFoldChip,
+                    foldLead.expanded || pressed ? inkStyle.machineFoldChipOpen : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.machineFoldChipText,
+                      foldLead.expanded ? inkStyle.titleActive : inkStyle.agentboxLabel,
+                    ]}
+                  >
+                    {`+${foldLead.count}`}
+                  </Text>
+                </Pressable>
+              ) : null}
               {/* Its computer's icon last before the status, as the desktop's row (computer_mark.rs); while it shows, the status and the time sit in a slot of one width so the icons line up down the list (CDXC:RemoteMachines 2026-11-12 in the desktop's native_sidebar/status.rs). */}
-              {computerIcon !== null ? (
+              {showTrailingComputerIcon && computerIcon !== null ? (
                 <ComputerIconGlyph drawing={computerIcon} size={ds(12)} color={ink.muted} />
               ) : null}
               {question ||
@@ -780,8 +827,8 @@ export default function SessionRow({
               quotaBadge !== null ||
               indicator !== null ||
               timeLabel !== null ||
-              computerIcon !== null ? (
-                <View style={[styles.trailingSlot, computerIcon !== null ? styles.trailingSlotFixed : null]}>
+              showTrailingComputerIcon ? (
+                <View style={[styles.trailingSlot, showTrailingComputerIcon ? styles.trailingSlotFixed : null]}>
                   {question ? (
                     <QuestionIndicator
                       activity={session.activity}
@@ -983,6 +1030,18 @@ const styles = StyleSheet.create({
     gap: ds(6),
     marginStart: ds(6),
   },
+  machineFoldChip: {
+    height: ds(18),
+    paddingHorizontal: ds(5),
+    borderRadius: ds(5),
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  machineFoldChipText: {
+    fontSize: ds(11),
+    fontWeight: '400',
+  },
   /** What follows the computer's icon: the question, folded or status dot, then the time. */
   trailingSlot: {
     flexDirection: 'row',
@@ -1049,6 +1108,13 @@ const styles = StyleSheet.create({
 const inkStyles = inkStyleSheets((ink) =>
   StyleSheet.create({
     agentboxLabel: { color: ink.muted },
+    machineFoldChip: {
+      borderColor: ink.light ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)',
+    },
+    machineFoldChipOpen: {
+      borderColor: ink.light ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.20)',
+      backgroundColor: ink.light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)',
+    },
     threadLine: { borderLeftColor: ink.threadLine },
     threadLineAcross: { backgroundColor: ink.threadLine },
     containsActiveRing: { borderColor: ink.activeRing },

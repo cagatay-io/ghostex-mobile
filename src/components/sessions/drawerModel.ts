@@ -57,6 +57,7 @@ export type DrawerCollapseInput = {
   expandedCoordinatorsByMachine?: Record<string, string[]>;
   expandedCoordinatorOlderByMachine?: Record<string, string[]>;
   expandedParkedSessionKeysByMachine?: Record<string, string[]>;
+  expandedMachineFoldsByMachine?: Record<string, string[]>;
   expandedDraftSessionKeysByMachine?: Record<string, string[]>;
 };
 
@@ -117,6 +118,7 @@ function rowBlock(machineId: string, item: DrawerItem): DrawerBlock {
 function isProjectChild(item: DrawerItem): boolean {
   return (
     item.type === 'PROJECT_EMPTY' ||
+    item.type === 'HOME_NEW_CHAT' ||
     item.type === 'GROUP_HEADER' ||
     item.type === 'SESSION' ||
     item.type === 'SESSION_KIND_LABEL' ||
@@ -600,12 +602,161 @@ function mergedBlocks(input: DrawerListInput, selected: MachineRecord, merged: M
     selected.id,
     (machineId) => input.inventoriesByMachineId[machineId]?.summary ?? null,
   );
-  return withGbotsSection(
+  const foldedBlocks = foldHomeMachineRows(
     blocksFromItems(selected.id, restored),
+    selected.id,
+    input.machines,
+    new Set(collapse.expandedMachineFoldsByMachine?.[selected.id] ?? []),
+    focused,
+  );
+  return withGbotsSection(
+    foldedBlocks,
     selected.id,
     input.inventoriesByMachineId[selected.id]!.summary!,
     collapse,
     nowMs,
     focused,
   );
+}
+
+/**
+ * Main Hub per-computer folding (mirroring gx-core `sidebar_view/chief.rs` `fold_home_machine_rows`):
+ * with computers combined, show only the lead Ask Ghostex AI / Autopilot supervisor row with a
+ * neutral `+N` chip that unfolds the other computers' rows under it, each showing its computer icon
+ * and name.
+ */
+function foldHomeMachineRows(
+  blocks: DrawerBlock[],
+  leadMachineId: string,
+  machines: readonly MachineRecord[],
+  expandedKeys: ReadonlySet<string>,
+  selectedSessionKey: string | null,
+): DrawerBlock[] {
+  const machineLabel = (machineId: string): string => {
+    const record = machines.find((entry) => entry.id === machineId);
+    return record === undefined ? machineId : machineDisplayLabel(record);
+  };
+  const subtreeEnd = (items: readonly DrawerItem[], rootIdx: number): number => {
+    let sub = rootIdx + 1;
+    while (sub < items.length) {
+      const subItem = items[sub];
+      const subDepth =
+        subItem.type === 'SESSION'
+          ? (subItem.nesting?.depth ?? 0)
+          : subItem.type === 'COORDINATOR_OLDER'
+            ? subItem.depth + 1
+            : 0;
+      if (subDepth <= 0) break;
+      sub += 1;
+    }
+    return sub;
+  };
+  const foldCard = (card: ProjectCardBlock): ProjectCardBlock => {
+    if (card.header.isHome !== true) return card;
+    let children = [...card.children];
+    const kinds: Array<{
+      kind: 'chief' | 'autopilot';
+      matches: (item: DrawerItem) => boolean;
+    }> = [
+      {
+        kind: 'chief',
+        matches: (item) => item.type === 'SESSION' && (item.nesting?.depth ?? 0) === 0 && item.session.isChief,
+      },
+      {
+        kind: 'autopilot',
+        matches: (item) =>
+          item.type === 'SESSION' && (item.nesting?.depth ?? 0) === 0 && item.isAutopilotSupervisor === true,
+      },
+    ];
+    for (const { kind, matches } of kinds) {
+      const indices: number[] = [];
+      for (let i = 0; i < children.length; i++) {
+        if (matches(children[i])) indices.push(i);
+      }
+      if (indices.length < 2) continue;
+      const leadPos = indices.findIndex((idx) => {
+        const candidate = children[idx];
+        return candidate.type === 'SESSION' && candidate.machineId === leadMachineId;
+      });
+      const leadIdx = indices[leadPos >= 0 ? leadPos : 0];
+      const leadItem = children[leadIdx];
+      if (leadItem.type !== 'SESSION') continue;
+      const otherIndices = indices.filter((idx) => {
+        if (idx === leadIdx) return false;
+        const candidate = children[idx];
+        return candidate.type === 'SESSION' && candidate.machineId !== leadItem.machineId;
+      });
+      if (otherIndices.length === 0) continue;
+      const foldKey = `${card.header.projectKey}:${kind}`;
+      const expanded = expandedKeys.has(foldKey);
+      let containsActive = false;
+      for (const childIdx of otherIndices) {
+        const childItem = children[childIdx];
+        if (childItem.type !== 'SESSION') continue;
+        if (!expanded) {
+          if (
+            selectedSessionKey === `${childItem.machineId}:${childItem.session.sessionId}` ||
+            childItem.nesting?.containsActive === true
+          ) {
+            containsActive = true;
+          }
+          const end = subtreeEnd(children, childIdx);
+          for (let sub = childIdx + 1; sub < end; sub++) {
+            const subItem = children[sub];
+            if (
+              subItem.type === 'SESSION' &&
+              selectedSessionKey === `${subItem.machineId}:${subItem.session.sessionId}`
+            ) {
+              containsActive = true;
+            }
+          }
+        } else {
+          children[childIdx] = {
+            ...childItem,
+            machineFold: {
+              role: 'child',
+              machineLabel: machineLabel(childItem.machineId),
+              machineId: childItem.machineId,
+            },
+          };
+        }
+      }
+      children[leadIdx] = {
+        ...leadItem,
+        machineFold: {
+          role: 'lead',
+          key: foldKey,
+          count: otherIndices.length,
+          expanded,
+          containsActive,
+        },
+      };
+      // Keep the lead row first and place unfolded computer rows directly under it.
+      const anchor = indices[0];
+      const moved = new Set<number>();
+      const next: DrawerItem[] = children.slice(0, anchor);
+      const leadEnd = subtreeEnd(children, leadIdx);
+      for (let idx = leadIdx; idx < leadEnd; idx++) {
+        moved.add(idx);
+        next.push(children[idx]);
+      }
+      for (const childIdx of otherIndices) {
+        const end = subtreeEnd(children, childIdx);
+        for (let idx = childIdx; idx < end; idx++) {
+          moved.add(idx);
+          if (expanded) next.push(children[idx]);
+        }
+      }
+      for (let idx = anchor; idx < children.length; idx++) {
+        if (!moved.has(idx)) next.push(children[idx]);
+      }
+      children = next;
+    }
+    return { ...card, children };
+  };
+  return blocks.map((block) => {
+    if (block.kind === 'project') return { ...block, card: foldCard(block.card) };
+    if (block.kind === 'collection') return { ...block, projects: block.projects.map(foldCard) };
+    return block;
+  });
 }

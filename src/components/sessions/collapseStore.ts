@@ -61,6 +61,8 @@ type CollapseState = {
   expandedCoordinatorOlderByMachine: Record<string, string[]>;
   /** In-memory per project: Parked always starts collapsed after an app restart. */
   expandedParkedSessionKeysByMachine: Record<string, string[]>;
+  /** In-memory per machine: Main Hub per-computer folds (`chief`, `autopilot`) unfolded this run. */
+  expandedMachineFoldsByMachine: Record<string, string[]>;
   /** Drafts starts collapsed on every app launch, like Parked. */
   expandedDraftSessionKeysByMachine: Record<string, string[]>;
   /** In-memory: collapsed machine section ids (multi-machine drawer). */
@@ -73,6 +75,7 @@ type CollapseState = {
   toggleSessionKind: (machineId: string, kindCollapseKey: string) => void;
   toggleCoordinator: (machineId: string, coordinatorKey: string) => void;
   toggleCoordinatorOlder: (machineId: string, coordinatorKey: string) => void;
+  toggleMachineFold: (machineId: string, foldKey: string) => void;
   toggleMachine: (machineId: string) => void;
   /**
    * Opens a project and its Drafts heading for a session that just arrived in Drafts
@@ -147,6 +150,7 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
     expandedCoordinatorsByMachine: {},
     expandedCoordinatorOlderByMachine: {},
     expandedParkedSessionKeysByMachine: {},
+    expandedMachineFoldsByMachine: {},
     expandedDraftSessionKeysByMachine: {},
     collapsedMachineIds: [],
 
@@ -240,6 +244,17 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
 
     toggleCoordinatorOlder: (machineId, coordinatorKey) =>
       toggleIn('expandedCoordinatorOlderByMachine', machineId, coordinatorKey),
+
+    // In memory only: Main Hub per-computer folds start folded on each launch.
+    toggleMachineFold: (machineId, foldKey) => {
+      const current = get().expandedMachineFoldsByMachine;
+      set({
+        expandedMachineFoldsByMachine: {
+          ...current,
+          [machineId]: toggled(current[machineId] ?? [], foldKey),
+        },
+      });
+    },
 
     openDrafts: (machineId, projectKey) => {
       const draftsKey = `${projectKey}|drafts`;

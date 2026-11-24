@@ -13,7 +13,7 @@
  */
 
 import type { ReactElement } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import StateCard from '../../components/common/StateCard';
 import type { WorkCleanupThreadsAnswer } from '../../commands/ghostexCli';
@@ -38,6 +38,7 @@ import {
 import { SessionKindLabelRow } from '../../components/sessions/SectionKindLabelRow';
 import { ChiefPlaceholderRow } from '../../components/sessions/ChiefRow';
 import GbotsRows from '../../components/sessions/GbotsRows';
+import { MessagePlusGlyph } from '../../components/sessions/icons';
 import SessionRow from '../../components/sessions/SessionRow';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
 import { sessionLinksDisplay } from '../../chat/native/sessionLinks';
@@ -71,6 +72,7 @@ export type DrawerBlockActions = {
   toggleSessionKind: (machineId: string, item: SessionKindLabelItem) => void;
   toggleCoordinator: (machineId: string, item: SessionItem) => void;
   toggleCoordinatorOlder: (machineId: string, coordinatorKey: string) => void;
+  toggleMachineFold: (machineId: string, foldKey: string) => void;
   /** A coordinator's merged-worktrees banner was answered (CleanupBanner.tsx), on `banner.machineId`. */
   answerCleanupThreads: (banner: CleanupBannerModel, answer: WorkCleanupThreadsAnswer) => void;
   openSession: (machineId: string, item: SessionItem) => void;
@@ -141,7 +143,9 @@ const GROUP_GAP = ds(2);
 
 export default function DrawerBlockView(props: DrawerBlockViewProps): ReactElement | null {
   const { block, actions, summary, selectedSessionKey } = props;
-  const tree = treeInkStyles(useSidebarInk());
+  const ink = useSidebarInk();
+  const tree = treeInkStyles(ink);
+  const homeNewChatStyles = homeNewChatInkStyles(ink);
   const machineId = block.machineId;
   const linksDisplay = sessionLinksDisplay(summary?.sidebarSessionLinks);
   const dimSleeping = summary?.dimSleepingSessions === true;
@@ -161,12 +165,13 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
   const sessionRow = (item: SessionItem, tag?: string): ReactElement => {
     const rowMachineId = item.machineId;
     const key = sessionKey(rowMachineId, item.session.sessionId);
+    const foldContainsActive = item.machineFold?.role === 'lead' && item.machineFold.containsActive;
     return (
       <SessionRow
         key={item.key}
         session={item.session}
         capabilities={item.capabilities}
-        active={selectedSessionKey === key || item.nesting?.containsActive === true}
+        active={selectedSessionKey === key || item.nesting?.containsActive === true || foldContainsActive}
         expandedGroupSurface={props.rowSurface}
         sidebarBackground={props.appearance.background}
         sidebarForeground={props.appearance.foreground}
@@ -176,6 +181,8 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
         coordinatorBadge={item.coordinatorBadge}
         worktree={item.worktree}
         onToggleThreads={() => actions.toggleCoordinator(machineId, item)}
+        machineFold={item.machineFold}
+        onToggleMachineFold={(foldKey) => actions.toggleMachineFold(machineId, foldKey)}
         workActions={actions.workChipActions(rowMachineId, item)}
         sessionLinksDisplay={linksDisplay}
         dimSleeping={dimSleeping}
@@ -198,6 +205,32 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
             onPress={() => actions.createProjectTerminal(...acting(header))}
           />
         );
+      case 'HOME_NEW_CHAT': {
+        const primary = props.primaryAgent(header);
+        return (
+          <View key={child.key} style={styles.homeNewChatBlock}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="New chat in Main Hub"
+              style={({ pressed }) => [styles.homeNewChatRow, pressed ? homeNewChatStyles.pressed : null]}
+              onPress={() => {
+                if (primary !== null) actions.launchPrimary(machineId, header, primary);
+                else actions.agentMenu(machineId, header);
+              }}
+            >
+              <View style={styles.homeNewChatIcon}>
+                <MessagePlusGlyph size={ds(14)} color={ink.muted} />
+              </View>
+              <Text style={[styles.homeNewChatLabel, homeNewChatStyles.label]} numberOfLines={1}>
+                New chat
+              </Text>
+            </Pressable>
+            <Text style={[styles.homeNewChatHint, homeNewChatStyles.hint]} numberOfLines={1}>
+              Anything, no project needed
+            </Text>
+          </View>
+        );
+      }
       case 'SESSION':
         return sessionRow(child);
       case 'SESSION_KIND_LABEL':
@@ -491,6 +524,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: ds(3),
     paddingBottom: ds(3),
   },
+  homeNewChatBlock: {
+    marginTop: ds(1),
+  },
+  homeNewChatRow: {
+    height: TOUCH_ROW_HEIGHT,
+    paddingLeft: ds(5),
+    paddingRight: ds(6),
+    borderRadius: ds(5),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(6),
+  },
+  homeNewChatIcon: {
+    width: ds(15),
+    height: ds(15),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeNewChatLabel: {
+    flex: 1,
+    fontSize: ds(15.5),
+    fontWeight: '300',
+    lineHeight: ds(20),
+  },
+  homeNewChatHint: {
+    paddingLeft: ds(26),
+    paddingRight: ds(6),
+    paddingBottom: ds(4),
+    fontSize: ds(12),
+    fontWeight: '300',
+  },
   /* session_group_tree.rs `reach_left`: the fold reaches 12px left so the tree line sits inside it. */
   fold: {
     marginLeft: -FOLD_REACH,
@@ -546,3 +610,11 @@ const styles = StyleSheet.create({
 
 /** The tree line in the list's ink (session_group_tree.rs `line_color`). */
 const treeInkStyles = inkStyleSheets((ink) => StyleSheet.create({ line: { backgroundColor: ink.threadLine } }));
+
+const homeNewChatInkStyles = inkStyleSheets((ink) =>
+  StyleSheet.create({
+    label: { color: ink.muted },
+    hint: { color: ink.muted, opacity: 0.78 },
+    pressed: { backgroundColor: ink.light ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' },
+  }),
+);

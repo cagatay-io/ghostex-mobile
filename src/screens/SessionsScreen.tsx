@@ -639,6 +639,7 @@ export default function SessionsScreen({ navigation }: Props) {
           expandedCoordinatorsByMachine: collapse.expandedCoordinatorsByMachine,
           expandedCoordinatorOlderByMachine: collapse.expandedCoordinatorOlderByMachine,
           expandedParkedSessionKeysByMachine: collapse.expandedParkedSessionKeysByMachine,
+          expandedMachineFoldsByMachine: collapse.expandedMachineFoldsByMachine,
           expandedDraftSessionKeysByMachine: collapse.expandedDraftSessionKeysByMachine,
         },
       }),
@@ -658,6 +659,7 @@ export default function SessionsScreen({ navigation }: Props) {
       collapse.expandedCoordinatorsByMachine,
       collapse.expandedCoordinatorOlderByMachine,
       collapse.expandedParkedSessionKeysByMachine,
+      collapse.expandedMachineFoldsByMachine,
       collapse.expandedDraftSessionKeysByMachine,
       sessionListNowMs,
       spaceCountsNowMs,
@@ -1287,6 +1289,7 @@ export default function SessionsScreen({ navigation }: Props) {
     toggleSessionKind: (machineId, item) => collapse.toggleSessionKind(machineId, item.kindCollapseKey),
     toggleCoordinator: (machineId, item) => collapse.toggleCoordinator(machineId, sessionItemCoordinatorKey(item)),
     toggleCoordinatorOlder: (machineId, coordinatorKey) => collapse.toggleCoordinatorOlder(machineId, coordinatorKey),
+    toggleMachineFold: (machineId, foldKey) => collapse.toggleMachineFold(machineId, foldKey),
     answerCleanupThreads: (banner, answer) =>
       withMachine(banner.machineId, (target) => answerCleanupThreads(target, banner.coordinator, answer)),
     openSession: (machineId, item) => withMachine(machineId, (target) => void attach(target, item.session)),

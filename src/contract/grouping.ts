@@ -217,6 +217,20 @@ export type GroupHeaderItem = {
   collectionColor?: string;
 };
 
+export type MachineFoldInfo =
+  | {
+      role: 'lead';
+      key: string;
+      count: number;
+      expanded: boolean;
+      containsActive: boolean;
+    }
+  | {
+      role: 'child';
+      machineLabel: string;
+      machineId: string;
+    };
+
 export type SessionItem = {
   type: 'SESSION';
   key: string;
@@ -248,6 +262,10 @@ export type SessionItem = {
    * key. Absent: `coordinatorRowKey(session)`. Read it through `sessionItemCoordinatorKey`.
    */
   listCoordinatorKey?: string;
+  /** An Autopilot supervisor row lifted into Main Hub's Autopilot section. */
+  isAutopilotSupervisor?: boolean;
+  /** Main Hub per-computer fold role (Ask Ghostex AI, Autopilot supervisor). */
+  machineFold?: MachineFoldInfo;
 };
 
 /** The key a SESSION row's coordinator fold is saved and read under (`expandedCoordinatorKeys`). */
@@ -335,6 +353,15 @@ export type CoordinatorOlderItem = {
   inSessionGroup?: boolean;
 };
 
+/** Main Hub's quiet "New chat" row at the end of Chats, with "Anything, no project needed" underneath. */
+export type HomeNewChatItem = {
+  type: 'HOME_NEW_CHAT';
+  key: string;
+  machineId: string;
+  projectKey: string;
+  collectionColor?: string;
+};
+
 export type DrawerItem =
   | StateCardItem
   | MachineHeaderItem
@@ -345,7 +372,8 @@ export type DrawerItem =
   | GroupHeaderItem
   | SessionKindLabelItem
   | SessionItem
-  | CoordinatorOlderItem;
+  | CoordinatorOlderItem
+  | HomeNewChatItem;
 
 export type DrawerItemType = DrawerItem['type'];
 
@@ -1336,14 +1364,24 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     if (collapsed) return;
 
     if (allProjectSessions.length === 0) {
-      items.push({
-        type: 'PROJECT_EMPTY',
-        key: `empty:${projectKey}`,
-        machineId,
-        projectKey,
-        text: SessionCopy.emptyProjectRow,
-        collectionColor,
-      });
+      if (project?.isHome === true) {
+        items.push({
+          type: 'HOME_NEW_CHAT',
+          key: `home-new-chat:${projectKey}`,
+          machineId,
+          projectKey,
+          collectionColor,
+        });
+      } else {
+        items.push({
+          type: 'PROJECT_EMPTY',
+          key: `empty:${projectKey}`,
+          machineId,
+          projectKey,
+          text: SessionCopy.emptyProjectRow,
+          collectionColor,
+        });
+      }
       return;
     }
 
@@ -1385,6 +1423,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
           collectionColor,
           nesting: nesting.get(coordinatorRowKey(session)),
           coordinatorBadge: crewBadgeOf(session, badges, nesting.get(coordinatorRowKey(session))),
+          isAutopilotSupervisor: true,
         };
       }
       return sessionItemOf(session, groupId);
@@ -1414,6 +1453,10 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
      * only that kind's rows. Drafts and Parked are emitted separately so the
      * ordinary "Show N more" cap cannot hide their disclosures.
      */
+    const isHome = project?.isHome === true;
+    let homeChatsSectionSeen = false;
+    let homeChatsCollapsed = false;
+
     const emitSessionsWithKindLabels = (sessions: readonly GhostexSession[], groupId: string): void => {
       const labelledSections = new Set<SessionKindSection>();
       for (const session of sessions) {
@@ -1429,6 +1472,10 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
             : FOLDED_FIRST.includes(section)
               ? !expandedParkedSessionKeys.has(kindCollapseKey)
               : collapsedSessionKindKeys.has(kindCollapseKey);
+        if (section === 'sessions') {
+          homeChatsSectionSeen = true;
+          homeChatsCollapsed = kindCollapsed;
+        }
         if (!labelledSections.has(section) && !unlabelled) {
           labelledSections.add(section);
           items.push({
@@ -1438,7 +1485,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
             projectKey,
             section,
             kindCollapseKey,
-            label: SESSION_KIND_LABELS[section],
+            label: isHome && section === 'sessions' ? 'Chats' : SESSION_KIND_LABELS[section],
             collapsed: kindCollapsed,
             status: countSectionSessions(
               sectionPool.filter((candidate) => sectionOf(candidate) === section),
@@ -1450,6 +1497,18 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         if (kindCollapsed || isFolded(session)) continue;
         items.push(sessionItem(session, groupId));
       }
+    };
+
+    const emitHomeNewChatRow = (): void => {
+      if (!isHome) return;
+      if (homeChatsSectionSeen && homeChatsCollapsed) return;
+      items.push({
+        type: 'HOME_NEW_CHAT',
+        key: `home-new-chat:${projectKey}`,
+        machineId,
+        projectKey,
+        collectionColor,
+      });
     };
 
     // Drafts, then Working, sit above the first Sessions row (gx-core sidebar_view/inputs.rs section order).
@@ -1470,6 +1529,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
        */
       emitSessionsWithKindLabels(shownProjectSessions, legacyGroupId);
       emitDraftSection();
+      emitHomeNewChatRow();
       emitSessionsWithKindLabels(parkedSessions, '');
       emitSessionsWithKindLabels(snoozedSessions, '');
       return;
@@ -1536,6 +1596,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
         items.push({ ...sessionItem(session, group.groupId), inSessionGroup: true });
       }
     }
+    emitHomeNewChatRow();
     emitSessionsWithKindLabels(parkedSessions, '');
     emitSessionsWithKindLabels(snoozedSessions, '');
   };
