@@ -1460,13 +1460,12 @@ function DockRow({
                 </Pressable>
               ) : null}
             </View>
-            {/* First description line shows quietly under the title on folded rows, while the
-                quiet Details button opens the full sheet (CDXC:Coordinators 2026-11-24, Layout C). */}
-            {!opened && str(row, 'preview').length > 0 ? (
-              <Text numberOfLines={1} style={styles.dockNote}>
-                {str(row, 'preview')}
-              </Text>
-            ) : null}
+            {/* CDXC:Coordinators 2026-11-25 DECISION:
+                User, of Inbox rows above the composer drawing a second, dimmer preview line under
+                the title: "sir showing 2 lines here is NOT A THING. please only show the title line
+                for all these work items in inbox!!!!" Supersedes the 2026-11-20 and 2026-11-24
+                Inbox preview line: Inbox rows show only their title line (full detail text stays
+                reachable through Details / tapping the row). */}
             {noteText.length > 0 ? (
               <Text style={[styles.dockNote, str(note, 'tone') === 'warning' && { color: P.light ? '#b45309' : '#f5a524' }]}>
                 {noteText}
