@@ -487,6 +487,18 @@ function InlineSuppressed({ suppressed }: { suppressed: JsonRecord }) {
   const body = str(suppressed, 'text');
   // Message spacing Compact shrinks the gap under it like the row gap (`messageSpacing.ts`).
   const gapBelow = useInnerGap(LANE_GAP_BELOW);
+  // The interrupted marker is a centred divider with the stop-sign octagon (decision in
+  // gx-chat-core `transcript/noise.rs`, `interrupted_marker`; desktop `status_rows.rs`).
+  if (suppressed.divider === true) {
+    return (
+      <View style={[styles.dividerRow, { paddingBottom: gapBelow }]}>
+        <View style={[styles.forkRule, { backgroundColor: theme.border }]} />
+        <Glyph name="octagon-x" size={15} color={theme.muted} />
+        <Text style={[styles.dividerText, { color: theme.muted }]}>{str(suppressed, 'label')}</Text>
+        <View style={[styles.forkRule, { backgroundColor: theme.border }]} />
+      </View>
+    );
+  }
   return (
     <View style={[styles.lane, gapBelow !== LANE_GAP_BELOW && { paddingBottom: gapBelow }]}>
       <LaneMarker color={theme.muted} />
@@ -684,6 +696,8 @@ const styles = StyleSheet.create({
   autoNamedText: { gap: 2, flexShrink: 1 },
   forkBoundary: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4, paddingBottom: 12 },
   forkRule: { height: 1, flex: 1 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 },
+  dividerText: { fontSize: 13, lineHeight: 18, fontWeight: '500' },
   goalTitle: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   goalPill: { borderRadius: 999, paddingHorizontal: 6 },
   goalPillText: { fontSize: 11, fontWeight: '500' },

@@ -184,6 +184,8 @@ const GLYPHS = {
     'M12 8v4',
     'M12 16h.01',
   ],
+  // Lucide octagon-x, the stop sign of the interrupted divider (desktop `titlebar/octagon-x.svg`).
+  'octagon-x': ['M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z', 'M15 9l-6 6', 'M9 9l6 6'],
   'focus-2': ['M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2'],
   search: ['M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0', 'M21 21l-6 -6'],
   x: ['M18 6l-12 12', 'M6 6l12 12'],
