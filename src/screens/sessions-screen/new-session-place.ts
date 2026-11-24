@@ -124,6 +124,13 @@ export function noteNewSessionIn(machineId: string, projectId: string): void {
     );
 }
 
+/** Records a sent draft's target project/computer in Recent without switching Space or filters (Q4850). */
+export function noteNewSessionKeepSpace(machineId: string, projectId: string): void {
+  const repoKey = repoKeyOfProject(machineId, projectId);
+  if (repoKey === null) return;
+  useUnifiedListStore.getState().rememberNewSessionKeepSpace(repoKey, machineId);
+}
+
 /** Every saved computer, as the New session button reads an empty project list (./new-session-button.tsx). */
 export function newSessionComputersNow(): NewSessionComputer[] {
   const inventories = useInventoryStore.getState().inventoriesByMachineId;

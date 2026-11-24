@@ -212,16 +212,16 @@ function pictureFailedMessage(reason: string | null): string {
 
 export class RustChatHost {
   /** `JSON.stringify([machineId, projectId, sessionId])`, the retained transcript's key. */
-  readonly retainedKey: string;
+  retainedKey: string;
   /** `remote-<machineId>:<projectId>:<sessionId>`: every per-session storage suffix. */
-  readonly sessionKey: string;
+  sessionKey: string;
 
   private core: ChatCoreBackend | null = null;
   private unsubscribeCoreLost: (() => void) | null = null;
   /** The core's answers to paint-time queries, by name and arguments (LRU). */
   private readonly queryCache = new Map<string, unknown>();
   private readonly queryInflight = new Set<string>();
-  private readonly poll: SessionChatStream;
+  private poll: SessionChatStream;
   private readonly composer: ComposerModel;
   private state: RustChatState;
   private lastRevision: number | null = null;
@@ -232,7 +232,7 @@ export class RustChatHost {
   private driving = false;
   private disposed = false;
   /** Pictures a send references on another computer, copied to the session's (`carryAttachments.ts`). */
-  private readonly carrier: AttachmentCarrier;
+  private carrier: AttachmentCarrier;
   /** A send waiting for those copies. */
   private carryingSend = false;
   /**
@@ -269,7 +269,7 @@ export class RustChatHost {
   private unsubscribeStatusLine: (() => void) | null = null;
   private unregisterReadAloud: (() => void) | null = null;
   /** Session-open timing (`terminal/openTiming.ts`): the phone tab's `${machineId}:${sessionId}`. */
-  private readonly openTraceKey: string;
+  private openTraceKey: string;
   private retainedTranscriptLoaded = false;
   private liveReadArrived = false;
   /** Backfills `theme` / `transparent` when running against an older bundled `gx-chat-wasm` core. */
@@ -279,7 +279,7 @@ export class RustChatHost {
     { theme: PageThumbnailTheme | null; transparent: boolean }
   >();
 
-  constructor(private readonly target: RustChatTarget) {
+  constructor(private target: RustChatTarget) {
     this.carrier = new AttachmentCarrier(target, (name, args) => this.queryAsync(name, args));
     const { machine, projectId, sessionId } = target;
     this.retainedKey = JSON.stringify([machine.id, projectId, sessionId]);
@@ -518,6 +518,39 @@ export class RustChatHost {
     this.retainedTranscriptLoaded = false;
     this.liveReadArrived = false;
     this.update({ status: 'starting', items: [], subagentItems: [], minimap: [], rowDetails: {} });
+    this.start();
+  }
+
+  /**
+   * Rebinds this live host to a moved draft's new `(machine, projectId, sessionId)` in place on
+   * Send (Q4849 `"follow"`), preserving the rendered document and items while the new core starts
+   * so the chat never flashes empty or tears down its screen.
+   */
+  retarget(next: RustChatTarget): void {
+    if (this.disposed) return;
+    this.teardownCore();
+    this.target = next;
+    this.carrier = new AttachmentCarrier(next, (name, args) => this.queryAsync(name, args));
+    const { machine, projectId, sessionId } = next;
+    this.retainedKey = JSON.stringify([machine.id, projectId, sessionId]);
+    this.sessionKey = `remote-${machine.id}:${projectId}:${sessionId}`;
+    this.openTraceKey = `${machine.id}:${sessionId}`;
+    this.poll = new SessionChatStream(machine, projectId, sessionId, {
+      onFrame: (frame) => {
+        if (frame.type === 'sessionChatViewChanged') {
+          if (typeof frame.chatView === 'object' && frame.chatView !== null) {
+            this.enqueue({ type: 'chatViewChanged', chatView: frame.chatView as Record<string, unknown> });
+          }
+          return;
+        }
+        this.liveReadArrived = true;
+        this.enqueue({ type: 'frame', frame });
+      },
+      onConnection: (update) => this.enqueue({ type: 'connection', update }),
+    });
+    this.lastRevision = null;
+    this.retainedTranscriptLoaded = false;
+    this.liveReadArrived = false;
     this.start();
   }
 
@@ -1682,4 +1715,26 @@ export function acquireRustChatHost(target: RustChatTarget): { host: RustChatHos
  */
 export function openRustChatHost(machineId: string, projectId: string, sessionId: string): RustChatHost | null {
   return hosts.get(hostKey(machineId, projectId, sessionId))?.host ?? null;
+}
+
+/**
+ * Moves an active host entry in `hosts` to `to` and rebinds its core in place so switching a
+ * draft's `projectId` (or `machine`/`sessionId`) on Send keeps the exact same host mounted with
+ * zero teardown flash.
+ */
+export function retargetRustChatHost(from: RustChatTarget, to: RustChatTarget): RustChatHost | null {
+  const oldKey = hostKey(from.machine.id, from.projectId, from.sessionId);
+  const newKey = hostKey(to.machine.id, to.projectId, to.sessionId);
+  const entry = hosts.get(oldKey);
+  if (entry === undefined) return null;
+  if (oldKey !== newKey) {
+    hosts.delete(oldKey);
+    const existing = hosts.get(newKey);
+    if (existing !== undefined && existing !== entry) {
+      existing.host.dispose();
+    }
+    hosts.set(newKey, entry);
+  }
+  entry.host.retarget(to);
+  return entry.host;
 }

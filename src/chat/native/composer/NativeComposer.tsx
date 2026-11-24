@@ -68,13 +68,14 @@ import { OptionPills, modeInModelPill, modeLook, optionPillsLeadIn, type PillKin
 import { RunLocationRow } from './RunLocationRow';
 import { ProjectPickerSheet } from './ProjectPickerSheet';
 import {
+  commitPendingDraftSend,
   draftProjectChoices,
   homeProjectIdForMachine,
   isHomeProject,
   mainHubMachineChoice,
-  moveDraftToProject,
   setCarryCoordinatorDraft,
   takeCarryCoordinatorDraft,
+  type PendingDraftTarget,
 } from './draftProjectChoices';
 import { FIRST_LINE, NEW_ORCHESTRATOR_BENEFITS } from '../../../screens/sessions-screen/NewCoordinatorSheet';
 import { attachSessionKey } from '../../../terminal/sessions';
@@ -234,64 +235,110 @@ export function NativeComposer({
   const dispatch = chat.dispatch;
   const [projectChoices, setProjectChoices] = useState<UnifiedProjectChoice[] | null>(null);
   const [draftCoordinatorMode, setDraftCoordinatorMode] = useState<boolean>(() => takeCarryCoordinatorDraft());
-  const rememberedProject = useRef<{ machineId: string; projectId: string } | null>(null);
-  const isHome = chat.machine !== null && isHomeProject(chat.machine.id, projectId);
-  if (!isHome && chat.machine !== null && projectId.length > 0) {
-    rememberedProject.current = { machineId: chat.machine.id, projectId };
-  }
+  const [pendingTarget, setPendingTarget] = useState<PendingDraftTarget | null>(null);
+  const [pendingTrayAnswer, setPendingTrayAnswer] = useState<{ projectId: string; currentBranch: string | null } | null>(null);
+  const [pendingMoveInFlight, setPendingMoveInFlight] = useState(false);
+  const pendingTrayGen = useRef(0);
+  const rememberedProject = useRef<PendingDraftTarget | null>(null);
+  const effectiveMachineId = pendingTarget?.machineId ?? chat.machine?.id ?? '';
+  const effectiveProjectId = pendingTarget?.projectId ?? projectId;
+  const isHome = pendingTarget !== null ? pendingTarget.isMainHub : chat.machine !== null && isHomeProject(chat.machine.id, projectId);
   const previousSessionId = useRef(sessionId);
   useEffect(() => {
     if (previousSessionId.current !== sessionId) {
       previousSessionId.current = sessionId;
       setDraftCoordinatorMode(takeCarryCoordinatorDraft());
+      setPendingTarget(null);
+      setPendingTrayAnswer(null);
+      setPendingMoveInFlight(false);
+      pendingTrayGen.current += 1;
     }
   }, [sessionId]);
-  const homeProjectId = chat.machine !== null ? homeProjectIdForMachine(chat.machine.id) : null;
-  const noProjectOn = isHome && homeProjectId !== null;
-  const moveDraftHere = (machineId: string, toProjectId: string): void => {
-    const from = chat.machine;
-    const agentId = document?.sessionAgentId ?? null;
-    if (from === null || agentId === null) return;
-    if (machineId === from.id && toProjectId === projectId) return;
-    const to = machineId === from.id ? from : machineTargetFor(machineId);
-    if (to === null) return;
-    if (draftCoordinatorMode) setCarryCoordinatorDraft(true);
-    void moveDraftToProject({
-      from,
-      fromProjectId: projectId,
-      fromSessionId: sessionId,
-      agentId,
-      text: draftAt.current.text,
-      to,
-      toProjectId,
-    }).catch((error: unknown) => {
-      if (reportMissingAgentError(to.id, error)) return;
-      onHostAction?.('toast', { message: error instanceof Error ? error.message : String(error), level: 'error' });
-    });
-  };
+  const homeProjectId = effectiveMachineId.length > 0 ? homeProjectIdForMachine(effectiveMachineId) : null;
+  const noProjectOn = isHome && (pendingTarget?.isMainHub === true || homeProjectId !== null);
+  const setPendingTargetHere = useCallback(
+    (target: PendingDraftTarget): void => {
+      if (pendingMoveInFlight) return;
+      const from = chat.machine;
+      if (from === null) return;
+      markDraftTouched(attachSessionKey(from.id, sessionId));
+      pendingTrayGen.current += 1;
+      const gen = pendingTrayGen.current;
+      setPendingTrayAnswer(null);
+      if (target.machineId === from.id && target.projectId === projectId) {
+        setPendingTarget(null);
+        return;
+      }
+      setPendingTarget(target);
+      if (!target.isMainHub && target.machineId === from.id) {
+        void sessionChatRpc(from, 'draftWorktree', {
+          projectId,
+          sessionId,
+          targetProjectId: target.projectId,
+        })
+          .then((answer) => {
+            if (pendingTrayGen.current !== gen || answer.error !== null) return;
+            const payload = obj(answer.result);
+            if (payload === null) return;
+            const returnedName = str(payload, 'projectName').trim();
+            if (returnedName.length > 0 && target.label.length > 0 && returnedName !== target.label) return;
+            const branch = str(payload, 'currentBranch').trim();
+            setPendingTrayAnswer({ projectId: target.projectId, currentBranch: branch.length > 0 ? branch : null });
+          })
+          .catch(() => undefined);
+      }
+    },
+    [chat.machine, pendingMoveInFlight, projectId, sessionId],
+  );
   const toggleNoProject = (): void => {
+    if (pendingMoveInFlight) return;
     const from = chat.machine;
     if (from === null) return;
     markDraftTouched(attachSessionKey(from.id, sessionId));
     if (!noProjectOn) {
+      const currentRepoKey = pendingTarget?.repoKey ?? repoKeyOfProject(effectiveMachineId, effectiveProjectId) ?? '';
+      const currentLabel = pendingTarget?.label ?? document?.worktreeTray?.projectName ?? '';
+      if (effectiveMachineId.length > 0 && effectiveProjectId.length > 0) {
+        rememberedProject.current = {
+          repoKey: currentRepoKey,
+          machineId: effectiveMachineId,
+          projectId: effectiveProjectId,
+          label: currentLabel,
+          isMainHub: false,
+        };
+      }
       const targetHome = homeProjectId ?? mainHubMachineChoice()?.machines.find((entry) => entry.connected)?.projectId ?? null;
       const targetMachine =
         homeProjectId !== null
-          ? from.id
+          ? effectiveMachineId
           : mainHubMachineChoice()?.machines.find((entry) => entry.connected)?.machineId ?? null;
-      if (targetHome !== null && targetMachine !== null) moveDraftHere(targetMachine, targetHome);
+      if (targetHome !== null && targetMachine !== null) {
+        setPendingTargetHere({
+          repoKey: 'main-hub',
+          machineId: targetMachine,
+          projectId: targetHome,
+          label: 'Main Hub',
+          isMainHub: true,
+        });
+      }
       return;
     }
     const remembered = rememberedProject.current;
     if (remembered !== null && !isHomeProject(remembered.machineId, remembered.projectId)) {
-      moveDraftHere(remembered.machineId, remembered.projectId);
+      setPendingTargetHere(remembered);
       return;
     }
-    const choices = draftProjectChoices(from.id);
+    const choices = draftProjectChoices(effectiveMachineId || from.id);
     for (const choice of choices) {
       const picked = choice.machines[choice.selected] ?? choice.machines.find((entry) => entry.connected);
       if (picked !== undefined && picked.connected && !isHomeProject(picked.machineId, picked.projectId)) {
-        moveDraftHere(picked.machineId, picked.projectId);
+        setPendingTargetHere({
+          repoKey: choice.repoKey,
+          machineId: picked.machineId,
+          projectId: picked.projectId,
+          label: choice.label,
+          isMainHub: false,
+        });
         return;
       }
     }
@@ -305,12 +352,12 @@ export function NativeComposer({
       onHostAction?.('toast', { message: 'Pick a model and effort, then click Send to start this coordinator.' });
     }
   };
-  const projectChipLabel = document?.worktreeTray?.projectName ?? null;
+  const projectChipLabel = pendingTarget !== null ? pendingTarget.label : (document?.worktreeTray?.projectName ?? null);
   /** The machine chip, beside the project chip while the phone knows more than one computer. */
   const machineChipLabel = ((): string | null => {
     if (projectChipLabel === null && !noProjectOn) return null;
     const machines = enabledMachines(useMachinesStore.getState());
-    const record = machines.length > 1 ? machines.find((entry) => entry.id === chat.machine?.id) : undefined;
+    const record = machines.length > 1 ? machines.find((entry) => entry.id === effectiveMachineId) : undefined;
     return record === undefined ? null : machineDisplayLabel(record);
   })();
   const [machineChoice, setMachineChoice] = useState<UnifiedProjectChoice | null>(null);
@@ -321,8 +368,8 @@ export function NativeComposer({
       setMachineChoice(mainHubMachineChoice());
       return;
     }
-    const repoKey = repoKeyOfProject(from.id, projectId);
-    setMachineChoice(draftProjectChoices(from.id).find((choice) => choice.repoKey === repoKey) ?? null);
+    const repoKey = pendingTarget?.repoKey || repoKeyOfProject(effectiveMachineId, effectiveProjectId);
+    setMachineChoice(draftProjectChoices(effectiveMachineId || from.id).find((choice) => choice.repoKey === repoKey) ?? null);
   };
   /**
    * What the expanded composer measures around its field: the card's top inside the composer, the
@@ -884,10 +931,64 @@ export function NativeComposer({
   const submitDraft = useCallback(
     (requested: SubmitMode, options?: { bypassCompactPrompt?: boolean }): boolean => {
       if (chat.machine !== null) markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
+      const from = chat.machine;
+      const hasPendingMove =
+        pendingTarget !== null &&
+        from !== null &&
+        (pendingTarget.machineId !== from.id || pendingTarget.projectId !== projectId);
+      if (hasPendingMove && from !== null && input !== null) {
+        if (pendingMoveInFlight) return false;
+        const userPrompt = draftAt.current.text;
+        const trimmed = userPrompt.trim();
+        const startingCoordinator = draftCoordinatorMode && requested === 'send';
+        const skillOnlyStart = startingCoordinator && trimmed.length === 0;
+        if (trimmed.length === 0 && !startingCoordinator && (document?.pendingAttachments ?? 0) === 0) {
+          return false;
+        }
+        const to = pendingTarget.machineId === from.id ? from : machineTargetFor(pendingTarget.machineId);
+        const agentId = document?.sessionAgentId ?? null;
+        if (to === null || agentId === null) return false;
+        const fullPrompt = startingCoordinator ? (skillOnlyStart ? FIRST_LINE : `${FIRST_LINE}\n\n${userPrompt}`) : userPrompt;
+        const selectedOptions = obj(document?.selectedOptions);
+        const agentModel = str(obj(selectedOptions?.model), 'value').trim() || null;
+        const agentEffort = str(obj(selectedOptions?.effort), 'value').trim() || null;
+        setPendingMoveInFlight(true);
+        if (startingCoordinator) setDraftCoordinatorMode(false);
+        void (async () => {
+          try {
+            const committed = await commitPendingDraftSend({
+              from,
+              fromProjectId: projectId,
+              fromSessionId: sessionId,
+              agentId,
+              to,
+              toProjectId: pendingTarget.projectId,
+              agentModel,
+              agentEffort,
+              startingCoordinator,
+              skillOnlyStart,
+            });
+            setPendingTarget(null);
+            setPendingTrayAnswer(null);
+            setPendingMoveInFlight(false);
+            const targetInput = committed.host?.composerInput ?? input;
+            if (startingCoordinator) targetInput.replace(fullPrompt);
+            targetInput.submit(requested, options);
+          } catch (error: unknown) {
+            setPendingMoveInFlight(false);
+            if (startingCoordinator) setDraftCoordinatorMode(true);
+            if (reportMissingAgentError(to.id, error)) return;
+            onHostAction?.('toast', {
+              message: error instanceof Error ? error.message : String(error),
+              level: 'error',
+            });
+          }
+        })();
+        return true;
+      }
       if (!draftCoordinatorMode || requested !== 'send' || input === null) {
         return input?.submit(requested, options) ?? false;
       }
-      const from = chat.machine;
       if (from === null) return false;
       const userPrompt = draftAt.current.text.trim();
       const skillOnlyStart = userPrompt.length === 0;
@@ -918,7 +1019,19 @@ export function NativeComposer({
       })();
       return true;
     },
-    [chat.machine, draftCoordinatorMode, input, onHostAction, projectId, sessionId],
+    [
+      chat.machine,
+      document?.pendingAttachments,
+      document?.selectedOptions,
+      document?.sessionAgentId,
+      draftCoordinatorMode,
+      input,
+      onHostAction,
+      pendingMoveInFlight,
+      pendingTarget,
+      projectId,
+      sessionId,
+    ],
   );
 
   // ---- layout ------------------------------------------------------------------------------------
@@ -1026,34 +1139,73 @@ export function NativeComposer({
             onClose={() => setProjectChoices(null)}
             onPick={(choice, machineIndex) => {
               setProjectChoices(null);
-              // The draft's own project, taken on its marked computer: nothing moves (the desktop's rule).
               const ownProject = choice.machines.some(
-                (machine) => machine.machineId === chat.machine?.id && machine.projectId === projectId,
+                (machine) => machine.machineId === effectiveMachineId && machine.projectId === effectiveProjectId,
               );
               if (ownProject && machineIndex === choice.selected) return;
               const picked = choice.machines[machineIndex];
-              if (picked !== undefined && picked.connected) moveDraftHere(picked.machineId, picked.projectId);
+              if (picked !== undefined && picked.connected) {
+                setPendingTargetHere({
+                  repoKey: choice.repoKey,
+                  machineId: picked.machineId,
+                  projectId: picked.projectId,
+                  label: choice.label,
+                  isMainHub: choice.repoKey === 'main-hub' || isHomeProject(picked.machineId, picked.projectId),
+                });
+              }
             }}
           />
           <MachinePickerSheet
             visible={machineChoice !== null}
             machines={machineChoice?.machines ?? []}
-            currentMachineId={chat.machine?.id ?? null}
+            currentMachineId={effectiveMachineId || null}
             onClose={() => setMachineChoice(null)}
             onPick={(picked) => {
               const choice = machineChoice;
               setMachineChoice(null);
-              if (choice !== null) moveDraftHere(picked.machineId, picked.projectId);
+              if (choice !== null) {
+                setPendingTargetHere({
+                  repoKey: choice.repoKey,
+                  machineId: picked.machineId,
+                  projectId: picked.projectId,
+                  label: choice.label,
+                  isMainHub: choice.repoKey === 'main-hub' || isHomeProject(picked.machineId, picked.projectId),
+                });
+              }
             }}
           />
           {document?.worktreeTray ? (
             <WorktreeTray
-              tray={document.worktreeTray}
+              tray={
+                pendingTarget !== null
+                  ? {
+                      ...document.worktreeTray,
+                      projectName: pendingTarget.label,
+                      busy: pendingMoveInFlight,
+                      status: null,
+                      where: null,
+                      detail:
+                        !pendingTarget.isMainHub &&
+                        pendingTrayAnswer?.projectId === pendingTarget.projectId &&
+                        pendingTrayAnswer.currentBranch !== null
+                          ? {
+                              kind: 'branch',
+                              glyph: 'git-branch',
+                              label: pendingTrayAnswer.currentBranch,
+                              menu: null,
+                              placeholder: false,
+                            }
+                          : null,
+                    }
+                  : document.worktreeTray
+              }
               openRows={(title, rows, search) => setMenu({ kind: 'rows', title, rows, search: search ?? null })}
               runCommand={(command) => void runCommand(command)}
               retry={() => submitDraft('send')}
               projectLabel={projectChipLabel}
-              openProjects={() => setProjectChoices(chat.machine === null ? [] : draftProjectChoices(chat.machine.id))}
+              openProjects={() =>
+                setProjectChoices(effectiveMachineId.length === 0 ? [] : draftProjectChoices(effectiveMachineId))
+              }
               machineLabel={machineChipLabel}
               openMachines={openMachines}
               noProject={noProjectOn}

@@ -391,6 +391,15 @@ type TerminalState = {
     machine: MachineConnectionTarget,
     session: { sessionId: string; projectId?: string; title?: string },
   ) => string;
+  /**
+   * Rebinds an open draft's attach tab in place after committing a pending target project/computer
+   * on Send (Q4849 `"follow"`), updating `ghostexProjectId` (and `sessionKey` for cross-machine
+   * moves) without opening a duplicate tab or blinking the tab bar.
+   */
+  retargetAttachTab: (
+    fromSessionKey: string,
+    next: { machineId: string; projectId: string; sessionId: string },
+  ) => string;
   /** Attach a `detached` tab's terminal (its first switch to the Terminal view). */
   ensureTerminalAttached: (sessionKey: string) => Promise<void>;
   /** Open an interactive login-shell tab on a machine (in `cwd` when given). */
@@ -722,6 +731,38 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       };
       set({ tabs: [...get().tabs, tab], selectedSessionKey: sessionKey });
       return sessionKey;
+    },
+
+    retargetAttachTab: (fromSessionKey, next) => {
+      const nextKey = attachSessionKey(next.machineId, next.sessionId);
+      const state = get();
+      const exists = state.tabs.some((tab) => tab.sessionKey === fromSessionKey);
+      if (!exists) return nextKey;
+      const tabs = state.tabs
+        .filter((tab) => tab.sessionKey === fromSessionKey || tab.sessionKey !== nextKey)
+        .map((tab) =>
+          tab.sessionKey === fromSessionKey
+            ? {
+                ...tab,
+                sessionKey: nextKey,
+                machineId: next.machineId,
+                ghostexSessionId: next.sessionId,
+                ghostexProjectId: next.projectId,
+              }
+            : tab,
+        );
+      const selectedSessionKey =
+        state.selectedSessionKey === fromSessionKey ? nextKey : state.selectedSessionKey;
+      const paneSessionKey = state.paneSessionKey === fromSessionKey ? nextKey : state.paneSessionKey;
+      const sessionViewModeBySessionKey =
+        fromSessionKey !== nextKey && state.sessionViewModeBySessionKey[fromSessionKey] !== undefined
+          ? {
+              ...state.sessionViewModeBySessionKey,
+              [nextKey]: state.sessionViewModeBySessionKey[fromSessionKey],
+            }
+          : state.sessionViewModeBySessionKey;
+      set({ tabs, selectedSessionKey, paneSessionKey, sessionViewModeBySessionKey });
+      return nextKey;
     },
 
     ensureTerminalAttached: async (sessionKey) => {

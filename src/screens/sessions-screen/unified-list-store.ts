@@ -64,6 +64,8 @@ type UnifiedListState = {
    * the list shows one computer; `machineId` when absent).
    */
   noteNewSession: (repoKey: string, machineId: string, spaceKey: string | null, filterMachineKey?: string) => void;
+  /** Updates Recent and last computer without changing the active Space or widening filters (Q4850 keep-space). */
+  rememberNewSessionKeepSpace: (repoKey: string, machineId: string) => void;
 };
 
 export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
@@ -160,6 +162,10 @@ export const useUnifiedListStore = create<UnifiedListState>((set, get) => {
         ...rememberNewSession(state, repoKey, machineId),
         filter: widenFilterForNewSession(state.filter, repoKey, filterMachineKey, spaceKey),
       }));
+      save();
+    },
+    rememberNewSessionKeepSpace: (repoKey, machineId) => {
+      set((state) => rememberNewSession(state, repoKey, machineId));
       save();
     },
   };
