@@ -639,7 +639,7 @@ export function WorkDock({
                 {answered.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Answered, ${answered.length}`}
+                    accessibilityLabel={`Handled, ${answered.length}`}
                     accessibilityState={{ expanded: answeredOpen }}
                     style={styles.dockSnoozed}
                     onPress={() => setAnsweredOpen((was) => !was)}
@@ -647,7 +647,7 @@ export function WorkDock({
                     <Glyph name="message-circle-check" size={13} color="#2fa865" />
                     <View style={styles.dockSnoozedMain}>
                       <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
-                        Answered
+                        Handled
                       </Text>
                       <CountBadge count={answered.length} light={P.light} />
                     </View>
@@ -663,6 +663,7 @@ export function WorkDock({
                       const showOutcome =
                         outcome.length > 0 &&
                         outcome.toLowerCase() !== 'answered' &&
+                        outcome.toLowerCase() !== 'handled' &&
                         outcome.toLowerCase() !== 'done';
                       const age = str(row, 'age');
                       return (
@@ -759,7 +760,7 @@ function dockSnoozed(document: ChatDocument | null): JsonRecord[] {
     .filter((row): row is JsonRecord => row !== null);
 }
 
-/** Recently answered items for the collapsible Answered drawer (gx-chat-core `dock_with`'s `answered`). */
+/** Recently answered items for the collapsible Handled drawer (gx-chat-core `dock_with`'s `answered`). */
 function dockAnswered(document: ChatDocument | null): JsonRecord[] {
   return arr(obj(document?.workDock)?.answered)
     .map(obj)
