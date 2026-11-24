@@ -22,6 +22,20 @@ import BottomSheet from '../common/BottomSheet';
 const SEEN_STORAGE_KEY = 'ghostex.nativeModeAnnounceSeen.v1';
 const NATIVE_FAMILIES = ['antigravity', 'claude', 'codex'] as const;
 
+function formatBulkSwitchSummary(switched: number, deferred: number, computerName: string): string {
+  const plural = (count: number) => (count === 1 ? 'chat' : 'chats');
+  if (switched > 0 && deferred > 0) {
+    return `Switched ${switched} ${plural(switched)}; ${deferred} will switch when they finish or reload.`;
+  }
+  if (switched > 0) {
+    return `Switched ${switched} ${plural(switched)} to Native mode. New chats will use Native.`;
+  }
+  if (deferred > 0) {
+    return `Native mode is on for new chats. ${deferred} active ${plural(deferred)} will switch when they finish or reload.`;
+  }
+  return `Native mode is on for new chats on ${computerName}.`;
+}
+
 async function readSeenMachines(): Promise<Record<string, boolean>> {
   try {
     const raw = await AsyncStorage.getItem(SEEN_STORAGE_KEY);
@@ -57,7 +71,7 @@ export function NativeModeAnnounceSheet({
   machineName: string;
   /** True when SessionsScreen is focused and no other modal/sheet is open. */
   canPresent: boolean;
-  onEnabled: (computerName: string) => void;
+  onEnabled: (summary: string) => void;
   onError: (message: string) => void;
 }) {
   const appearance = useAppearance();
@@ -172,9 +186,22 @@ export function NativeModeAnnounceSheet({
           onError(answer.error.message || 'Could not reach this computer to turn on Native mode.');
           return;
         }
+        const computerLabel = machineName || current.host;
+        let summary = `Native mode is on for new chats on ${computerLabel}.`;
+        try {
+          const switched = await link.rpc('switchEligibleSessionsToAcp', {}, 60_000);
+          if (switched.error === null) {
+            const payload = (switched.result ?? {}) as { switched?: unknown; deferred?: unknown };
+            const switchedCount = typeof payload.switched === 'number' ? payload.switched : 0;
+            const deferredCount = typeof payload.deferred === 'number' ? payload.deferred : 0;
+            summary = formatBulkSwitchSummary(switchedCount, deferredCount, computerLabel);
+          }
+        } catch {
+          // Older servers without bulk switch still keep Native mode enabled for new chats.
+        }
         await markMachineSeen(current.id);
         setTarget(null);
-        onEnabled(machineName || current.host);
+        onEnabled(summary);
       } finally {
         setBusy(false);
       }

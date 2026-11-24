@@ -2691,9 +2691,7 @@ export default function SessionsScreen({ navigation }: Props) {
         machine={selectedComputer}
         machineName={selectedComputer !== null ? machineDisplayLabel(selectedComputer) : ''}
         canPresent={isFocused && overlay.kind === 'none'}
-        onEnabled={(computerName) =>
-          setTransientStatus(`Native mode turned on for new chats on ${computerName}.`)
-        }
+        onEnabled={(summary) => setTransientStatus(summary, { title: 'Native mode is on' })}
         onError={(message) =>
           setTransientStatus(message, { title: 'Could not turn on Native mode', error: true })
         }
