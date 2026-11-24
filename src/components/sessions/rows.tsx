@@ -29,7 +29,6 @@ import {
   type GhostexAgentLauncher,
   type GhostexProjectIcon,
 } from '../../contract/mobileSummary';
-import type { SectionStatusCounts } from '../../contract/grouping';
 import { decodeBase64Utf8 } from '../../docs/remoteFiles';
 import { GhostexPalette, mixHexColors, SidebarPalette } from '../../theme/palette';
 import { isLightBackground, readableSecondaryText } from '../../theme/sidebarAppearance';
@@ -388,7 +387,7 @@ const SECTION_LABEL_COLOR = 'rgba(200,205,213,0.52)';
 
 // ---------------------------------------------------------------------------
 // Collapsed header status, drawn as the desktop sidebar draws it
-// (ProjectStatusCounts, CollectionStatusCounts, SectionStatusDots).
+// (ProjectStatusCounts, CollectionStatusCounts; SectionStatusDots lives in SectionKindLabelRow.tsx).
 // ---------------------------------------------------------------------------
 
 export type HeaderStatusCounts = {
@@ -481,28 +480,6 @@ function CollectionStatusCounts({
   );
 }
 
-/** apps/desktop/src/app/native_sidebar/sections.rs: a collapsed section heading's dots. */
-export function SectionStatusDots({ status, active }: { status: SectionStatusCounts; active: boolean }) {
-  const ink = statusInkStyles(useSidebarInk());
-  const dots: { key: string; color: string }[] = [];
-  if (status.workingCount > 0) dots.push({ key: 'working', color: SidebarPalette.ROW_WORKING });
-  if (status.attentionCount > 0) dots.push({ key: 'attention', color: SidebarPalette.ROW_ATTENTION });
-  if (status.workingCount === 0 && status.backgroundWorkCount > 0) {
-    dots.push({ key: 'background', color: SidebarPalette.ROW_BACKGROUND_WORK });
-  }
-  if (status.questionCount > 0) dots.push({ key: 'question', color: SidebarPalette.ROW_QUESTION });
-  if (status.approvalCount > 0) dots.push({ key: 'approval', color: SidebarPalette.ROW_APPROVAL });
-  if (dots.length === 0 && !active) return null;
-  return (
-    <View style={statusStyles.sectionDots}>
-      {dots.map((dot) => (
-        <View key={dot.key} style={[statusStyles.sectionDot, { backgroundColor: dot.color }]} />
-      ))}
-      {active ? <View style={[statusStyles.activeRing, ink.activeRing]} /> : null}
-    </View>
-  );
-}
-
 const statusStyles = StyleSheet.create({
   projectCluster: {
     flexDirection: 'row',
@@ -531,30 +508,12 @@ const statusStyles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     lineHeight: ds(12),
   },
-  sectionDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ds(4),
-  },
-  sectionDot: {
-    width: ds(STATUS_DOT_SIZE),
-    height: ds(STATUS_DOT_SIZE),
-    borderRadius: 999,
-  },
-  /* sections.rs: 9px hollow ring, 1.5px border (`ink.activeRing`). */
-  activeRing: {
-    width: ds(9),
-    height: ds(9),
-    borderRadius: 999,
-    borderWidth: ds(1.5),
-  },
 });
 
-/** The header counts' number in the sidebar text color, and the open session's ring. */
+/** The header counts' number in the sidebar text color. */
 const statusInkStyles = inkStyleSheets((ink) =>
   StyleSheet.create({
     count: { color: ink.text },
-    activeRing: { borderColor: ink.activeRing },
   }),
 );
 
@@ -1378,85 +1337,6 @@ export function GroupHeaderRow({
     </SidebarHeaderBox>
   );
 }
-
-// ---------------------------------------------------------------------------
-// SESSION_KIND_LABEL (desktop native_sidebar/sections.rs): PINNED, SESSIONS,
-// DRAFTS, PARKED or BROWSER in 12px light caps at #D8D8D8 34%, 20px tall (25pt
-// here), as wide as a session card with its 5px/6px side padding. The desktop
-// shows a chevron only on hover; at rest a collapsed heading shows its status
-// dots (and a ring when the open session is inside) and its count at the right.
-// A tap folds it; the Parked heading's long press opens its menu.
-// ---------------------------------------------------------------------------
-
-export function SessionKindLabelRow({
-  label,
-  collapsed,
-  status,
-  active,
-  onPress,
-  onMenu,
-}: {
-  label: string;
-  collapsed: boolean;
-  /** sections.rs: the dots and the count show only while the section is collapsed. */
-  status: SectionStatusCounts;
-  /** The selected session is one of this section's. */
-  active: boolean;
-  onPress: () => void;
-  /** Long press: the heading's menu. Only the Parked heading has one. */
-  onMenu?: () => void;
-}) {
-  const kindLabelStyles = kindLabelInkStyles(useSidebarInk());
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ expanded: !collapsed }}
-      accessibilityLabel={`${label} section`}
-      hitSlop={{ top: ds(4), bottom: ds(4) }}
-      style={({ pressed }) => [kindLabelStyles.row, pressed ? kindLabelStyles.rowPressed : null]}
-      onPress={onPress}
-      onLongPress={onMenu}
-    >
-      <Text style={kindLabelStyles.label} numberOfLines={1}>
-        {label.toUpperCase()}
-      </Text>
-      {collapsed ? (
-        <>
-          <SectionStatusDots status={status} active={active} />
-          <View style={kindLabelStyles.spacer} />
-          <Text style={kindLabelStyles.label}>{status.count}</Text>
-        </>
-      ) : null}
-    </Pressable>
-  );
-}
-
-const kindLabelInkStyles = inkStyleSheets((ink) =>
-  StyleSheet.create({
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: ds(5),
-      height: ds(20),
-      paddingLeft: ds(5),
-      paddingRight: ds(6),
-      borderRadius: ds(5),
-    },
-    rowPressed: {
-      backgroundColor: inkWash(ink, 0.06),
-    },
-    spacer: {
-      flex: 1,
-    },
-    label: {
-      color: ink.sectionLabel,
-      fontSize: ds(12),
-      fontWeight: '300',
-      letterSpacing: ds(12) * 0.02,
-      lineHeight: ds(16),
-    },
-  }),
-);
 
 // ---------------------------------------------------------------------------
 // A quiet session-styled text row (a coordinator's "N older threads"): 15.5dp

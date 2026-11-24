@@ -31,11 +31,11 @@ import {
   ProjectEmptyRow,
   ProjectHeaderRow,
   projectRailColor,
-  SessionKindLabelRow,
   SessionListToggleRow,
   TOUCH_ROW_HEIGHT,
   useSidebarInk,
 } from '../../components/sessions/rows';
+import { SessionKindLabelRow } from '../../components/sessions/SectionKindLabelRow';
 import { ChiefPlaceholderRow } from '../../components/sessions/ChiefRow';
 import GbotsRows from '../../components/sessions/GbotsRows';
 import SessionRow from '../../components/sessions/SessionRow';
@@ -209,6 +209,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
             collapsed={child.collapsed}
             status={child.status}
             active={child.status.sessionIds.some((id) => sessionKey(machineId, id) === selectedSessionKey)}
+            ringColor={props.rowSurface}
             onPress={() => actions.toggleSessionKind(machineId, child)}
             onMenu={child.section === 'parked' ? () => actions.parkedMenu(machineId, child) : undefined}
           />

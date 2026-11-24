@@ -28,14 +28,18 @@ import { GbotIcon } from './gbotIcons';
 import { ChevronRightGlyph, CloudGlyph, CrownGlyph, MachinesGlyph } from './icons';
 import {
   ProjectEmptyRow,
-  SectionStatusDots,
-  SessionKindLabelRow,
   TOUCH_ROW_HEIGHT,
   ds,
   inkStyleSheets,
   inkWash,
   useSidebarInk,
 } from './rows';
+import {
+  SectionActiveRing,
+  SectionStatusDots,
+  SessionKindLabelRow,
+  sectionHasStatusDots,
+} from './SectionKindLabelRow';
 import StatusDotStack from './StatusDotStack';
 
 export type GbotsRowsProps = {
@@ -89,6 +93,7 @@ export default function GbotsRows(props: GbotsRowsProps): ReactElement {
         collapsed={section.collapsed}
         status={section.headingStatus}
         active={props.containsActive}
+        ringColor={props.ringColor}
         onPress={props.onToggleHeading}
         onMenu={props.onHeadingMenu}
       />
@@ -100,6 +105,7 @@ export default function GbotsRows(props: GbotsRowsProps): ReactElement {
               <DepartmentRow
                 department={department}
                 active={department.collapsed && props.departmentActive(department)}
+                ringColor={props.ringColor}
                 onPress={() => props.onToggleDepartment(department)}
                 onMenu={() => props.onDepartmentMenu(department)}
               />
@@ -112,24 +118,31 @@ export default function GbotsRows(props: GbotsRowsProps): ReactElement {
   );
 }
 
-/** A department's sub-heading: its name in the GBots heading's quiet ink, its dots and count while folded. */
+/** A department's sub-heading: its name in the GBots heading's quiet ink, overlapping dots or count at the right while folded. */
 function DepartmentRow({
   department,
   active,
+  ringColor,
   onPress,
   onMenu,
 }: {
   department: GbotsDepartmentModel;
   active: boolean;
+  ringColor: string;
   onPress: () => void;
   onMenu: () => void;
 }): ReactElement {
   const rowStyles = departmentInkStyles(useSidebarInk());
+  const statusDots = department.collapsed && sectionHasStatusDots(department.headingStatus);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ expanded: !department.collapsed }}
-      accessibilityLabel={`${department.name} department`}
+      accessibilityLabel={
+        department.collapsed
+          ? `${department.name} department, ${department.headingStatus.count}`
+          : `${department.name} department`
+      }
       hitSlop={{ top: ds(4), bottom: ds(4) }}
       style={({ pressed }) => [rowStyles.row, pressed ? rowStyles.rowPressed : null]}
       onPress={onPress}
@@ -138,12 +151,14 @@ function DepartmentRow({
       <Text style={rowStyles.label} numberOfLines={1}>
         {department.name}
       </Text>
+      {department.collapsed && active ? <SectionActiveRing /> : null}
+      <View style={rowStyles.spacer} />
       {department.collapsed ? (
-        <>
-          <SectionStatusDots status={department.headingStatus} active={active} />
-          <View style={rowStyles.spacer} />
+        statusDots ? (
+          <SectionStatusDots status={department.headingStatus} ringColor={ringColor} />
+        ) : (
           <Text style={rowStyles.label}>{department.headingStatus.count}</Text>
-        </>
+        )
       ) : null}
     </Pressable>
   );
