@@ -75,6 +75,29 @@ const PENDING_DRAFT_TIMEOUT_MS = 800;
 const FIRST_BLUR_WAIT_MS = 350;
 /** Minimum height of the sheet's top bar (`styles.bar.minHeight`), used before its first `onLayout`. */
 const SHEET_BAR_MIN_HEIGHT = 48;
+/** Right padding of the sheet's top bar (`styles.bar.paddingRight`). */
+const SHEET_BAR_PADDING_RIGHT = 8;
+/** Touch target width of the sheet's Close button (`styles.close.width`). */
+const CLOSE_BUTTON_WIDTH = 40;
+/** Size of the Close `×` glyph (`<Glyph name="x" size={CLOSE_GLYPH_SIZE} />`). */
+const CLOSE_GLYPH_SIZE = 18;
+/**
+ * Rightmost painted coordinate of `GLYPHS.x` (`M18 6l-12 12`, `strokeWidth: 1.8`, round cap) in
+ * its 24x24 viewBox (`icons.tsx`).
+ */
+const CLOSE_GLYPH_RIGHT_EDGE = 18 + 1.8 / 2;
+/**
+ * Distance from the sheet's right edge to the visual right edge of the Close `×` glyph, handed to
+ * the page as `gx-controls-inset` so floating page chips (`.gx-outside-bar`) line up right under
+ * the `×` instead of the bar's outer padding.
+ */
+const CLOSE_VISUAL_RIGHT_INSET =
+  Math.round(
+    (SHEET_BAR_PADDING_RIGHT +
+      (CLOSE_BUTTON_WIDTH - CLOSE_GLYPH_SIZE) / 2 +
+      ((24 - CLOSE_GLYPH_RIGHT_EDGE) / 24) * CLOSE_GLYPH_SIZE) *
+      1000,
+  ) / 1000;
 
 /**
  * Whether a navigation replaces the page rather than loading into a sub-frame: Android reports no
@@ -103,11 +126,18 @@ const PAGE_LINK_PATH = /^\/visual\/[0-9a-f]{32}\/link\?/u;
 
 /**
  * The page through the phone's forward on `localPort`, in the chat's theme. `gx-floating=1`: the
- * page closes itself once its answers are sent, as in the desktop's window.
+ * page closes itself once its answers are sent, as in the desktop's window. `gx-controls=right`
+ * and `gx-controls-inset` align floating page chips (`.gx-outside-bar`) with the visual right edge
+ * of the sheet's Close `×` glyph.
  */
 function sheetUri(page: ComputerAddress, localPort: number): string {
   const themed = withPageTheme(page.path, chatIsLightNow() ? 'light' : 'dark');
-  return localPreviewUrl(page.scheme, localPort, `${themed}${themed.includes('#') ? '&' : '#'}gx-floating=1`);
+  const separator = themed.includes('#') ? '&' : '#';
+  return localPreviewUrl(
+    page.scheme,
+    localPort,
+    `${themed}${separator}gx-floating=1&gx-controls=right&gx-controls-inset=${CLOSE_VISUAL_RIGHT_INSET}`,
+  );
 }
 
 export type PageSheetProps = {
@@ -567,7 +597,7 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
             hitSlop={6}
             style={({ pressed }) => [styles.close, pressed && { backgroundColor: P.input }]}
           >
-            <Glyph name="x" size={18} color={P.primary} />
+            <Glyph name="x" size={CLOSE_GLYPH_SIZE} color={P.primary} />
           </Pressable>
         </View>
         <View
@@ -658,7 +688,7 @@ const useStyles = themedStyles((P) => ({
     gap: 10,
     minHeight: SHEET_BAR_MIN_HEIGHT,
     paddingLeft: 16,
-    paddingRight: 8,
+    paddingRight: SHEET_BAR_PADDING_RIGHT,
     borderBottomWidth: 1,
     borderBottomColor: P.border,
   },
@@ -675,7 +705,7 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.controlPrimary,
   },
   refreshText: { color: P.background, fontSize: 12.5, fontWeight: '600' },
-  close: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  close: { width: CLOSE_BUTTON_WIDTH, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   page: { flex: 1 },
   webview: { flex: 1, backgroundColor: P.background },
   transparent: { backgroundColor: 'transparent' },
