@@ -121,7 +121,10 @@ export type SessionGroup<S> = {
   /** `null` for the unheaded list of cards no enabled entry applies to. */
   header: SessionGroupHeader | null;
   rows: UnifiedRow<S>[];
-  /** The rows by project, in the Unified project order, while Group by project is on; else `null`. */
+  /**
+   * The rows by project, in the Unified project order, while Group by project is on; else `null`. Always `null` for
+   * the unheaded list, which has no heading of any kind, as on the computer.
+   */
   projects: SessionGroupProject<S>[] | null;
 };
 
@@ -267,6 +270,6 @@ export function groupUnifiedBySessionTags<S>(
       projects: projectsOf(rows),
     });
   }
-  if (rest.length > 0) groups.push({ key: 'ungrouped', header: null, rows: rest, projects: projectsOf(rest) });
+  if (rest.length > 0) groups.push({ key: 'ungrouped', header: null, rows: rest, projects: null });
   return groups;
 }
