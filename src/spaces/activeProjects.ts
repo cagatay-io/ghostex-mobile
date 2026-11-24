@@ -11,7 +11,6 @@
  * switch off on the computer.
  */
 
-import { chiefOnIn } from '../contract/chief';
 import { isAutopilotProject, withoutGbots } from '../contract/gbotsFilter';
 import { showsBackgroundWork } from '../contract/grouping';
 import { hasQuestion, type GhostexMobileSummary, type GhostexSession } from '../contract/mobileSummary';
@@ -127,7 +126,7 @@ export function filterSummaryForActiveProjects(
   collectionOf: (projectId: string) => string | undefined,
   spaceNames?: readonly string[],
 ): GhostexMobileSummary {
-  const autopilotProjects = chiefOnIn(whole) ? whole.projects.filter(isAutopilotProject) : [];
+  const autopilotProjects = whole.projects.filter(isAutopilotProject);
   const autopilotIds = new Set(autopilotProjects.map((project) => project.projectId));
   const autopilotSessions =
     autopilotIds.size > 0 ? whole.sessions.filter((session) => autopilotIds.has(session.projectId)) : [];

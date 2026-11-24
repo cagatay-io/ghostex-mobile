@@ -103,7 +103,6 @@ import ChiefEarlierChatsSheet from '../components/sessions/ChiefEarlierChatsShee
 import { NativeModeAnnounceSheet } from '../components/sessions/NativeModeAnnounceSheet';
 import { runGhostexCli } from '../components/sessions/cli';
 import {
-  chiefOnIn,
   chiefRows,
   hasHomeProject,
   HOME_LABEL,
@@ -1366,7 +1365,7 @@ export default function SessionsScreen({ navigation }: Props) {
             title: HOME_LABEL,
             items: [
               ...MAIN_HUB_NOTES,
-              ...((header.chief ?? null) === null && chiefOnIn(inventoriesByMachineId[machineId]?.summary)
+              ...((header.chief ?? null) === null
                 ? [
                     {
                       kind: 'item',

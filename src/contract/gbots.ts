@@ -21,7 +21,6 @@
  */
 
 import { coordinatorBadges, coordinatorRowKey } from './coordinatorTree';
-import { chiefOnIn } from './chief';
 import { parseGbotVoiceFromBot, type GbotVoiceState } from './gbotVoice';
 import { countSessions, headerStatusCounts, type SectionStatusCounts, type SessionItem } from './grouping';
 import {
@@ -72,11 +71,11 @@ export const GBOT_APPROVALS: readonly { value: GbotApproval; label: string }[] =
 export const GBOT_CODEX_APPROVAL_NOTE =
   "Codex GBots start at Full access: below it, Codex's sandbox stops them reaching Ghostex.";
 
-/** Whether GBots are on for a computer: their own switch and Main Hub (server/src/gbots/feature.rs). */
+/** Whether GBots are on for a computer (server/src/gbots/feature.rs). */
 export function gbotsOnIn(
-  summary: Pick<GhostexMobileSummary, 'builtInFeatures' | 'builtInFeaturesOff'> | null | undefined,
+  summary: Pick<GhostexMobileSummary, 'builtInFeatures'> | null | undefined,
 ): boolean {
-  return summary?.builtInFeatures.includes(GBOTS_FEATURE) === true && chiefOnIn(summary);
+  return summary?.builtInFeatures.includes(GBOTS_FEATURE) === true;
 }
 
 /** The fold key of the GBots heading under `homeProjectKey` (gx-core `gbots_section_storage_id`). */

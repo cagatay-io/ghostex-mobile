@@ -9,7 +9,7 @@
  * module from contract/gbots.ts so contract/grouping.ts can use it without an import cycle.
  * CDXC:Autopilot 2026-11-24 DECISION: Autopilot's own project (its supervisor's folder, `autopilotSupervisorProject`)
  * stays hidden from normal project lists and pickers; its supervisor sessions are lifted into Main Hub's Autopilot
- * section while Main Hub is on (contract/grouping.ts), and stay reachable from Settings > Autopilot while Main Hub is off.
+ * section (contract/grouping.ts).
  * SEE-ALSO: packages/gx-core/src/sidebar_view/chief.rs, assemble.rs (the desktop's same rule).
  */
 

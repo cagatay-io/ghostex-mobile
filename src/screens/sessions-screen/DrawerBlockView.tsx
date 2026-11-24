@@ -51,7 +51,6 @@ import type {
   SessionKindLabelItem,
   StateCardItem,
 } from '../../contract/grouping';
-import { chiefOnIn } from '../../contract/chief';
 import {
   openedByChief,
   type GbotRowModel,
@@ -393,7 +392,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
           home={header.isHome === true ? { onMenu: () => actions.homeMenu(machineId, header) } : undefined}
         />
         {/* Main Hub before Chief of Staff's first open: its row's place (ChiefRow.tsx). */}
-        {header.isHome === true && !header.collapsed && header.chief === null && chiefOnIn(summary) ? (
+        {header.isHome === true && !header.collapsed && header.chief === null ? (
           <ChiefPlaceholderRow
             onPress={() => actions.openHomeChief(machineId, header)}
             onLongPress={() => actions.openHomeChiefMenu(machineId, header)}

@@ -8,7 +8,6 @@
  */
 
 import type { GhostexMobileSummary, GhostexSidebarSpace, GhostexSidebarSpaces } from '../contract/mobileSummary';
-import { chiefOnIn } from '../contract/chief';
 import { isAutopilotProject, withoutGbots } from '../contract/gbotsFilter';
 import { countTileStatus, type TileStatusCounts } from '../contract/grouping';
 import { ACTIVE_SPACE_ID, filterSummaryForActiveProjects, type ActiveProjectsContext } from './activeProjects';
@@ -95,8 +94,8 @@ export function filterSummaryForSpace(
     );
   }
   // A Space only shows and counts the user's projects: GBots follow Main Hub instead (contract/gbots.ts).
-  // Autopilot's supervisor sessions follow Main Hub while Main Hub is on, so carry them along whenever Main Hub stays.
-  const autopilotProjects = chiefOnIn(whole) ? whole.projects.filter(isAutopilotProject) : [];
+  // Autopilot's supervisor sessions follow Main Hub, so carry them along whenever Main Hub stays.
+  const autopilotProjects = whole.projects.filter(isAutopilotProject);
   const autopilotIds = new Set(autopilotProjects.map((project) => project.projectId));
   const autopilotSessions =
     autopilotIds.size > 0 ? whole.sessions.filter((session) => autopilotIds.has(session.projectId)) : [];

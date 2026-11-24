@@ -15,8 +15,7 @@ import {
   type CoordinatorBadge,
   type RowNesting,
 } from './coordinatorTree';
-import { chiefOnIn } from './chief';
-import { autopilotProjectIds, isAutopilotProject, withoutGbots } from './gbotsFilter';
+import { isAutopilotProject, withoutGbots } from './gbotsFilter';
 import { isNewSidebarSession, isSidebarDraftSectionSession } from './sessionDrafts';
 import {
   displayStatus,
@@ -862,11 +861,7 @@ export function countSectionSessions(
  */
 export function machineSessionCounts(summary: GhostexMobileSummary | null): TileStatusCounts {
   if (summary === null) return countTileStatus([], NO_SUMMARY_CAPABILITIES);
-  const hiddenAutopilot = chiefOnIn(summary) ? null : autopilotProjectIds(summary);
-  const sessions = visibleSessions(summary.sessions).filter(
-    (session) => hiddenAutopilot === null || !hiddenAutopilot.has(session.projectId),
-  );
-  return countTileStatus(sessions, summary.capabilities);
+  return countTileStatus(visibleSessions(summary.sessions), summary.capabilities);
 }
 
 export type DrawerBuildInput = {
@@ -1144,7 +1139,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   } = input;
   // A GBot's folder and chats are drawn under Main Hub (contract/gbots.ts), never as a project (contract/gbotsFilter.ts).
   // Autopilot's supervisor projects are never drawn as projects either; their sessions are lifted into Main Hub's
-  // Autopilot section while Main Hub is on.
+  // Autopilot section.
   const autopilotProjects = new Map<string, GhostexProject>();
   for (const project of input.summary.projects) {
     if (isAutopilotProject(project)) autopilotProjects.set(project.projectId, project);
@@ -1172,7 +1167,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     if (bucket === undefined) sessionsByProjectKey.set(key, [session]);
     else bucket.push(session);
   }
-  if (homeProject !== undefined && chiefOnIn(input.summary) && autopilotSessions.length > 0) {
+  if (homeProject !== undefined && autopilotSessions.length > 0) {
     const homeKey = `id:${homeProject.projectId}`;
     const bucket = sessionsByProjectKey.get(homeKey);
     if (bucket === undefined) sessionsByProjectKey.set(homeKey, [...autopilotSessions]);

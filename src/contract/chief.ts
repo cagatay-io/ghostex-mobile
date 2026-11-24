@@ -5,7 +5,9 @@
  * CDXC:Chief 2026-11-08 DECISION:
  * User (Q1745, Q1747): the phone shows "same row" as the desktop, under the Spaces tabs: the
  * selected computer's Chief, with "+N" that unfolds the other paired computers' Chiefs the way a
- * coordinator's threads fold. It follows each computer's switch (`builtInFeaturesOff`).
+ * coordinator's threads fold.
+ * CDXC:Chief 2026-11-24 DECISION: Main Hub is always on and can no longer be turned off, so
+ * `builtInFeaturesOff` no longer gates Chief of Staff.
  * SEE-ALSO: packages/gx-core/src/sidebar_view/chief.rs (the desktop's rows), components/sessions/ChiefRow.tsx.
  */
 
@@ -80,14 +82,6 @@ export function homeProjectIdIn(summary: Pick<GhostexMobileSummary, 'projects'> 
   return id.length > 0 ? id : null;
 }
 
-/** Chief's built-in feature id, as the computer lists it. */
-export const CHIEF_FEATURE = 'chief';
-
-/** Whether Chief is on for a computer whose session summary is `summary` (none yet: on). */
-export function chiefOnIn(summary: { builtInFeaturesOff?: readonly string[] } | null | undefined): boolean {
-  return summary?.builtInFeaturesOff?.includes(CHIEF_FEATURE) !== true;
-}
-
 /** The computer's Chief session, if it has one. */
 export function chiefSessionIn(
   summary: Pick<GhostexMobileSummary, 'sessions'> | null | undefined,
@@ -104,22 +98,22 @@ export type ChiefRowModel = {
 
 /**
  * The rows to draw: the selected computer's first (also before its first open), then every other
- * computer whose Chief is on and has been opened. Empty while the selected computer has Chief off.
+ * computer whose Chief has been opened.
  */
 export function chiefRows(
   machines: readonly { id: string; label: string }[],
-  summaries: Readonly<Record<string, Pick<GhostexMobileSummary, 'sessions' | 'builtInFeaturesOff'> | null | undefined>>,
+  summaries: Readonly<Record<string, Pick<GhostexMobileSummary, 'sessions'> | null | undefined>>,
   selectedMachineId: string,
 ): ChiefRowModel[] {
   const selected = machines.find((machine) => machine.id === selectedMachineId);
   if (selected === undefined) return [];
   const summary = summaries[selected.id];
-  if (summary === null || summary === undefined || !chiefOnIn(summary)) return [];
+  if (summary === null || summary === undefined) return [];
   const others = machines
     .filter((machine) => machine.id !== selected.id)
     .flatMap((machine) => {
       const other = summaries[machine.id];
-      const session = chiefOnIn(other) ? chiefSessionIn(other) : null;
+      const session = chiefSessionIn(other);
       return session === null ? [] : [{ machineId: machine.id, machineLabel: machine.label, session }];
     });
   return [{ machineId: selected.id, machineLabel: selected.label, session: chiefSessionIn(summary) }, ...others];
