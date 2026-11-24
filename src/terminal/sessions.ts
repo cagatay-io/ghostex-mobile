@@ -42,6 +42,7 @@ import { isChannelRefusal, reportChannelRefused } from '../remote/channelBudget'
 import { isSlowOpenFailure, noteSlowOpenFailure } from '../remote/stallWatch';
 import { clearDialBackoff } from '../remote/dialBackoff';
 import { beginLinkTransfer } from '../remote/linkActivity';
+import { dismissUntouchedDraft } from '../chat/native/untouchedDrafts';
 
 const tabOpenRequests = new Map<string, Promise<unknown>>();
 /** Scrollback rows each warm native entry was opened with (the setting applies to new terminals only). */
@@ -1046,6 +1047,13 @@ useTerminalStore.subscribe((state) => {
       ? { tabs: order.map((key) => byKey.get(key)).filter((tab): tab is TerminalTab => tab !== undefined) }
       : {}),
   });
+});
+
+// Remove an untouched draft automatically when the user switches to another session.
+useTerminalStore.subscribe((state, previous) => {
+  if (previous.selectedSessionKey !== null && previous.selectedSessionKey !== state.selectedSessionKey) {
+    dismissUntouchedDraft(previous.selectedSessionKey, (key) => useTerminalStore.getState().closeTab(key));
+  }
 });
 
 const restoring = new Map<string, Promise<void>>();

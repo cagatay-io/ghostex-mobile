@@ -48,6 +48,7 @@ import { acknowledgeSessionAttention } from '../../terminal/attention';
 import { markSessionOpen, markSessionOpenTap } from '../../terminal/openTiming';
 import { attachSessionKey, TerminalOpenTimedOut, useTerminalStore } from '../../terminal/sessions';
 import { holdTerminal } from '../../terminal/terminalHold';
+import { trackUntouchedDraft } from '../../chat/native/untouchedDrafts';
 import { sessionOpensInChatView } from '../terminal-screen/session-lookups';
 import { cloudBoxOpenTarget } from '../../cloudBoxes/open';
 import {
@@ -177,13 +178,16 @@ export function useSessionsScreenActions({
     async (
       target: MachineRecord,
       sessionId: string,
-      chatLaunch?: { agentId: string; projectId: string; title: string },
+      chatLaunch?: { agentId: string; projectId: string; title: string; trackUntouchedDraft?: boolean },
     ): Promise<void> => {
       const created = useInventoryStore
         .getState()
         .inventoriesByMachineId[target.id]?.summary?.sessions.find((session) => session.sessionId === sessionId);
       const sessionKey = attachSessionKey(target.id, sessionId);
       if (chatLaunch) useTerminalStore.getState().setSessionViewMode(sessionKey, 'chat');
+      if (chatLaunch?.trackUntouchedDraft === true) {
+        trackUntouchedDraft(sessionKey, { machine: target, projectId: chatLaunch.projectId, sessionId });
+      }
       const opening = beginOpening(sessionKey);
       const attaching = useTerminalStore.getState().attachSession(target, {
         sessionId,
@@ -346,7 +350,7 @@ export function useSessionsScreenActions({
       target: MachineRecord,
       command: string,
       message: string,
-      chatLaunch?: { agentId: string; projectId: string; title: string },
+      chatLaunch?: { agentId: string; projectId: string; title: string; trackUntouchedDraft?: boolean },
       options?: {
         keepOverlay?: boolean;
         stillOpen?: () => boolean;

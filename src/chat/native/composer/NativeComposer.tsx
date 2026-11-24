@@ -66,7 +66,19 @@ import { SecretSendWarning } from './SecretSendWarning';
 import { OptionPills, modeInModelPill, modeLook, optionPillsLeadIn, type PillKind } from './OptionPills';
 import { RunLocationRow } from './RunLocationRow';
 import { ProjectPickerSheet } from './ProjectPickerSheet';
-import { draftProjectChoices, moveDraftToProject } from './draftProjectChoices';
+import {
+  draftProjectChoices,
+  homeProjectIdForMachine,
+  isHomeProject,
+  mainHubMachineChoice,
+  moveDraftToProject,
+  setCarryCoordinatorDraft,
+  takeCarryCoordinatorDraft,
+} from './draftProjectChoices';
+import { FIRST_LINE, NEW_ORCHESTRATOR_BENEFITS } from '../../../screens/sessions-screen/NewCoordinatorSheet';
+import { attachSessionKey } from '../../../terminal/sessions';
+import { sessionChatRpc } from '../../rust/transport';
+import { markDraftTouched } from '../untouchedDrafts';
 import { reportMissingAgentError } from '../../../agents/missingAgent';
 import { MachinePickerSheet } from './MachinePickerSheet';
 import { repoKeyOfProject } from '../../../screens/sessions-screen/new-session-place';
@@ -217,6 +229,21 @@ export function NativeComposer({
   const model = state?.composer ?? null;
   const dispatch = chat.dispatch;
   const [projectChoices, setProjectChoices] = useState<UnifiedProjectChoice[] | null>(null);
+  const [draftCoordinatorMode, setDraftCoordinatorMode] = useState<boolean>(() => takeCarryCoordinatorDraft());
+  const rememberedProject = useRef<{ machineId: string; projectId: string } | null>(null);
+  const isHome = chat.machine !== null && isHomeProject(chat.machine.id, projectId);
+  if (!isHome && chat.machine !== null && projectId.length > 0) {
+    rememberedProject.current = { machineId: chat.machine.id, projectId };
+  }
+  const previousSessionId = useRef(sessionId);
+  useEffect(() => {
+    if (previousSessionId.current !== sessionId) {
+      previousSessionId.current = sessionId;
+      setDraftCoordinatorMode(takeCarryCoordinatorDraft());
+    }
+  }, [sessionId]);
+  const homeProjectId = chat.machine !== null ? homeProjectIdForMachine(chat.machine.id) : null;
+  const noProjectOn = isHome && homeProjectId !== null;
   const moveDraftHere = (machineId: string, toProjectId: string): void => {
     const from = chat.machine;
     const agentId = document?.sessionAgentId ?? null;
@@ -224,6 +251,7 @@ export function NativeComposer({
     if (machineId === from.id && toProjectId === projectId) return;
     const to = machineId === from.id ? from : machineTargetFor(machineId);
     if (to === null) return;
+    if (draftCoordinatorMode) setCarryCoordinatorDraft(true);
     void moveDraftToProject({
       from,
       fromProjectId: projectId,
@@ -237,10 +265,46 @@ export function NativeComposer({
       onHostAction?.('toast', { message: error instanceof Error ? error.message : String(error), level: 'error' });
     });
   };
+  const toggleNoProject = (): void => {
+    const from = chat.machine;
+    if (from === null) return;
+    markDraftTouched(attachSessionKey(from.id, sessionId));
+    if (!noProjectOn) {
+      const targetHome = homeProjectId ?? mainHubMachineChoice()?.machines.find((entry) => entry.connected)?.projectId ?? null;
+      const targetMachine =
+        homeProjectId !== null
+          ? from.id
+          : mainHubMachineChoice()?.machines.find((entry) => entry.connected)?.machineId ?? null;
+      if (targetHome !== null && targetMachine !== null) moveDraftHere(targetMachine, targetHome);
+      return;
+    }
+    const remembered = rememberedProject.current;
+    if (remembered !== null && !isHomeProject(remembered.machineId, remembered.projectId)) {
+      moveDraftHere(remembered.machineId, remembered.projectId);
+      return;
+    }
+    const choices = draftProjectChoices(from.id);
+    for (const choice of choices) {
+      const picked = choice.machines[choice.selected] ?? choice.machines.find((entry) => entry.connected);
+      if (picked !== undefined && picked.connected && !isHomeProject(picked.machineId, picked.projectId)) {
+        moveDraftHere(picked.machineId, picked.projectId);
+        return;
+      }
+    }
+    setProjectChoices(choices);
+  };
+  const toggleCoordinator = (): void => {
+    if (chat.machine !== null) markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
+    const next = !draftCoordinatorMode;
+    setDraftCoordinatorMode(next);
+    if (next) {
+      onHostAction?.('toast', { message: 'Pick a model and effort, then click Send to start this coordinator.' });
+    }
+  };
   const projectChipLabel = document?.worktreeTray?.projectName ?? null;
   /** The machine chip, beside the project chip while the phone knows more than one computer. */
   const machineChipLabel = ((): string | null => {
-    if (projectChipLabel === null) return null;
+    if (projectChipLabel === null && !noProjectOn) return null;
     const machines = enabledMachines(useMachinesStore.getState());
     const record = machines.length > 1 ? machines.find((entry) => entry.id === chat.machine?.id) : undefined;
     return record === undefined ? null : machineDisplayLabel(record);
@@ -249,6 +313,10 @@ export function NativeComposer({
   const openMachines = (): void => {
     const from = chat.machine;
     if (from === null) return;
+    if (noProjectOn) {
+      setMachineChoice(mainHubMachineChoice());
+      return;
+    }
     const repoKey = repoKeyOfProject(from.id, projectId);
     setMachineChoice(draftProjectChoices(from.id).find((choice) => choice.repoKey === repoKey) ?? null);
   };
@@ -506,6 +574,7 @@ export function NativeComposer({
   /** A menu row's command, routed the way desktop's `handle_action` routes it. */
   const runCommand = useCallback(
     (command: MenuRow): boolean => {
+      if (chat.machine !== null) markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
       const type = str(command, 'type');
       switch (type) {
         case 'pickAttachments': {
@@ -808,6 +877,46 @@ export function NativeComposer({
     dispatch({ type: 'terminalTailHover' });
   }, [available, dispatch, document?.nonCliMode]);
 
+  const submitDraft = useCallback(
+    (requested: SubmitMode, options?: { bypassCompactPrompt?: boolean }): boolean => {
+      if (chat.machine !== null) markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
+      if (!draftCoordinatorMode || requested !== 'send' || input === null) {
+        return input?.submit(requested, options) ?? false;
+      }
+      const from = chat.machine;
+      if (from === null) return false;
+      const userPrompt = draftAt.current.text.trim();
+      const skillOnlyStart = userPrompt.length === 0;
+      const fullPrompt = skillOnlyStart ? FIRST_LINE : `${FIRST_LINE}\n\n${userPrompt}`;
+      setDraftCoordinatorMode(false);
+      void (async () => {
+        try {
+          const answer = await sessionChatRpc(from, 'promoteCoordinator', {
+            projectId,
+            sessionId,
+            forDraft: true,
+            skillOnlyStart,
+          });
+          if (answer.error !== null) {
+            setDraftCoordinatorMode(true);
+            onHostAction?.('toast', { message: answer.error.message, level: 'error' });
+            return;
+          }
+          input.replace(fullPrompt);
+          input.submit('send', options);
+        } catch (error: unknown) {
+          setDraftCoordinatorMode(true);
+          onHostAction?.('toast', {
+            message: error instanceof Error ? error.message : String(error),
+            level: 'error',
+          });
+        }
+      })();
+      return true;
+    },
+    [chat.machine, draftCoordinatorMode, input, onHostAction, projectId, sessionId],
+  );
+
   // ---- layout ------------------------------------------------------------------------------------
 
   if (state === null || input === null || model === null) return null;
@@ -924,11 +1033,17 @@ export function NativeComposer({
               tray={document.worktreeTray}
               openRows={(title, rows, search) => setMenu({ kind: 'rows', title, rows, search: search ?? null })}
               runCommand={(command) => void runCommand(command)}
-              retry={() => input?.submit('send')}
+              retry={() => submitDraft('send')}
               projectLabel={projectChipLabel}
               openProjects={() => setProjectChoices(chat.machine === null ? [] : draftProjectChoices(chat.machine.id))}
               machineLabel={machineChipLabel}
               openMachines={openMachines}
+              noProject={noProjectOn}
+              canToggleNoProject={homeProjectId !== null || mainHubMachineChoice() !== null}
+              onToggleNoProject={toggleNoProject}
+              coordinatorOn={draftCoordinatorMode}
+              canToggleCoordinator={document.firstMessageCard == null}
+              onToggleCoordinator={toggleCoordinator}
             />
           ) : null}
           <View
@@ -958,6 +1073,18 @@ export function NativeComposer({
               >
                 {/* A new coordinator's first message, waiting for Start (`FirstMessageCard.tsx`); desktop draws it above the image tiles too. */}
                 {!collapsed && document !== null ? <FirstMessageCard document={document} dispatch={dispatch} /> : null}
+                {!collapsed && document?.worktreeTray && document.firstMessageCard == null && draftCoordinatorMode ? (
+                  <View style={styles.coordinatorDraftCard}>
+                    <View style={styles.coordinatorDraftHeader}>
+                      <Glyph name="coordinator-crown-points" size={13} color={P.foreground} />
+                      <Text style={styles.coordinatorDraftTitle}>Coordinator first message</Text>
+                    </View>
+                    <Text style={styles.coordinatorDraftLine} selectable>
+                      {FIRST_LINE}
+                    </Text>
+                    <Text style={styles.coordinatorDraftBenefits}>{NEW_ORCHESTRATOR_BENEFITS}</Text>
+                  </View>
+                ) : null}
                 {!collapsed && document !== null ? (
                   <AttachmentPreviews
                     references={references}
@@ -1019,9 +1146,17 @@ export function NativeComposer({
                           placeholder={placeholder}
                           collapsed={collapsed}
                           maxHeight={inputMaxHeightFor(bottom)}
-                          onTextChange={setText}
+                          onTextChange={(next) => {
+                            if (next.length > 0 && chat.machine !== null) {
+                              markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
+                            }
+                            setText(next);
+                          }}
                           onCaret={setCaret}
-                          onImages={receiveImages}
+                          onImages={(event) => {
+                            if (chat.machine !== null) markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
+                            receiveImages(event);
+                          }}
                         />
                       </View>
                       {boostHint !== null ? <BoostHintChip hint={boostHint} dispatch={dispatch} /> : null}
@@ -1032,9 +1167,9 @@ export function NativeComposer({
                       {collapsed ? (
                         <SendControl
                           document={document}
-                          hasDraft={hasDraft}
+                          hasDraft={hasDraft || draftCoordinatorMode}
                           ready={model.ready}
-                          submit={input.submit}
+                          submit={submitDraft}
                           dispatch={dispatch}
                           onHold={openSendMenu}
                         />
@@ -1135,9 +1270,9 @@ export function NativeComposer({
                       ) : null}
                       <SendControl
                         document={document}
-                        hasDraft={hasDraft}
+                        hasDraft={hasDraft || draftCoordinatorMode}
                         ready={model.ready}
-                        submit={input.submit}
+                        submit={submitDraft}
                         dispatch={dispatch}
                         onHold={openSendMenu}
                       />
@@ -1169,9 +1304,9 @@ export function NativeComposer({
                   <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
                   <SendControl
                     document={document}
-                    hasDraft={hasDraft}
+                    hasDraft={hasDraft || draftCoordinatorMode}
                     ready={model.ready}
-                    submit={input.submit}
+                    submit={submitDraft}
                     dispatch={dispatch}
                     onHold={openSendMenu}
                   />
@@ -1358,4 +1493,18 @@ const useStyles = themedStyles((P) => ({
   },
   badgeText: { color: P.background, fontSize: 9, lineHeight: 11, fontWeight: '600' },
   measure: { position: 'absolute', left: 0, top: 0, opacity: 0, flexDirection: 'row' },
+  coordinatorDraftCard: {
+    gap: 5,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: P.border,
+    backgroundColor: P.composerBackground,
+  },
+  coordinatorDraftHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  coordinatorDraftTitle: { color: P.foreground, fontSize: 12.5, lineHeight: 18, fontWeight: '600' },
+  coordinatorDraftLine: { color: P.primary, fontSize: 13.5, lineHeight: 19 },
+  coordinatorDraftBenefits: { color: P.muted, fontSize: 12, lineHeight: 17 },
 }));

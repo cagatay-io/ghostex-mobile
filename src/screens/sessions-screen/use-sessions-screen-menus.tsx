@@ -93,6 +93,7 @@ import {
   type QuickActionRef,
 } from '../../actions/quickActions';
 import { recentProjectsWithoutGbots } from '../../contract/gbotsFilter';
+import { homeProjectIdIn } from '../../contract/chief';
 import { projectHeaderOf, type ProjectHeaderItem } from '../../contract/grouping';
 import {
   agentIconTint,
@@ -228,14 +229,14 @@ export type SessionsScreenMenusDeps = {
   attachCreated: (
     target: MachineRecord,
     sessionId: string,
-    chatLaunch?: { agentId: string; projectId: string; title: string },
+    chatLaunch?: { agentId: string; projectId: string; title: string; trackUntouchedDraft?: boolean },
   ) => Promise<void>;
   runBulkSessionActions: (target: MachineRecord, actions: readonly BulkSessionAction[]) => Promise<void>;
   runCreationFlow: (
     target: MachineRecord,
     command: string,
     message: string,
-    chatLaunch?: { agentId: string; projectId: string; title: string },
+    chatLaunch?: { agentId: string; projectId: string; title: string; trackUntouchedDraft?: boolean },
     options?: {
       keepOverlay?: boolean;
       stillOpen?: () => boolean;
@@ -1649,7 +1650,7 @@ export function useSessionsScreenMenus({
         target,
         createAgentCommand(agent.agentId, header.projectId, undefined, chatFirst, true),
         ProgressCopy.startingAgent(agentName, header.title),
-        chatFirst ? { agentId: iconId, projectId: header.projectId, title: agentName } : undefined,
+        chatFirst ? { agentId: iconId, projectId: header.projectId, title: agentName, trackUntouchedDraft: true } : undefined,
       );
     },
     [agentChoiceContext, runCreationFlow, setTransientStatus],
@@ -1713,14 +1714,10 @@ export function useSessionsScreenMenus({
   };
 
   /**
-   * The header's New session (./new-session-button.tsx): the agent menu on the project a new
-   * session aims at, by gx-core's start rule (`unifiedNewSessionTarget`): the Unified filter's one
-   * repository (only while the Unified layout shows it; the Project layout has no visible filter),
-   * else the project of the session open on the phone (a worktree stays that worktree), else the top
-   * of Recent. Nothing starts until a row is picked. When that project can't open its menu (its
-   * computer is off or not read yet), the project list opens instead, and a pick there opens the
-   * menu. With no project to list it returns false, and the screen offers Add computer, Add project
-   * or says why.
+   * The header's New session (./new-session-button.tsx): immediately creates a Native draft in the
+   * open session's project, or Main Hub when there is no open session (falling back to gx-core's
+   * `unifiedNewSessionTarget`), and opens its empty chat without showing a picker. With no connected
+   * project to start in, returns false so the screen offers Add computer, Add project, or says why.
    */
   const openNewSessionMenu = (input: {
     currentMachineId: string;
@@ -1728,25 +1725,56 @@ export function useSessionsScreenMenus({
     unifiedOn: boolean;
   }): boolean => {
     const { currentMachineId, selectedSessionKey, unifiedOn } = input;
-    const choices = projectChoicesNow(currentMachineId);
-    const filter = unifiedOn ? useUnifiedListStore.getState().filter : { repos: [] };
-    const target = unifiedNewSessionTarget(filter, choices, activeProjectOf(selectedSessionKey));
-    if (target === null) return false;
-    // The chip of the target's computer; an open worktree is folded into its repository's row, so
-    // the chip names the main checkout while the target keeps the worktree's project.
-    const chip = choices
-      .find((choice) => choice.repoKey === target.repoKey)
-      ?.machines.find((machine) => machine.machineId === target.machineId);
-    const summary = summaryFor(target.machineId);
-    const header =
-      summary === null
-        ? null
-        : projectHeaderOf(target.machineId, summary, target.projectId, { throughCollections: true });
-    const machine = useMachinesStore.getState().machines.find((entry) => entry.id === target.machineId) ?? null;
-    if (chip !== undefined && chip.connected && header !== null && machine !== null) {
-      setOverlay({ kind: 'agentMenu', ctx: { machine, header } });
+    const inventories = useInventoryStore.getState().inventoriesByMachineId;
+    const machines = enabledMachines(useMachinesStore.getState());
+    const findConnectedHeader = (
+      machineId: string,
+      projectId: string,
+    ): { machine: MachineRecord; header: ProjectHeaderItem } | null => {
+      const machine = machines.find((entry) => entry.id === machineId) ?? null;
+      const inventory = inventories[machineId];
+      const summary = inventory?.summary ?? null;
+      if (machine === null || summary === null || (inventory?.lastError ?? null) !== null) return null;
+      const header = projectHeaderOf(machineId, summary, projectId, { throughCollections: true });
+      return header === null ? null : { machine, header };
+    };
+
+    let resolved: { machine: MachineRecord; header: ProjectHeaderItem } | null = null;
+    const active = activeProjectOf(selectedSessionKey);
+    if (active !== null) {
+      resolved = findConnectedHeader(active.machineId, active.projectId);
+    }
+    if (resolved === null) {
+      // No open session (or its computer is disconnected): prefer Main Hub on the current or first connected computer.
+      const preferredOrder = [
+        ...machines.filter((entry) => entry.id === currentMachineId),
+        ...machines.filter((entry) => entry.id !== currentMachineId),
+      ];
+      for (const candidate of preferredOrder) {
+        const homeId = homeProjectIdIn(inventories[candidate.id]?.summary ?? null);
+        if (homeId !== null) {
+          resolved = findConnectedHeader(candidate.id, homeId);
+          if (resolved !== null) break;
+        }
+      }
+    }
+    if (resolved === null) {
+      const choices = projectChoicesNow(currentMachineId);
+      const filter = unifiedOn ? useUnifiedListStore.getState().filter : { repos: [] };
+      const target = unifiedNewSessionTarget(filter, choices, active);
+      if (target === null) return false;
+      resolved = findConnectedHeader(target.machineId, target.projectId);
+      if (resolved === null) {
+        setOverlay({ kind: 'newSessionProject', currentMachineId });
+        return true;
+      }
+    }
+
+    const primaryAgent = resolvePrimaryAgent(resolved.header);
+    if (primaryAgent !== null) {
+      launchAgent(resolved.machine, resolved.header, primaryAgent);
     } else {
-      setOverlay({ kind: 'newSessionProject', currentMachineId });
+      setOverlay({ kind: 'agentMenu', ctx: resolved });
     }
     return true;
   };
