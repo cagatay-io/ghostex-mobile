@@ -430,9 +430,9 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: 'settings:chat:session-mode',
     group: 'Session mode',
     title: 'Session mode',
-    description: 'Choose Terminal or Native mode per agent for Claude Code, Codex, and Antigravity.',
+    description: 'Choose Terminal-based or Native mode per agent for Claude Code, Codex, and Antigravity.',
     catalog: 'agentSessionMode',
-    keywords: ['native', 'terminal', 'claude', 'codex', 'antigravity', 'session mode'],
+    keywords: ['native', 'terminal-based', 'terminal', 'claude', 'codex', 'antigravity', 'session mode'],
   },
   {
     page: 'chat',

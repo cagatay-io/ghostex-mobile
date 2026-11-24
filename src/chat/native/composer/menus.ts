@@ -442,7 +442,7 @@ export function moreActionsRows({
         if ((allFolded || rowFolded(document, 'terminal')) && available('terminal')) {
           const issue = terminalIssue(document);
           rows.push({
-            label: document.nonCliMode === true ? 'Switch to Terminal' : 'Terminal View',
+            label: document.nonCliMode === true ? 'Switch to Terminal-based' : 'Terminal View',
             iconPath: 'titlebar/terminal-2.svg',
             ...(issue === null ? {} : { description: issue }),
             command: { type: 'composerHost', action: 'terminalView' },

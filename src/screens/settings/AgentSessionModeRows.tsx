@@ -33,7 +33,6 @@ import {
   type ReadSessionModesResult,
 } from '../../settings/agentSessionMode';
 import { SetupPalette } from '../../theme/palette';
-import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import {
   Caption,
@@ -69,6 +68,7 @@ export function AgentSessionModeRows() {
   const { machine, machines } = useSessionModeComputer(pickedId);
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' });
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [openLegacyTip, setOpenLegacyTip] = useState<NativeModeFamily | null>(null);
   const appearance = useAppearance();
   const machineId = machine?.id ?? null;
 
@@ -93,6 +93,9 @@ export function AgentSessionModeRows() {
 
   const change = (family: NativeModeFamily, mode: AgentSessionMode) => {
     if (loaded.kind !== 'values') return;
+    if (mode !== 'agent-cli' && openLegacyTip === family) {
+      setOpenLegacyTip(null);
+    }
     const before = loaded.modes;
     const next = { ...before, [family]: mode };
     setLoaded({ kind: 'values', modes: next });
@@ -122,30 +125,56 @@ export function AgentSessionModeRows() {
         <>
           {NATIVE_MODE_AGENTS.map((agent) => {
             const currentMode = modeForFamily(loaded.modes, agent.family);
-            const warnColor = readableSecondaryText(SetupPalette.WARN, appearance.foreground, [
-              appearance.background,
-              appearance.card,
-              appearance.cardActive,
-            ]);
+            const tipOpen = currentMode === 'agent-cli' && openLegacyTip === agent.family;
             return (
               <View key={agent.family} style={styles.agentGroup}>
                 <Text style={[styles.agentLabel, { color: appearance.foreground }]}>{agent.label}</Text>
-                <SegmentedRow
-                  label={`${agent.label} session mode`}
-                  options={SESSION_MODE_OPTIONS}
-                  value={currentMode}
-                  onChange={(next) => change(agent.family, next)}
-                />
-                {currentMode === 'agent-cli' ? (
-                  <Text style={[styles.legacyWarning, { color: warnColor }]}>{TERMINAL_MODE_LEGACY_WARNING}</Text>
+                <View style={styles.controlRow}>
+                  <View style={styles.controlGrow}>
+                    <SegmentedRow
+                      label={`${agent.label} session mode`}
+                      options={SESSION_MODE_OPTIONS}
+                      value={currentMode}
+                      onChange={(next) => change(agent.family, next)}
+                    />
+                  </View>
+                  {currentMode === 'agent-cli' ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${agent.label} Terminal-based mode info`}
+                      accessibilityHint="Shows why Terminal-based mode is legacy"
+                      accessibilityState={{ expanded: tipOpen }}
+                      hitSlop={8}
+                      onPress={() => setOpenLegacyTip((prev) => (prev === agent.family ? null : agent.family))}
+                      style={({ pressed }) => [styles.legacyDotButton, pressed ? { opacity: 0.7 } : null]}
+                    >
+                      <View style={[styles.legacyDot, { backgroundColor: SetupPalette.WARN }]} />
+                    </Pressable>
+                  ) : null}
+                </View>
+                {tipOpen ? (
+                  <Pressable
+                    onPress={() => setOpenLegacyTip(null)}
+                    style={[
+                      styles.legacyTooltip,
+                      {
+                        backgroundColor: appearance.card,
+                        borderColor: appearance.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.legacyTooltipText, { color: appearance.foreground }]}>
+                      {TERMINAL_MODE_LEGACY_WARNING}
+                    </Text>
+                  </Pressable>
                 ) : null}
               </View>
             );
           })}
           <Caption>
-            Terminal runs in an interactive terminal with instant switching between Chat and Terminal. Native runs
-            through a structured host for faster mobile chat and live approvals. Applies to chats started or resumed
-            after you change it.
+            Terminal-based runs in an interactive terminal with instant switching between Chat and Terminal. Native
+            runs through a structured host for faster mobile chat and live approvals. Applies to chats started or
+            resumed after you change it.
           </Caption>
           {saveError !== null ? <NoticeCard tone="error" title="Could not save Session mode" detail={saveError} /> : null}
         </>
@@ -214,9 +243,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingHorizontal: 2,
   },
-  legacyWarning: {
+  controlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  controlGrow: {
+    flex: 1,
+  },
+  legacyDotButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legacyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legacyTooltip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+  legacyTooltipText: {
     fontSize: 12.5,
     lineHeight: 17.5,
-    paddingHorizontal: 2,
   },
 });

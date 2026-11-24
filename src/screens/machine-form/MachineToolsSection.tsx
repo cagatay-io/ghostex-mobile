@@ -63,6 +63,7 @@ function Row({
 }) {
   const appearance = useAppearance();
   const formStyles = useFormStyles();
+  const [legacyTipOpen, setLegacyTipOpen] = useState(false);
   const starting = tools.starting[row.key] === true;
   const failed = tools.failed[row.key];
   const action = row.action;
@@ -112,60 +113,78 @@ function Row({
         <View style={modeStyles.modeBlock}>
           <View style={modeStyles.modeRow}>
             <Text style={[modeStyles.modeLabel, { color: appearance.muted }]}>Session mode</Text>
-            <View
-              style={[
-                modeStyles.segmentTrack,
-                { borderColor: appearance.border, backgroundColor: appearance.background },
-              ]}
-              accessibilityRole="radiogroup"
-              accessibilityLabel={`${row.title} session mode`}
-            >
-              {SESSION_MODE_OPTIONS.map((option) => {
-                const selected = option.value === currentMode;
-                return (
-                  <Pressable
-                    key={option.value}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={`${row.title} ${option.label}`}
-                    onPress={() => {
-                      if (!selected) onChangeSessionMode(nativeFamily, option.value);
-                    }}
-                    style={({ pressed }) => [
-                      modeStyles.segmentBtn,
-                      selected ? { backgroundColor: appearance.neutralFill } : null,
-                      pressed ? { opacity: 0.78 } : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        modeStyles.segmentText,
-                        { color: selected ? appearance.foreground : appearance.muted },
-                        selected ? modeStyles.segmentTextActive : null,
+            <View style={modeStyles.modeControls}>
+              {currentMode === 'agent-cli' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${row.title} Terminal-based mode info`}
+                  accessibilityHint="Shows why Terminal-based mode is legacy"
+                  accessibilityState={{ expanded: legacyTipOpen }}
+                  hitSlop={8}
+                  onPress={() => setLegacyTipOpen((prev) => !prev)}
+                  style={({ pressed }) => [modeStyles.legacyDotButton, pressed ? { opacity: 0.7 } : null]}
+                >
+                  <View style={[modeStyles.legacyDot, { backgroundColor: SetupPalette.WARN }]} />
+                </Pressable>
+              ) : null}
+              <View
+                style={[
+                  modeStyles.segmentTrack,
+                  { borderColor: appearance.border, backgroundColor: appearance.background },
+                ]}
+                accessibilityRole="radiogroup"
+                accessibilityLabel={`${row.title} session mode`}
+              >
+                {SESSION_MODE_OPTIONS.map((option) => {
+                  const selected = option.value === currentMode;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`${row.title} ${option.label}`}
+                      onPress={() => {
+                        if (!selected) {
+                          if (option.value !== 'agent-cli') setLegacyTipOpen(false);
+                          onChangeSessionMode(nativeFamily, option.value);
+                        }
+                      }}
+                      style={({ pressed }) => [
+                        modeStyles.segmentBtn,
+                        selected ? { backgroundColor: appearance.neutralFill } : null,
+                        pressed ? { opacity: 0.78 } : null,
                       ]}
                     >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        style={[
+                          modeStyles.segmentText,
+                          { color: selected ? appearance.foreground : appearance.muted },
+                          selected ? modeStyles.segmentTextActive : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
-          {currentMode === 'agent-cli' ? (
-            <Text
+          {currentMode === 'agent-cli' && legacyTipOpen ? (
+            <Pressable
+              onPress={() => setLegacyTipOpen(false)}
               style={[
-                modeStyles.legacyWarning,
+                modeStyles.legacyTooltip,
                 {
-                  color: readableSecondaryText(SetupPalette.WARN, appearance.foreground, [
-                    appearance.background,
-                    appearance.card,
-                    appearance.cardActive,
-                  ]),
+                  backgroundColor: appearance.background,
+                  borderColor: appearance.border,
                 },
               ]}
             >
-              {TERMINAL_MODE_LEGACY_WARNING}
-            </Text>
+              <Text style={[modeStyles.legacyTooltipText, { color: appearance.foreground }]}>
+                {TERMINAL_MODE_LEGACY_WARNING}
+              </Text>
+            </Pressable>
           ) : null}
         </View>
       ) : null}
@@ -380,7 +399,30 @@ const modeStyles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  legacyWarning: {
+  modeControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legacyDotButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legacyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legacyTooltip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  legacyTooltipText: {
     fontSize: 12,
     lineHeight: 16.5,
   },

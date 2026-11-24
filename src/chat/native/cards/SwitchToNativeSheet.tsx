@@ -39,7 +39,7 @@ export function SwitchToNativeSheet({
   const agentName = offer?.agentName ?? 'this agent';
   const body = working
     ? `${agentName} is replying now. Ghostex will switch to Native mode automatically as soon as this reply finishes, keeping your chat history.`
-    : `Ghostex will reopen ${agentName} in Native mode. Your chat history stays, and you can switch back to Terminal anytime.`;
+    : `Ghostex will reopen ${agentName} in Native mode. Your chat history stays, and you can switch back to Terminal-based anytime.`;
 
   return (
     <BottomSheet visible={offer !== null} onClose={busy ? () => undefined : onCancel}>

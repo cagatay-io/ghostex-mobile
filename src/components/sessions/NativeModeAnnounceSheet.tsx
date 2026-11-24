@@ -41,8 +41,8 @@ function formatBulkSwitchSummary(summary: BulkSwitchSummary, computerName: strin
   if (summary.skippedBusy > 0) {
     notes.push(
       summary.skippedBusy === 1
-        ? '1 is busy and stays in Terminal until you switch it'
-        : `${summary.skippedBusy} are busy and stay in Terminal until you switch them`,
+        ? '1 is busy and stays in Terminal-based until you switch it'
+        : `${summary.skippedBusy} are busy and stay in Terminal-based until you switch them`,
     );
   }
   if (summary.skippedThreads > 0) {
@@ -53,7 +53,7 @@ function formatBulkSwitchSummary(summary: BulkSwitchSummary, computerName: strin
     );
   }
   if (summary.failed > 0) {
-    notes.push(`${summary.failed} could not switch and stayed in Terminal`);
+    notes.push(`${summary.failed} could not switch and stayed in Terminal-based`);
   }
   if (summary.switched > 0 && notes.length > 0) {
     return `Switched ${summary.switched} ${plural(summary.switched)}; ${notes.join('; ')}.`;
