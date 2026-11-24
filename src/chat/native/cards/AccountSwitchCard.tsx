@@ -19,6 +19,7 @@ import { AgentMark } from './agentMark';
 import { Glyph } from './icons';
 import { arr, isTrue, num, obj, str } from './json';
 import { colorWithOpacity } from '../../../theme/palette';
+import { isLightBackground } from '../../../theme/sidebarAppearance';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { ChatButton, SWEEP_EASING, useLoop } from './primitives';
 
@@ -138,7 +139,7 @@ function Account({ value, provider, verified }: { value: unknown; provider: stri
     <View style={styles.account}>
       <View style={styles.accountLine}>
         <AgentMark icon={provider} size={14} />
-        <Text style={[styles.role, target && { color: P.accent }]}>{role}</Text>
+        <Text style={styles.role}>{role}</Text>
         <Text style={styles.accountLabel} numberOfLines={1}>
           {str(value, 'label')}
         </Text>
@@ -146,21 +147,19 @@ function Account({ value, provider, verified }: { value: unknown; provider: stri
       </View>
       <View style={styles.tiles}>
         {arr(obj(value)?.usage).map((usage, index) => (
-          <UsageTile key={index} usage={usage} target={target} />
+          <UsageTile key={index} usage={usage} />
         ))}
       </View>
     </View>
   );
 }
 
-function UsageTile({ usage, target }: { usage: unknown; target: boolean }) {
+function UsageTile({ usage }: { usage: unknown }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const level = str(usage, 'level') || 'unknown';
   const used = num(usage, 'used');
   const strong = level === 'high' || level === 'exhausted';
-  const ink = { moderate: 0.5, high: 0.72, exhausted: 1 }[level] ?? 0.3;
-  const fill = target ? colorWithOpacity(P.accent, 70) : P.ink(ink);
   const reset = str(usage, 'reset');
   return (
     <View style={[styles.tile, level === 'exhausted' && { borderColor: P.ink(0.35) }]}>
@@ -169,16 +168,13 @@ function UsageTile({ usage, target }: { usage: unknown; target: boolean }) {
           {str(usage, 'label')}
         </Text>
         <Text style={styles.tileReset} numberOfLines={1}>
-          {reset.length > 0 ? reset : '–'}
+          {reset.length > 0 ? reset : 'No reset yet'}
         </Text>
       </View>
       <Text style={[styles.tilePercent, strong && styles.tilePercentStrong, level === 'unknown' && { color: P.muted }]}>
         {used === null ? '–' : String(Math.round(used))}
         {used !== null ? <Text style={styles.tilePercentSign}>%</Text> : null}
       </Text>
-      {used !== null ? (
-        <View style={[styles.tileBar, { width: `${Math.max(0, Math.min(100, used))}%`, backgroundColor: fill }]} />
-      ) : null}
     </View>
   );
 }
@@ -190,27 +186,30 @@ function Step({ index, step }: { index: number; step: unknown }) {
   const sweep = useLoop(1600, SWEEP_EASING, state === 'active');
   const [lineWidth, setLineWidth] = useState(0);
   const color = state === 'active' ? P.foreground : state === 'done' ? P.prose : P.muted;
+  const accentInk = isLightBackground(P.accent) ? '#141518' : '#ffffff';
   const grow = [1, 1.3, 1.1][index] ?? 1;
   return (
     <View style={[styles.step, { flexGrow: grow }]}>
       <View
         style={[
           styles.stepNumber,
-          state === 'active' && { backgroundColor: P.foreground, borderColor: 'transparent' },
-          state === 'done' && { backgroundColor: colorWithOpacity(P.accent, 22), borderColor: 'transparent' },
+          state === 'active' && { backgroundColor: P.accent, borderColor: 'transparent' },
+          state === 'done' && { backgroundColor: colorWithOpacity(P.accent, 18), borderColor: 'transparent' },
         ]}
       >
         {state === 'done' ? (
           <Glyph name="check" size={10} color={P.accent} />
         ) : (
-          <Text style={[styles.stepNumberText, state === 'active' && { color: P.floatingSurface }]}>{index + 1}</Text>
+          <Text style={[styles.stepNumberText, state === 'active' && { color: accentInk, fontWeight: '600' }]}>
+            {index + 1}
+          </Text>
         )}
       </View>
-      <Text style={[styles.stepLabel, { color }]} numberOfLines={1}>
+      <Text style={[styles.stepLabel, state === 'active' && styles.stepLabelActive, { color }]} numberOfLines={1}>
         {str(step, 'label')}
       </Text>
       <View
-        style={[styles.stepLine, state === 'done' && { backgroundColor: colorWithOpacity(P.accent, 55) }]}
+        style={[styles.stepLine, state === 'done' && { backgroundColor: colorWithOpacity(P.accent, 65) }]}
         onLayout={(event) => setLineWidth(event.nativeEvent.layout.width)}
       >
         {state === 'active' ? (
@@ -252,13 +251,13 @@ const useStyles = themedStyles((P) => ({
     maxWidth: 430,
     gap: 12,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: P.ink(P.light ? 0.12 : 0.1),
+    borderColor: P.border,
     backgroundColor: P.floatingSurface,
     shadowColor: '#000',
-    shadowOpacity: P.light ? 0.1 : 0.25,
-    shadowRadius: 16,
+    shadowOpacity: P.light ? 0.16 : 0.4,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 12 },
   },
   heading: {
@@ -298,6 +297,7 @@ const useStyles = themedStyles((P) => ({
     minWidth: 30,
     color: P.muted,
     fontSize: 11,
+    fontWeight: '500',
   },
   accountLabel: {
     flexShrink: 1,
@@ -315,23 +315,24 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingTop: 6,
-    paddingHorizontal: 8,
-    paddingBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 9,
     overflow: 'hidden',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: P.ink(P.light ? 0.12 : 0.1),
+    borderColor: P.border,
     backgroundColor: P.floatingTile,
   },
   tileText: {
     flex: 1,
     minWidth: 0,
+    gap: 2,
   },
   tileLabel: {
-    color: P.muted,
+    color: P.foreground,
     fontSize: 11,
     lineHeight: 14,
+    fontWeight: '600',
   },
   tileReset: {
     color: P.muted,
@@ -339,7 +340,7 @@ const useStyles = themedStyles((P) => ({
     lineHeight: 13,
   },
   tilePercent: {
-    color: P.prose,
+    color: P.foreground,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '500',
@@ -352,12 +353,6 @@ const useStyles = themedStyles((P) => ({
     color: P.muted,
     fontSize: 10,
     fontWeight: '500',
-  },
-  tileBar: {
-    position: 'absolute',
-    left: 0,
-    bottom: 0,
-    height: 2,
   },
   steps: {
     flexDirection: 'row',
@@ -377,7 +372,7 @@ const useStyles = themedStyles((P) => ({
     height: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: P.ink(P.light ? 0.12 : 0.1),
+    borderColor: P.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -390,6 +385,9 @@ const useStyles = themedStyles((P) => ({
     fontSize: 11,
     lineHeight: 15,
   },
+  stepLabelActive: {
+    fontWeight: '500',
+  },
   stepLine: {
     position: 'absolute',
     left: 0,
@@ -398,7 +396,7 @@ const useStyles = themedStyles((P) => ({
     height: 2,
     borderRadius: 2,
     overflow: 'hidden',
-    backgroundColor: P.ink(P.light ? 0.1 : 0.09),
+    backgroundColor: P.ink(P.light ? 0.08 : 0.1),
   },
   stepSweep: {
     position: 'absolute',
