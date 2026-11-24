@@ -733,13 +733,22 @@ export default function AttentionList({
   useEffect(
     () => () => {
       const byMachine = new Map<string, string[]>();
+      const seenOnlyByMachine = new Map<string, { id: string; kind: PanelRow['kind'] }[]>();
       for (const row of unreadRef.current) {
-        if (row.awaitingApproval === true || keptUnreadKeysRef.current.has(row.key)) continue;
+        if (keptUnreadKeysRef.current.has(row.key)) continue;
+        if (row.awaitingApproval === true) {
+          const seenRows = seenOnlyByMachine.get(row.machineId);
+          if (seenRows !== undefined) seenRows.push({ id: row.id, kind: row.kind });
+          else seenOnlyByMachine.set(row.machineId, [{ id: row.id, kind: row.kind }]);
+          continue;
+        }
         const ids = byMachine.get(row.machineId);
         if (ids !== undefined) ids.push(row.id);
         else byMachine.set(row.machineId, [row.id]);
       }
-      if (byMachine.size > 0) void markShownFeedRowsRead(byMachine);
+      if (byMachine.size > 0 || seenOnlyByMachine.size > 0) {
+        void markShownFeedRowsRead(byMachine, seenOnlyByMachine);
+      }
     },
     [],
   );

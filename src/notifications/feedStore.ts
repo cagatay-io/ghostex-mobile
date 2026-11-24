@@ -154,14 +154,116 @@ async function feedRpc(machine: MachineRecord): Promise<FeedRpc> {
   };
 }
 
+/** Per-computer monotonic epoch bumped on local optimistic edits so stale reads/markAllSeen never overwrite them. */
+const feedEpochs = new Map<string, number>();
+
+/** Per-computer rows (`${id}\n${kind}`) already seen in the Notifications list (cleared on explicit markUnread). */
+const optimisticallySeen = new Map<string, Set<string>>();
+
+/** Per-computer row ids currently being marked read by `markShownFeedRowsRead` (including per-row fallback). */
+const pendingMarkRead = new Map<string, Set<string>>();
+const inFlightMarkRead = new Map<string, number>();
+
+function seenRowStamp(row: Pick<FeedRow, 'id' | 'kind'>): string {
+  return `${row.id}\n${row.kind}`;
+}
+
+function feedEpoch(machineId: string): number {
+  return feedEpochs.get(machineId) ?? 0;
+}
+
+function bumpFeedEpoch(machineId: string): number {
+  const next = feedEpoch(machineId) + 1;
+  feedEpochs.set(machineId, next);
+  return next;
+}
+
+function noteRowsSeen(machineId: string, rows: readonly Pick<FeedRow, 'id' | 'kind'>[]): void {
+  if (rows.length === 0) return;
+  let set = optimisticallySeen.get(machineId);
+  if (set === undefined) {
+    set = new Set();
+    optimisticallySeen.set(machineId, set);
+  }
+  for (const row of rows) set.add(seenRowStamp(row));
+}
+
+function clearRowSeen(machineId: string, notificationId: string): void {
+  const seen = optimisticallySeen.get(machineId);
+  if (seen !== undefined) {
+    const prefix = `${notificationId}\n`;
+    for (const stamp of [...seen]) {
+      if (stamp.startsWith(prefix)) seen.delete(stamp);
+    }
+    if (seen.size === 0) optimisticallySeen.delete(machineId);
+  }
+  const pending = pendingMarkRead.get(machineId);
+  if (pending !== undefined) {
+    pending.delete(notificationId);
+    if (pending.size === 0) pendingMarkRead.delete(machineId);
+  }
+}
+
+function beginMarkRowsRead(machineId: string, ids: readonly string[]): number {
+  const epoch = bumpFeedEpoch(machineId);
+  let pending = pendingMarkRead.get(machineId);
+  if (pending === undefined) {
+    pending = new Set();
+    pendingMarkRead.set(machineId, pending);
+  }
+  for (const id of ids) pending.add(id);
+  inFlightMarkRead.set(machineId, (inFlightMarkRead.get(machineId) ?? 0) + 1);
+  return epoch;
+}
+
+function finishMarkRowsRead(machineId: string): void {
+  const remaining = Math.max(0, (inFlightMarkRead.get(machineId) ?? 0) - 1);
+  if (remaining === 0) {
+    inFlightMarkRead.delete(machineId);
+    pendingMarkRead.delete(machineId);
+  } else {
+    inFlightMarkRead.set(machineId, remaining);
+  }
+}
+
+function overlayOptimisticRows(machineId: string, rows: readonly FeedRow[]): readonly FeedRow[] {
+  const inFlight = (inFlightMarkRead.get(machineId) ?? 0) > 0;
+  const seen = optimisticallySeen.get(machineId);
+  if (seen !== undefined) {
+    const liveStamps = new Set<string>();
+    for (const row of rows) {
+      if (inFlight || !row.read) liveStamps.add(seenRowStamp(row));
+    }
+    for (const stamp of [...seen]) {
+      if (!liveStamps.has(stamp)) seen.delete(stamp);
+    }
+    if (seen.size === 0) optimisticallySeen.delete(machineId);
+  }
+  const activeSeen = optimisticallySeen.get(machineId);
+  const activePending = pendingMarkRead.get(machineId);
+  if ((activeSeen === undefined || activeSeen.size === 0) && (activePending === undefined || activePending.size === 0)) {
+    return rows;
+  }
+  return rows.map((row) => {
+    if (row.awaitingApproval !== true && activePending?.has(row.id) === true) {
+      return row.read && row.seen === true ? row : { ...row, read: true, seen: true };
+    }
+    if (activeSeen?.has(seenRowStamp(row)) === true && row.seen !== true) {
+      return { ...row, seen: true };
+    }
+    return row;
+  });
+}
+
 function setFeed(machineId: string, feed: MachineFeedState): void {
   useAttentionFeedStore.setState((state) => ({ feeds: { ...state.feeds, [machineId]: feed } }));
 }
 
 /** The computer's feed as just read or changed: the list shows it, the event record keeps its rows. */
 function applySnapshot(machineId: string, snapshot: FeedSnapshot): void {
-  setFeed(machineId, { status: 'ready', rows: snapshot.rows });
-  announcedEvents.retainFeed(machineId, snapshot.rows);
+  const rows = overlayOptimisticRows(machineId, snapshot.rows);
+  setFeed(machineId, { status: 'ready', rows });
+  announcedEvents.retainFeed(machineId, rows);
 }
 
 /**
@@ -632,6 +734,13 @@ export async function removeFeedRowDevice(machineId: string, notificationId: str
  * the computer did not take it, its feed is read again so the row comes back as it is there; false then.
  */
 export async function changeFeedRow(machineId: string, update: FeedUpdate): Promise<boolean> {
+  bumpFeedEpoch(machineId);
+  if (update.action === 'markUnread') {
+    clearRowSeen(machineId, update.notificationId);
+  } else {
+    const existing = useAttentionFeedStore.getState().feeds[machineId]?.rows.find((row) => row.id === update.notificationId);
+    if (existing !== undefined) noteRowsSeen(machineId, [existing]);
+  }
   editFeed(machineId, (rows) =>
     update.action === 'dismiss'
       ? rows.filter((row) => row.id !== update.notificationId || row.awaitingApproval === true)
@@ -653,11 +762,21 @@ export async function changeFeedRow(machineId: string, update: FeedUpdate): Prom
 export async function markEveryFeedSeen(machineIds: readonly string[]): Promise<boolean> {
   const results = await Promise.all(
     machineIds.map(async (machineId) => {
+      const startedEpoch = bumpFeedEpoch(machineId);
+      const currentRows = useAttentionFeedStore.getState().feeds[machineId]?.rows ?? [];
+      noteRowsSeen(
+        machineId,
+        currentRows.filter((row) => !row.read),
+      );
       editFeed(machineId, (rows) => rows.map((row) => (row.seen === true ? row : { ...row, seen: true })));
       const machine = machineById(machineId);
       if (machine === undefined) return false;
       try {
-        applySnapshot(machineId, await updateWholeFeed(await feedRpc(machine), 'markAllSeen'));
+        const snapshot = await updateWholeFeed(await feedRpc(machine), 'markAllSeen');
+        // Ignore a late `markAllSeen` answer if a newer local mutation (such as closing the list) already started.
+        if (feedEpoch(machineId) === startedEpoch) {
+          applySnapshot(machineId, snapshot);
+        }
         return true;
       } catch (error) {
         logAppEvent(`${machineDisplayLabel(machine)}: notification markAllSeen failed (${failureCategory(error)})`);
@@ -672,24 +791,60 @@ export async function markEveryFeedSeen(machineIds: readonly string[]): Promise<
  * Marks the shown unread rows read on their owning computers when the Notifications list closes, without acknowledging
  * their sessions. Falls back to per-row `markRead` for an older computer that predates `markShownRead`.
  */
-export async function markShownFeedRowsRead(byMachine: ReadonlyMap<string, readonly string[]>): Promise<boolean> {
+export async function markShownFeedRowsRead(
+  byMachine: ReadonlyMap<string, readonly string[]>,
+  seenOnlyByMachine?: ReadonlyMap<string, readonly Pick<FeedRow, 'id' | 'kind'>[]>,
+): Promise<boolean> {
+  if (seenOnlyByMachine !== undefined) {
+    for (const [machineId, rows] of seenOnlyByMachine) {
+      noteRowsSeen(machineId, rows);
+      const seenIds = new Set(rows.map((row) => row.id));
+      editFeed(machineId, (current) =>
+        current.map((row) => (seenIds.has(row.id) && row.seen !== true ? { ...row, seen: true } : row)),
+      );
+    }
+  }
   const entries = [...byMachine.entries()].filter(([, ids]) => ids.length > 0);
   if (entries.length === 0) return true;
   const results = await Promise.all(
     entries.map(async ([machineId, ids]) => {
       const idSet = new Set(ids);
+      const currentRows = useAttentionFeedStore.getState().feeds[machineId]?.rows ?? [];
+      noteRowsSeen(
+        machineId,
+        currentRows.filter((row) => idSet.has(row.id)),
+      );
+      const startedEpoch = beginMarkRowsRead(machineId, ids);
       editFeed(machineId, (rows) =>
         rows.map((row) =>
           idSet.has(row.id) && row.awaitingApproval !== true ? { ...row, read: true, seen: true } : row,
         ),
       );
       const machine = machineById(machineId);
-      if (machine === undefined) return false;
+      if (machine === undefined) {
+        finishMarkRowsRead(machineId);
+        return false;
+      }
       try {
-        applySnapshot(machineId, await markShownRowsRead(await feedRpc(machine), ids));
+        const snapshot = await markShownRowsRead(await feedRpc(machine), ids);
+        finishMarkRowsRead(machineId);
+        if (feedEpoch(machineId) === startedEpoch) {
+          applySnapshot(machineId, snapshot);
+        }
         return true;
       } catch {
-        return markAttentionRowsRead(machineId, ids);
+        try {
+          const snapshot = await markRowsRead(await feedRpc(machine), ids);
+          finishMarkRowsRead(machineId);
+          if (snapshot !== null && feedEpoch(machineId) === startedEpoch) {
+            applySnapshot(machineId, snapshot);
+          }
+          return true;
+        } catch (error) {
+          finishMarkRowsRead(machineId);
+          logAppEvent(`${machineDisplayLabel(machine)}: notification markRead failed (${failureCategory(error)})`);
+          return false;
+        }
       }
     }),
   );
@@ -704,11 +859,14 @@ export async function markShownFeedRowsRead(byMachine: ReadonlyMap<string, reado
 export async function changeEveryFeed(machineIds: readonly string[], action: 'markAllRead' | 'markFinishedSeen' | 'clearAll'): Promise<boolean> {
   const results = await Promise.all(
     machineIds.map(async (machineId) => {
+      bumpFeedEpoch(machineId);
+      const currentRows = useAttentionFeedStore.getState().feeds[machineId]?.rows ?? [];
+      noteRowsSeen(machineId, currentRows);
       // A computer on an older gxserver refuses markFinishedSeen: its unread "finished" rows are then marked read one
       // by one (taken before the optimistic edit below reads them here).
       const finishedIds =
         action === 'markFinishedSeen'
-          ? (useAttentionFeedStore.getState().feeds[machineId]?.rows ?? [])
+          ? currentRows
               .filter((row) => row.kind === 'finished' && !row.read && row.awaitingApproval !== true)
               .map((row) => row.id)
           : [];
