@@ -21,8 +21,8 @@ import { useAppearance } from '../../../theme/useAppearance';
 import type { SettingsPageId } from '../pages';
 import { Caption, useSettingsStyles } from '../SettingsControls';
 import { searchTrim } from './fuzzyMatch';
-import type { SettingsSearchFocus } from './SettingsSearchAnchor';
 import { searchSettings, type SettingsSearchResult } from './settingsSearchIndex';
+import type { SettingsSearchFocus } from './settingsSearchFocus';
 
 const useSettingsSearchStore = create<{ query: string; setQuery: (query: string) => void }>((set) => ({
   query: '',

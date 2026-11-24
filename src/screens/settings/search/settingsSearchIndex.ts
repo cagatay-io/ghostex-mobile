@@ -28,7 +28,7 @@ import type { SidebarOrganization } from '../../../settingsSync/sidebarOrganizat
 import { SETTINGS_PAGES, type SettingsPageId } from '../pages';
 import { DESKTOP_SETTINGS_WORDS } from './desktopSettingsWords.generated';
 import { anyMatches, SearchPattern, searchTrim } from './fuzzyMatch';
-import type { SettingsSearchFocus, SettingsSearchTarget } from './SettingsSearchAnchor';
+import type { SettingsSearchFocus, SettingsSearchTarget } from './settingsSearchFocus';
 
 export type SettingsSearchEntry = {
   readonly page: SettingsPageId;
