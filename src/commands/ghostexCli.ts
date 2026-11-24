@@ -1,8 +1,8 @@
 /**
  * Ghostex CLI command builders. Mirrors the Android reference implementation
  * (GhostexSshCommandBuilder) and docs/specs/sessions-drawer.md §§3,5,6:
- * single-quote shell quoting with `'"'"'` escaping and a `"$SHELL" -lc`
- * login-shell wrapper so remote commands see the user's PATH.
+ * single-quote shell quoting with `'"'"'` escaping and a login-shell
+ * wrapper (`loginShellCommand`) so remote commands see the user's PATH.
  */
 
 import type { QuickActionScope } from '../contract/mobileSummary';
@@ -20,9 +20,15 @@ export function shellQuote(value: string): string {
  */
 const GHOSTEX_CLI_PATH_FALLBACK = '$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin';
 
-/** Wrap a remote command in the account's configured login shell. */
+/**
+ * Run a POSIX `sh` command with the environment of the account's login shell.
+ *
+ * CDXC:RemoteMachines 2026-11-24 WHY:
+ * Every command the phone sends is POSIX sh (`case … esac`, `${VAR:-}`, `while … do`), but it used to run as `"$SHELL" -lc '<command>'`, so on a computer whose login shell is fish the photo upload failed with "fish: 'case' builtin not inside of switch block" and only one-line commands worked. The login shell still starts first so its PATH and config-file variables are kept, then hands the command to /bin/sh. The command travels in an environment variable because fish and sh pass `-c` arguments differently; sh `eval`s it so each process holds one copy (a second copy in argv could pass macOS's 1 MB argument limit for a long chat message), and unsets it first so the terminals the phone opens don't inherit it.
+ */
 export function loginShellCommand(remoteCommand: string): string {
-  return `"$SHELL" -lc ${shellQuote(`export PATH="$PATH:${GHOSTEX_CLI_PATH_FALLBACK}"; ${remoteCommand}`)}`;
+  const script = `unset GHOSTEX_SH_COMMAND; export PATH="$PATH:${GHOSTEX_CLI_PATH_FALLBACK}"; ${remoteCommand}`;
+  return `env GHOSTEX_SH_COMMAND=${shellQuote(script)} "$SHELL" -lc 'exec /bin/sh -c "eval \\"\\$GHOSTEX_SH_COMMAND\\""'`;
 }
 
 function requireId(value: string, label: string): string {
