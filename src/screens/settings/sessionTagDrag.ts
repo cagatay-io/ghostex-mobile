@@ -2,10 +2,17 @@
  * A Session Tags row's drag in Settings (SessionTagsSection.tsx): where a drop lands and whether it writes. The finger's
  * position and the list's frame are both window coordinates measured at the drop, so the page's scroll is in them; a
  * drop outside the list on either axis, a cancelled drag, or a drag started on a list that has changed since (an edit
- * synced in) writes nothing. A drop inside writes the whole list through the switches' own writer.
+ * synced in) writes nothing. A drop inside writes the whole held list with the entry moved (`moveHeldTagItem`), every
+ * held entry the selected computer's catalog lacks kept in its place.
  */
 
-import { listedTagItems, moveListedTagItem, storedTagListItems, type TagListItem } from '../../contract/sessionTagList';
+import type { GhostexCustomSessionTags } from '../../contract/mobileSummary/model';
+import {
+  listedTagItems,
+  moveHeldTagItem,
+  normalizeTagListItems,
+  type TagListItem,
+} from '../../contract/sessionTagList';
 
 /** A frame in window coordinates (`measureInWindow`). */
 export type WindowFrame = { x: number; y: number; width: number; height: number };
@@ -17,15 +24,18 @@ export type RowFrame = { y: number; height: number };
 export type TagDragState = { lifted: { id: string; from: string } | null };
 
 export type TagDragDeps = {
-  /** The list as the stores hold it now (not as a render last drew it). */
-  readList: () => TagListItem[];
+  /** The stored list as the stores hold it now (not as a render last drew it); `null` when the phone holds none. */
+  readHeld: () => unknown[] | null;
+  /** The selected computer's custom tags the list is read with; `null` without a computer. */
+  catalog: GhostexCustomSessionTags | null;
   grouping: boolean;
-  write: (next: readonly TagListItem[]) => void;
+  /** Saves the whole list. */
+  write: (next: unknown[]) => void;
   /** VoiceOver's word on the move: the entry and its new 0-based place among the listed entries. */
   announce: (item: TagListItem, position: number) => void;
 };
 
-const signature = (items: readonly TagListItem[]): string => JSON.stringify(storedTagListItems(items));
+const signature = (held: readonly unknown[] | null): string => JSON.stringify(held);
 
 /** The listed position under the finger, or `null` when the finger is outside the list on either axis. */
 export function dropPosition(
@@ -45,7 +55,7 @@ export function dropPosition(
 }
 
 export function liftTag(state: TagDragState, deps: TagDragDeps, id: string): void {
-  state.lifted = { id, from: signature(deps.readList()) };
+  state.lifted = { id, from: signature(deps.readHeld()) };
 }
 
 export function cancelTagDrag(state: TagDragState): void {
@@ -64,13 +74,13 @@ export function dropTag(
   const started = state.lifted;
   state.lifted = null;
   if (started === null || started.id !== id) return false;
-  const items = deps.readList();
-  if (signature(items) !== started.from) return false;
-  const listed = listedTagItems(items, deps.grouping);
+  const held = deps.readHeld();
+  if (signature(held) !== started.from) return false;
+  const listed = listedTagItems(normalizeTagListItems(held, deps.catalog), deps.grouping);
   const position = dropPosition(listed, rows, list, finger);
   const item = listed.find((entry) => entry.id === id);
   if (position === null || item === undefined) return false;
-  const next = moveListedTagItem(items, id, position, deps.grouping);
+  const next = moveHeldTagItem(held, deps.catalog, id, position, deps.grouping);
   if (next === null) return false;
   deps.write(next);
   deps.announce(item, position);

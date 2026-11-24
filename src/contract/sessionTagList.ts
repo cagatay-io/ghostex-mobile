@@ -81,22 +81,32 @@ function normalizeItem(candidate: unknown): TagListItem | null {
 }
 
 /**
+ * Each held entry as `normalizeTagListItems` reads it, or `null` where it leaves the entry out: one this phone does not
+ * know, a custom tag the computer's catalog lacks, or a repeat of an entry already read.
+ */
+function readHeldItems(held: readonly unknown[], catalog: GhostexCustomSessionTags | null): (TagListItem | null)[] {
+  const seen = new Set<string>();
+  return held.map((raw) => {
+    const item = normalizeItem(raw);
+    if (item === null || seen.has(item.id)) return null;
+    if (catalog !== null && item.kind === 'tag' && isCustomSessionTagId(item.id) && catalog.tags[item.id] === undefined) {
+      return null;
+    }
+    seen.add(item.id);
+    return item;
+  });
+}
+
+/**
  * gx-core `normalize_tag_list_items`: known rows in the stored order, the status entries a list lacks put at its top
  * (in their default order), the other defaults appended for anything missing, custom tags the computer no longer
  * knows dropped and new ones inserted before the No tag separator.
  */
 export function normalizeTagListItems(candidate: unknown, catalog: GhostexCustomSessionTags | null): TagListItem[] {
-  const seen = new Set<string>();
-  const items: TagListItem[] = [];
-  for (const raw of Array.isArray(candidate) ? candidate : []) {
-    const item = normalizeItem(raw);
-    if (item === null || seen.has(item.id)) continue;
-    if (catalog !== null && item.kind === 'tag' && isCustomSessionTagId(item.id) && catalog.tags[item.id] === undefined) {
-      continue;
-    }
-    seen.add(item.id);
-    items.push(item);
-  }
+  const items = readHeldItems(Array.isArray(candidate) ? candidate : [], catalog).filter(
+    (item): item is TagListItem => item !== null,
+  );
+  const seen = new Set(items.map((item) => item.id));
   const missingStatuses: TagListItem[] = [];
   for (const item of defaultTagListItems()) {
     if (seen.has(item.id)) continue;
@@ -185,8 +195,8 @@ export function listedTagItems(items: readonly TagListItem[], grouping: boolean)
 /**
  * The whole list with the listed entry `id` moved to `position` among the listed entries (`listedTagItems`), every
  * entry keeping its switches. An entry that is not listed (a separator, a status entry while grouping is off) keeps
- * its index in the stored list, and the listed entries change places among the remaining indexes. Drop, Move Up, Move
- * Down and Move to top all write through this; `null` when nothing moves.
+ * its index in the stored list, and the listed entries change places among the remaining indexes. `null` when nothing
+ * moves. Settings saves a move through `moveHeldTagItem`, which applies this to the held list.
  */
 export function moveListedTagItem(
   items: readonly TagListItem[],
@@ -201,6 +211,57 @@ export function moveListedTagItem(
   reordered.splice(position, 0, ...reordered.splice(from, 1));
   let next = 0;
   return items.map((item) => (listed.includes(item) ? (reordered[next++] ?? item) : item));
+}
+
+/**
+ * A move in Settings (a drop, Move Up, Move Down or Move to top) as the list to save: `moveListedTagItem` over the held
+ * list as `normalizeTagListItems` reads it, with every held entry that reading leaves out (a custom tag or separator
+ * the selected computer's catalog lacks) kept as it is held and at its index, like a separator. The list syncs to every
+ * computer, and another one may still know such an entry; a repeat of an entry already read is not kept, since it would
+ * stand before the moved entry for a computer that reads the first of two. `null` when nothing moves.
+ */
+export function moveHeldTagItem(
+  held: readonly unknown[] | null,
+  catalog: GhostexCustomSessionTags | null,
+  id: string,
+  position: number,
+  grouping: boolean,
+): unknown[] | null {
+  const items = normalizeTagListItems(held, catalog);
+  const moved = moveListedTagItem(items, id, position, grouping);
+  if (moved === null) return null;
+  const stored = storedTagListItems(moved);
+  if (held === null) return stored;
+  const read = readHeldItems(held, catalog);
+  const readIds = new Set(read.flatMap((item) => (item === null ? [] : [item.id])));
+  const firstRead = read.find((item) => item !== null)?.id;
+  // Each left-out entry after the read entry held before it ('' before the first one).
+  const leftOut = new Map<string, unknown[]>();
+  const leftOutIds = new Set<string>();
+  let previous = '';
+  held.forEach((raw, index) => {
+    const item = read[index];
+    if (item !== null && item !== undefined) {
+      previous = item.id;
+      return;
+    }
+    const heldId = typeof raw === 'object' && raw !== null && 'id' in raw && typeof raw.id === 'string' ? raw.id : null;
+    if (heldId !== null && (readIds.has(heldId) || leftOutIds.has(heldId))) return;
+    if (heldId !== null) leftOutIds.add(heldId);
+    leftOut.set(previous, [...(leftOut.get(previous) ?? []), raw]);
+  });
+  if (leftOut.size === 0) return stored;
+  // The list as read with the left-out entries in their places; the moved list fills the read entries' places in order.
+  const places: ({ read: true } | { raw: unknown })[] = [];
+  const keep = (anchor: string) => places.push(...(leftOut.get(anchor) ?? []).map((raw) => ({ raw })));
+  for (const item of items) {
+    if (item.id === firstRead) keep('');
+    places.push({ read: true });
+    if (readIds.has(item.id)) keep(item.id);
+  }
+  if (firstRead === undefined) keep('');
+  let next = 0;
+  return places.map((place) => ('raw' in place ? place.raw : stored[next++]));
 }
 
 /** gx-core `matches_session_filters` without the Cloud Box filter: no filter keeps every row. */

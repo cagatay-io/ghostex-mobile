@@ -27,7 +27,7 @@ import { EMPTY_CUSTOM_SESSION_TAGS } from '../../contract/mobileSummary/model';
 import {
   isStatusTagId,
   listedTagItems,
-  moveListedTagItem,
+  moveHeldTagItem,
   normalizeTagListItems,
   storedTagListItems,
   type StatusTagId,
@@ -73,10 +73,11 @@ const MOVE_ACTIONS = [
  * symbol and a "Status" caption.
  *
  * Each row has a handle beside its switch: dragged, it moves the row; tapped, it offers Move Up, Move Down and Move to
- * top, which VoiceOver also offers on the row. Every move writes the whole list through the switches' own writer, each
- * entry keeping its switches, and the entries the page does not list (the separators, and the status entries while
- * grouping is off) keep their places in it. A drag let go outside the list, cancelled by the system, or started on a
- * list that has changed since writes nothing.
+ * top, which VoiceOver also offers on the row. Every move saves the whole held list with the entry moved, each entry
+ * keeping its switches; the entries the page does not list (the separators, the status entries while grouping is off,
+ * and custom tags or separators the selected computer's catalog lacks, which another computer may still know) keep
+ * their places in it. A drag let go outside the list, cancelled by the system, or started on a list that has changed
+ * since writes nothing.
  */
 export function SessionTagsSection({
   items,
@@ -91,7 +92,8 @@ export function SessionTagsSection({
   const appearance = useAppearance();
   const ink = useSidebarInk();
   const catalog = summary?.customSessionTags ?? EMPTY_CUSTOM_SESSION_TAGS;
-  const list = normalizeTagListItems(items, summary === null ? null : catalog);
+  const known = summary === null ? null : catalog;
+  const list = normalizeTagListItems(items, known);
   const listed = listedTagItems(list, grouping);
   const listRef = useRef<ViewInstance | null>(null);
   const frames = useRef(new Map<string, RowFrame>());
@@ -106,14 +108,15 @@ export function SessionTagsSection({
       : item.kind === 'untagged'
         ? SessionGroupsCopy.noTag
         : (BUILTIN_LABELS[item.id] ?? catalog.tags[item.id]?.name ?? item.id);
-  const write = (next: readonly TagListItem[]) =>
-    setSidebarSetting('sidebarSessionTagListItems', storedTagListItems(next));
   const setShown = (id: string, shown: boolean) =>
-    write(list.map((item) => (item.id === id ? { ...item, enabled: shown, visible: shown } : item)));
+    setSidebarSetting(
+      'sidebarSessionTagListItems',
+      storedTagListItems(list.map((item) => (item.id === id ? { ...item, enabled: shown, visible: shown } : item))),
+    );
   const move = (item: TagListItem, position: number): void => {
-    const next = moveListedTagItem(list, item.id, position, grouping);
+    const next = moveHeldTagItem(items, known, item.id, position, grouping);
     if (next === null) return;
-    write(next);
+    setSidebarSetting('sidebarSessionTagListItems', next);
     AccessibilityInfo.announceForAccessibility(SessionGroupsCopy.tags.moved(label(item), position + 1));
   };
   const onAction = (item: TagListItem, at: number) => (event: AccessibilityActionEvent) => {
@@ -123,13 +126,10 @@ export function SessionTagsSection({
 
   const dragDeps: TagDragDeps = {
     // The list the stores hold at the event, which a drop compares with the one its drag started on.
-    readList: () =>
-      normalizeTagListItems(
-        currentSidebarOrganization(summary).sidebarSessionTagListItems,
-        summary === null ? null : catalog,
-      ),
+    readHeld: () => currentSidebarOrganization(summary).sidebarSessionTagListItems,
+    catalog: known,
     grouping,
-    write,
+    write: (next) => setSidebarSetting('sidebarSessionTagListItems', next),
     announce: (item, position) =>
       AccessibilityInfo.announceForAccessibility(SessionGroupsCopy.tags.moved(label(item), position + 1)),
   };
