@@ -316,9 +316,8 @@ export function WorkDock({
   // The row whose ask is shown in its sheet (`DockRow` with `onClose`), by key.
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const [all, setAll] = useState(false);
-  const [doneOpen, setDoneOpen] = useState(false);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
-  const [answeredOpen, setAnsweredOpen] = useState(false);
+  const [recentOpen, setRecentOpen] = useState(false);
   const [swipeSnoozeRow, setSwipeSnoozeRow] = useState<JsonRecord | null>(null);
   const env = useMemo<TranscriptEnv>(
     () => ({
@@ -359,11 +358,10 @@ export function WorkDock({
   const shownCollapsed = useRef<boolean | null>(null);
   const dock = obj(dockValue);
   const rows = dockRows(document);
-  const done = dockDone(document);
-  const doneArchiveAll = obj(dock?.doneArchiveAll);
-  const doneArchiveAllCmd = obj(doneArchiveAll?.command);
   const snoozed = dockSnoozed(document);
-  const answered = dockAnswered(document);
+  const recent = dockRecent(document);
+  const recentArchiveAll = obj(dock?.recentArchiveAll) ?? obj(dock?.doneArchiveAll);
+  const recentArchiveAllCmd = obj(recentArchiveAll?.command);
   const undoMarkAllRead = obj(dock?.undoMarkAllRead);
   const board = obj(boardValue);
   // The sheet's row left the dock while it was open: the sheet goes (its key with it, so the same
@@ -378,8 +376,8 @@ export function WorkDock({
   const sheetGone =
     sheetKey !== null &&
     !rows.some((row) => str(row, 'key') === sheetKey) &&
-    !done.some((row) => str(row, 'key') === sheetKey) &&
-    !snoozed.some((row) => str(row, 'key') === sheetKey);
+    !snoozed.some((row) => str(row, 'key') === sheetKey) &&
+    !recent.some((row) => str(row, 'key') === sheetKey);
   const settledValue = document?.workAsksSettled;
   useEffect(() => {
     if (!sheetGone || sheetKey === null) return;
@@ -395,8 +393,7 @@ export function WorkDock({
     return null;
   }
   // With nothing docked the bar is one line: no chevron, nothing to open.
-  const collapsible =
-    rows.length > 0 || done.length > 0 || snoozed.length > 0 || answered.length > 0 || undoMarkAllRead !== null;
+  const collapsible = rows.length > 0 || snoozed.length > 0 || recent.length > 0 || undoMarkAllRead !== null;
   const hiddenInCore = isTrue(dock, 'hidden');
   // An approval the agent waits on (or one just answered) keeps the dock open while typing: it is
   // drawn nowhere else (gx-chat-core extras/dock_approvals.rs; desktop `render_work_dock`).
@@ -410,7 +407,9 @@ export function WorkDock({
   const markAllSeen = obj(dock?.markAllSeen);
   const markAllSummary = str(markAllSeen, 'summary');
   const sheetRow =
-    sheetKey === null ? null : ([...rows, ...done, ...snoozed].find((row) => str(row, 'key') === sheetKey) ?? null);
+    sheetKey === null
+      ? null
+      : ([...rows, ...snoozed, ...recent].find((row) => str(row, 'key') === sheetKey) ?? null);
   const swipeSnoozeChoices = swipeSnoozeRow === null
     ? []
     : arr(swipeSnoozeRow.snooze)
@@ -590,28 +589,61 @@ export function WorkDock({
                       </View>
                     ))
                   : null}
-                {answered.length > 0 ? (
+                {recent.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Handled, ${answered.length}`}
-                    accessibilityState={{ expanded: answeredOpen }}
+                    accessibilityLabel={`Recent, ${recent.length}`}
+                    accessibilityState={{ expanded: recentOpen }}
                     style={styles.dockSnoozed}
-                    onPress={() => setAnsweredOpen((was) => !was)}
+                    onPress={() => setRecentOpen((was) => !was)}
                   >
-                    <Glyph name="message-circle-check" size={13} color="#2fa865" />
+                    <StatusMarker status="finished" size={13} />
                     <View style={styles.dockSnoozedMain}>
                       <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
-                        Handled
+                        Recent
                       </Text>
-                      <CountBadge count={answered.length} light={P.light} />
+                      <CountBadge count={recent.length} light={P.light} />
                     </View>
-                    <View style={answeredOpen ? styles.dockSnoozedChevronOpen : null}>
+                    {recentOpen && recentArchiveAllCmd !== null ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Archive all, ${recent.length}`}
+                        hitSlop={6}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          dispatch(recentArchiveAllCmd as never);
+                        }}
+                        style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
+                      >
+                        <Text style={styles.bundleButtonText}>Archive all</Text>
+                      </Pressable>
+                    ) : null}
+                    <View style={recentOpen ? styles.dockSnoozedChevronOpen : null}>
                       <Glyph name="chevron-down" size={12} color={P.cardMuted} />
                     </View>
                   </Pressable>
                 ) : null}
-                {answeredOpen
-                  ? answered.map((row, idx) => {
+                {recentOpen
+                  ? recent.map((row, idx) => {
+                      const rowKey = str(row, 'key');
+                      if (str(row, 'kind') === 'finished') {
+                        const dismissCmd = obj(row.dismiss);
+                        return (
+                          <View key={rowKey} style={styles.dockSnoozedRow}>
+                            <SwipeableInboxRow
+                              canDismiss={dismissCmd !== null}
+                              dismissLabel="Archive"
+                              canSnooze={false}
+                              onDismiss={() => {
+                                if (dismissCmd !== null) dispatch(dismissCmd as never);
+                              }}
+                              onSnooze={() => undefined}
+                            >
+                              <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
+                            </SwipeableInboxRow>
+                          </View>
+                        );
+                      }
                       const showInChat = obj(row.showInChat);
                       const outcome = str(row, 'outcome').trim();
                       const showOutcome =
@@ -620,9 +652,18 @@ export function WorkDock({
                         outcome.toLowerCase() !== 'handled' &&
                         outcome.toLowerCase() !== 'done';
                       const age = str(row, 'age');
+                      const rowStatus = str(row, 'status');
+                      const iconName =
+                        rowStatus === 'approved'
+                          ? 'shield-check'
+                          : rowStatus === 'denied' || rowStatus === 'dropped'
+                            ? 'shield-x'
+                            : 'message-circle-check';
+                      const iconColor =
+                        rowStatus === 'denied' || rowStatus === 'dropped' ? STATUS_COLOR.blocked : '#2fa865';
                       return (
                         <Pressable
-                          key={`${str(row, 'key')}:${idx}`}
+                          key={`${rowKey}:${idx}`}
                           disabled={showInChat === null}
                           onPress={() => (showInChat !== null ? dispatch(showInChat as never) : undefined)}
                           style={({ pressed }) => [
@@ -630,7 +671,7 @@ export function WorkDock({
                             pressed && showInChat !== null && { backgroundColor: P.ink(0.04) },
                           ]}
                         >
-                          <Glyph name="message-circle-check" size={12} color="#2fa865" />
+                          <Glyph name={iconName} size={13} color={iconColor} />
                           <Text style={styles.dockAnsweredTitle} numberOfLines={1}>
                             {str(row, 'title')}
                           </Text>
@@ -641,61 +682,6 @@ export function WorkDock({
                           ) : null}
                           {age.length > 0 ? <Text style={styles.foldTime}>{age}</Text> : null}
                         </Pressable>
-                      );
-                    })
-                  : null}
-                {done.length > 0 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Done, ${done.length}`}
-                    accessibilityState={{ expanded: doneOpen }}
-                    style={styles.dockSnoozed}
-                    onPress={() => setDoneOpen((was) => !was)}
-                  >
-                    <StatusMarker status="finished" size={13} />
-                    <View style={styles.dockSnoozedMain}>
-                      <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
-                        Done
-                      </Text>
-                      <CountBadge count={done.length} light={P.light} />
-                    </View>
-                    {doneOpen && doneArchiveAllCmd !== null ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Archive all, ${done.length}`}
-                        hitSlop={6}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          dispatch(doneArchiveAllCmd as never);
-                        }}
-                        style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
-                      >
-                        <Text style={styles.bundleButtonText}>Archive all</Text>
-                      </Pressable>
-                    ) : null}
-                    <View style={doneOpen ? styles.dockSnoozedChevronOpen : null}>
-                      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
-                    </View>
-                  </Pressable>
-                ) : null}
-                {doneOpen
-                  ? done.map((row) => {
-                      const rowKey = str(row, 'key');
-                      const dismissCmd = obj(row.dismiss);
-                      return (
-                        <View key={rowKey} style={styles.dockSnoozedRow}>
-                          <SwipeableInboxRow
-                            canDismiss={dismissCmd !== null}
-                            dismissLabel="Archive"
-                            canSnooze={false}
-                            onDismiss={() => {
-                              if (dismissCmd !== null) dispatch(dismissCmd as never);
-                            }}
-                            onSnooze={() => undefined}
-                          >
-                            <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
-                          </SwipeableInboxRow>
-                        </View>
                       );
                     })
                   : null}
@@ -755,7 +741,16 @@ function dockRows(document: ChatDocument | null): JsonRecord[] {
     .filter((row): row is JsonRecord => row !== null);
 }
 
-/** The dock's finished items folded in the Done drawer (gx-chat-core `dock_with`'s `done`). */
+/** Combined Recent drawer rows (gx-chat-core `dock_with`'s `recent`, with fallback to `answered` + `done`). */
+function dockRecent(document: ChatDocument | null): JsonRecord[] {
+  const dock = obj(document?.workDock);
+  if (Array.isArray(dock?.recent)) {
+    return dock.recent.map(obj).filter((row): row is JsonRecord => row !== null);
+  }
+  return [...dockAnswered(document), ...dockDone(document)];
+}
+
+/** The dock's finished items (legacy `done` fallback for older chat cores). */
 function dockDone(document: ChatDocument | null): JsonRecord[] {
   return arr(obj(document?.workDock)?.done)
     .map(obj)
@@ -769,7 +764,7 @@ function dockSnoozed(document: ChatDocument | null): JsonRecord[] {
     .filter((row): row is JsonRecord => row !== null);
 }
 
-/** Recently answered items for the collapsible Handled drawer (gx-chat-core `dock_with`'s `answered`). */
+/** Recently answered items (legacy `answered` fallback for older chat cores). */
 function dockAnswered(document: ChatDocument | null): JsonRecord[] {
   return arr(obj(document?.workDock)?.answered)
     .map(obj)
@@ -808,9 +803,8 @@ export function workDockShown(document: ChatDocument, status: WorkingCardValue |
   const dock = obj(document.workDock);
   if (
     dockRows(document).length > 0 ||
-    dockDone(document).length > 0 ||
     dockSnoozed(document).length > 0 ||
-    dockAnswered(document).length > 0 ||
+    dockRecent(document).length > 0 ||
     obj(dock?.undoMarkAllRead) !== null
   ) {
     return true;
@@ -2404,10 +2398,9 @@ const useStyles = themedStyles((P) => ({
   dockAnsweredRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     opacity: 0.72,
-    paddingLeft: 24,
-    paddingRight: 8,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
   },
