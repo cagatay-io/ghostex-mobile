@@ -7,6 +7,7 @@
  * "Switching when done…" pill.
  */
 
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import type { NativeSwitchOffer } from '../../rust/document';
@@ -24,6 +25,7 @@ export function NativeSwitchPill({
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
+  const [bodyPressed, setBodyPressed] = useState(false);
   const queued = offer.queued === true;
   const label = queued ? 'Switches to Native when this reply ends' : 'Switch to Native';
   const accessibilityLabel = queued
@@ -32,13 +34,15 @@ export function NativeSwitchPill({
   const dismissLabel = queued ? 'Cancel Switch to Native' : `Hide Switch to Native for ${offer.agentName}`;
 
   return (
-    <View style={styles.pill}>
+    <View style={[styles.pill, bodyPressed ? styles.pillPressed : null]}>
       <Pressable
         onPress={onPress}
+        onPressIn={() => setBodyPressed(true)}
+        onPressOut={() => setBodyPressed(false)}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 2 }}
-        style={({ pressed }) => [styles.body, pressed ? styles.pressed : null]}
+        style={styles.body}
       >
         <ComposerGlyph name={queued ? 'clock' : 'bolt'} size={13} color={P.foreground} />
         <Text style={styles.label} numberOfLines={1}>
@@ -65,20 +69,19 @@ const useStyles = themedStyles((P) => ({
     height: 25,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: P.light ? 'rgba(0,0,0,0.16)' : 'rgba(255,255,255,0.18)',
-    backgroundColor: P.light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.09)',
+    borderColor: P.ink(0.1),
     paddingLeft: 8,
     paddingRight: 3,
     gap: 2,
+  },
+  pillPressed: {
+    backgroundColor: P.ink(0.08),
   },
   body: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingRight: 2,
-  },
-  pressed: {
-    opacity: 0.72,
   },
   label: {
     fontSize: 12.5,
@@ -93,6 +96,6 @@ const useStyles = themedStyles((P) => ({
     justifyContent: 'center',
   },
   dismissPressed: {
-    backgroundColor: P.light ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.14)',
+    backgroundColor: P.ink(0.08),
   },
 }));
