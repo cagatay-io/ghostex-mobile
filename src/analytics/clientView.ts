@@ -28,6 +28,7 @@ import {
   mobileViewForRoute,
   type MobileView,
 } from './mobileViews';
+import { flushOnboardingSteps, initOnboardingTelemetry } from './onboarding';
 import { lookupMachineTarget, sendMobileClientEvent } from './recordEvent';
 
 const VIEW_INTERVAL_MS = 60 * 60 * 1000;
@@ -108,6 +109,8 @@ export function initMobileAnalytics(): void {
   if (installed) return;
   installed = true;
 
+  initOnboardingTelemetry();
+
   onFirstHelloMachine(() => {
     if (currentRoute !== undefined) reportMobileView(currentRoute);
   });
@@ -120,8 +123,9 @@ export function initMobileAnalytics(): void {
   AppState.addEventListener('change', (next) => {
     const cameFromBackground = lastState === 'background' || lastState === 'inactive';
     lastState = next;
-    if (next === 'active' && cameFromBackground && currentRoute !== undefined) {
-      reportMobileView(currentRoute);
+    if (next === 'active' && cameFromBackground) {
+      if (currentRoute !== undefined) reportMobileView(currentRoute);
+      void flushOnboardingSteps();
     }
   });
 }

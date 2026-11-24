@@ -25,6 +25,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { recordOnboardingStartedIfUnpaired } from '../analytics/onboarding';
 import PasteCodeSheet from '../components/onboarding/PasteCodeSheet';
 import { useStackScreenRail } from '../components/common/verticalBar/stackRail';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
@@ -58,6 +59,10 @@ export default function ScanCodeScreen({ navigation, route }: Props) {
   const setupText = useSetupText();
   const rePairMachineId = route.params?.rePairMachineId ?? null;
   const incomingCode = route.params?.incomingCode;
+
+  useEffect(() => {
+    if (rePairMachineId === null) recordOnboardingStartedIfUnpaired();
+  }, [rePairMachineId]);
   const securityNotice = securityNoticeText(route.params?.securityNotice?.computers ?? []);
   const [permission, requestPermission] = useCameraPermissions();
   const askedRef = useRef(false);

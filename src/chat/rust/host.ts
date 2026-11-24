@@ -57,6 +57,8 @@ import {
 import { currentSessionDirectory, subscribeSessionDirectory } from './sessionDirectory';
 import { projectOrigin, subscribeProjectOrigin } from './projectOrigin';
 import { readRecord, readRetainedSnapshot, writeRecord, writeRetainedSnapshot } from './storage';
+import { recordOnboardingStep } from '../../analytics/onboarding';
+import { isDemoMachine } from '../../demo/identity';
 import { chatMachineLink, TOOL_OUTPUT_CUT_CAPABILITY } from './machine-link';
 import { findUploadTokens } from './uploadTokens';
 import { checkComputer, HELD_SEND_METHODS, heldSendRpc, sessionComputer, subscribeSessionComputer } from './computer';
@@ -1384,6 +1386,13 @@ export class RustChatHost {
           theme: resolvedTheme,
           transparent: result.transparent === true,
         });
+      }
+      if (
+        answer.error === null &&
+        (method === 'sendSessionChatMessage' || method === 'queueSessionChatPrompt') &&
+        !isDemoMachine(this.target.machine)
+      ) {
+        recordOnboardingStep('first_prompt', this.target.machine);
       }
       if (method === 'setSessionChatDraft') this.settleDraftSave(requestId, answer);
       this.settle(requestId, answer);

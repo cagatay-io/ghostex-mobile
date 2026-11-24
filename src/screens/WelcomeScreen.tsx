@@ -10,12 +10,13 @@
  * single button and the sheet (ConnectActions).
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { recordOnboardingStep } from '../analytics/onboarding';
 import { ConnectSteps } from '../components/onboarding/ConnectStart';
 import { CameraGlyph, ShieldGlyph, TerminalGlyph } from '../components/onboarding/SetupIcons';
 import { SetupButton, useSetupText } from '../components/onboarding/SetupPrimitives';
@@ -31,6 +32,11 @@ export default function WelcomeScreen({ navigation }: Props) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const setupText = useSetupText();
+
+  useEffect(() => {
+    recordOnboardingStep('started');
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.body}>
@@ -68,7 +74,10 @@ export default function WelcomeScreen({ navigation }: Props) {
           <Pressable
             accessibilityRole="button"
             hitSlop={8}
-            onPress={() => useMachinesStore.getState().addDemoComputer()}
+            onPress={() => {
+              recordOnboardingStep('skipped');
+              useMachinesStore.getState().addDemoComputer();
+            }}
           >
             <Text style={styles.demoLinkText}>{DemoCopy.welcomeButton}</Text>
           </Pressable>

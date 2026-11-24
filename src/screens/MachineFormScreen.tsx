@@ -24,6 +24,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GhostexNative, type SshConfig } from '../../modules/ghostex-native/src';
+import { recordOnboardingStartedIfUnpaired } from '../analytics/onboarding';
 import KeyboardAvoidingContainer from '../components/common/keyboard/KeyboardAvoidingContainer';
 import KeyboardAwareScrollView from '../components/common/keyboard/KeyboardAwareScrollView';
 import type { RailEntry } from '../components/common/verticalBar/railSlot';
@@ -140,6 +141,10 @@ function MachineFormBody({ navigation, route }: Props) {
   );
   const existing = machineId === null ? null : (machines.find((m) => m.id === machineId) ?? null);
   const editing = existing !== null;
+
+  useEffect(() => {
+    if (!editing) recordOnboardingStartedIfUnpaired();
+  }, [editing]);
   // Use SSH details: always a new SSH computer, worded like the desktop's Add a computer.
   const sshDetails = route.name === 'SshDetailsForm' && !editing;
 

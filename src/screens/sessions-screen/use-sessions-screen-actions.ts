@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 
 import { runQuickAction as runQuickActionOnMachine } from '../../actions/runAction';
 import { parseAgentNotInstalled, showMissingAgentNotice } from '../../agents/missingAgent';
+import { recordOnboardingStep } from '../../analytics/onboarding';
 import { logAppEvent } from '../../app/appLog';
 import { beginOpening } from '../../app/currentOpening';
 import type { QuickActionEntry } from '../../actions/quickActions';
@@ -31,6 +32,7 @@ import { claudeCloudPageUrl } from '../../contract/claudeCloud';
 import { projectKeyForSession, type ProjectHeaderItem } from '../../contract/grouping';
 import type { GhostexSession } from '../../contract/mobileSummary';
 import { ActionCopy, NewSessionCopy, ProgressCopy, RenameCopy, SessionCopy } from '../../copy';
+import { isDemoMachine } from '../../demo/identity';
 import type { OptimisticInventoryChange } from '../../inventory/optimistic';
 import { useInventoryStore } from '../../inventory/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
@@ -408,6 +410,7 @@ export function useSessionsScreenActions({
       try {
         const sessionId = createdSessionId(result);
         if (sessionId !== null) {
+          if (!isDemoMachine(target)) recordOnboardingStep('first_session', target);
           await open(sessionId);
         } else {
           if (!chatLaunch) await refreshMachine(target);

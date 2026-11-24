@@ -5,11 +5,12 @@
  * keeps its old name, ConnectChoose: it replaced the "How does your phone reach your computer?" chooser.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { recordOnboardingStartedIfUnpaired } from '../analytics/onboarding';
 import { useScrollToBarEdges } from '../components/common/verticalBar/VerticalBarArea';
 import { ConnectActions, ConnectSteps } from '../components/onboarding/ConnectStart';
 import type { RootStackParamList } from '../navigation/types';
@@ -22,6 +23,11 @@ export default function ConnectChooseScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   // The page reaches under the iPhone Duo's side bar, its content keeps clear of it.
   const edges = useScrollToBarEdges(styles.content);
+
+  useEffect(() => {
+    recordOnboardingStartedIfUnpaired();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={edges.scroll} contentContainerStyle={[styles.content, edges.content]}>
