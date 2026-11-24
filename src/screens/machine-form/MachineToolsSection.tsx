@@ -33,6 +33,7 @@ import {
   readAgentSessionModes,
   saveAgentSessionMode,
   SESSION_MODE_OPTIONS,
+  TERMINAL_MODE_LEGACY_WARNING,
   type AgentSessionMode,
   type NativeModeFamily,
 } from '../../settings/agentSessionMode';
@@ -108,46 +109,64 @@ function Row({
         ) : null}
       </View>
       {nativeFamily !== null && currentMode !== null && onChangeSessionMode !== undefined ? (
-        <View style={modeStyles.modeRow}>
-          <Text style={[modeStyles.modeLabel, { color: appearance.muted }]}>Session mode</Text>
-          <View
-            style={[
-              modeStyles.segmentTrack,
-              { borderColor: appearance.border, backgroundColor: appearance.background },
-            ]}
-            accessibilityRole="radiogroup"
-            accessibilityLabel={`${row.title} session mode`}
-          >
-            {SESSION_MODE_OPTIONS.map((option) => {
-              const selected = option.value === currentMode;
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`${row.title} ${option.label}`}
-                  onPress={() => {
-                    if (!selected) onChangeSessionMode(nativeFamily, option.value);
-                  }}
-                  style={({ pressed }) => [
-                    modeStyles.segmentBtn,
-                    selected ? { backgroundColor: appearance.neutralFill } : null,
-                    pressed ? { opacity: 0.78 } : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      modeStyles.segmentText,
-                      { color: selected ? appearance.foreground : appearance.muted },
-                      selected ? modeStyles.segmentTextActive : null,
+        <View style={modeStyles.modeBlock}>
+          <View style={modeStyles.modeRow}>
+            <Text style={[modeStyles.modeLabel, { color: appearance.muted }]}>Session mode</Text>
+            <View
+              style={[
+                modeStyles.segmentTrack,
+                { borderColor: appearance.border, backgroundColor: appearance.background },
+              ]}
+              accessibilityRole="radiogroup"
+              accessibilityLabel={`${row.title} session mode`}
+            >
+              {SESSION_MODE_OPTIONS.map((option) => {
+                const selected = option.value === currentMode;
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`${row.title} ${option.label}`}
+                    onPress={() => {
+                      if (!selected) onChangeSessionMode(nativeFamily, option.value);
+                    }}
+                    style={({ pressed }) => [
+                      modeStyles.segmentBtn,
+                      selected ? { backgroundColor: appearance.neutralFill } : null,
+                      pressed ? { opacity: 0.78 } : null,
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      style={[
+                        modeStyles.segmentText,
+                        { color: selected ? appearance.foreground : appearance.muted },
+                        selected ? modeStyles.segmentTextActive : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
+          {currentMode === 'agent-cli' ? (
+            <Text
+              style={[
+                modeStyles.legacyWarning,
+                {
+                  color: readableSecondaryText(SetupPalette.WARN, appearance.foreground, [
+                    appearance.background,
+                    appearance.card,
+                    appearance.cardActive,
+                  ]),
+                },
+              ]}
+            >
+              {TERMINAL_MODE_LEGACY_WARNING}
+            </Text>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -351,12 +370,19 @@ const modeStyles = StyleSheet.create({
   rowWrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  modeBlock: {
+    paddingBottom: 10,
+    gap: 6,
+  },
   modeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    paddingBottom: 10,
+  },
+  legacyWarning: {
+    fontSize: 12,
+    lineHeight: 16.5,
   },
   modeLabel: {
     fontSize: 12.5,

@@ -32,6 +32,9 @@ export const SESSION_MODE_OPTIONS: readonly { value: AgentSessionMode; label: st
   { value: 'non-cli', label: 'Native' },
 ];
 
+export const TERMINAL_MODE_LEGACY_WARNING =
+  'Terminal mode is legacy. Native is faster and more stable, and Terminal will be removed in a future release.';
+
 export function canonicalNativeModeFamily(raw: string): NativeModeFamily | null {
   switch (raw.trim().toLowerCase()) {
     case 'claude':

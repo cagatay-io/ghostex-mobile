@@ -316,15 +316,20 @@ export default function NativeChatScreen({
   const [savedPromptsOpen, setSavedPromptsOpen] = useState(false);
   // "Switch to Native?" confirmation bottom sheet (`Q4768`, `Q4769`, `Q4771`).
   const [switchToNativeOffer, setSwitchToNativeOffer] = useState<NativeSwitchOffer | null>(null);
+  const [switchToNativeSource, setSwitchToNativeSource] = useState<'pill' | 'more_menu'>('pill');
   const [switchToNativeBusy, setSwitchToNativeBusy] = useState(false);
 
-  const openSwitchToNative = useCallback((offer: NativeSwitchOffer, fromSheet = false) => {
-    if (fromSheet && Platform.OS === 'ios') {
-      setTimeout(() => setSwitchToNativeOffer(offer), HANDOFF_OPEN_DELAY_MS);
-    } else {
-      setSwitchToNativeOffer(offer);
-    }
-  }, []);
+  const openSwitchToNative = useCallback(
+    (offer: NativeSwitchOffer, fromSheet = false, source: 'pill' | 'more_menu' = 'pill') => {
+      setSwitchToNativeSource(source);
+      if (fromSheet && Platform.OS === 'ios') {
+        setTimeout(() => setSwitchToNativeOffer(offer), HANDOFF_OPEN_DELAY_MS);
+      } else {
+        setSwitchToNativeOffer(offer);
+      }
+    },
+    [],
+  );
 
   const cancelSwitchToNative = useCallback(() => {
     void sessionChatRpc(machine, 'switchSessionCliToAcp', { projectId, sessionId, cancel: true }).then((answer) => {
@@ -409,7 +414,12 @@ export default function NativeChatScreen({
               10_000,
             );
           }
-          const answer = await sessionChatRpc(machine, 'switchSessionCliToAcp', { projectId, sessionId });
+          const answer = await sessionChatRpc(machine, 'switchSessionCliToAcp', {
+            projectId,
+            sessionId,
+            source: switchToNativeSource,
+            client: 'mobile',
+          });
           if (answer.error !== null) {
             show(answer.error.message, true, 'Could not switch to Native');
           } else {
@@ -434,7 +444,7 @@ export default function NativeChatScreen({
         }
       })();
     },
-    [machine, projectId, sessionId, show],
+    [machine, projectId, sessionId, show, switchToNativeSource],
   );
   // More actions > Handoff / Export opens the chat's own dialog, the one the model menu's handoff opens.
   const exportCount = useRef(0);
@@ -501,7 +511,7 @@ export default function NativeChatScreen({
           nativeDefault: params.nativeDefault === true,
           showMenuItem: true,
         };
-        openSwitchToNative(offer, true);
+        openSwitchToNative(offer, true, 'more_menu');
       } else if (action === 'cancelSwitchToNative') {
         cancelSwitchToNative();
       } else if (hostActions.includes(action)) {
@@ -843,7 +853,7 @@ export default function NativeChatScreen({
                               onShowPage={showHiddenPage}
                               onClosePage={closeHiddenPage}
                               onSessionDetailsPress={openDetails}
-                              onSwitchToNative={(offer) => openSwitchToNative(offer, false)}
+                              onSwitchToNative={(offer) => openSwitchToNative(offer, false, 'pill')}
                               onCancelSwitchToNative={cancelSwitchToNative}
                               onDismissNativeSwitch={dismissNativeSwitch}
                               // The where pill's Open folder: the screen's Files browser for this project

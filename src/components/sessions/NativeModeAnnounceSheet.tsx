@@ -209,7 +209,11 @@ export function NativeModeAnnounceSheet({
         const computerLabel = machineName || current.host;
         let summary = `Native mode is on for new chats on ${computerLabel}.`;
         try {
-          const switched = await link.rpc('switchEligibleSessionsToAcp', {}, 45_000);
+          const switched = await link.rpc(
+            'switchEligibleSessionsToAcp',
+            { source: 'bulk_modal', client: 'mobile' },
+            45_000,
+          );
           if (switched.error === null) {
             const payload = (switched.result ?? {}) as {
               completed?: unknown;

@@ -15,7 +15,7 @@ export type DesktopSettingWords = {
 export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords>> = {
   "agentSessionMode": {
     "title": "Session mode",
-    "subtitle": "Choose Terminal (interactive terminal, instant switching between Chat and Terminal) or Native (structured host without terminal scraping; switching to Terminal asks first and interrupts any active turn). Applies to sessions started or resumed after you change it.",
+    "subtitle": "Choose Native (faster, more stable structured host; default on new Chat-first installs; switching to Terminal asks first and interrupts any active turn) or Terminal (legacy interactive terminal, will be removed in a future release). Applies to sessions started or resumed after you change it.",
     "options": [],
     "keywords": []
   },

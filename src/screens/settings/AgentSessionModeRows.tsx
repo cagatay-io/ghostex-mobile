@@ -27,10 +27,13 @@ import {
   readAgentSessionModes,
   saveAgentSessionMode,
   SESSION_MODE_OPTIONS,
+  TERMINAL_MODE_LEGACY_WARNING,
   type AgentSessionMode,
   type NativeModeFamily,
   type ReadSessionModesResult,
 } from '../../settings/agentSessionMode';
+import { SetupPalette } from '../../theme/palette';
+import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import {
   Caption,
@@ -117,17 +120,28 @@ export function AgentSessionModeRows() {
       ) : null}
       {loaded.kind === 'values' ? (
         <>
-          {NATIVE_MODE_AGENTS.map((agent) => (
-            <View key={agent.family} style={styles.agentGroup}>
-              <Text style={[styles.agentLabel, { color: appearance.foreground }]}>{agent.label}</Text>
-              <SegmentedRow
-                label={`${agent.label} session mode`}
-                options={SESSION_MODE_OPTIONS}
-                value={modeForFamily(loaded.modes, agent.family)}
-                onChange={(next) => change(agent.family, next)}
-              />
-            </View>
-          ))}
+          {NATIVE_MODE_AGENTS.map((agent) => {
+            const currentMode = modeForFamily(loaded.modes, agent.family);
+            const warnColor = readableSecondaryText(SetupPalette.WARN, appearance.foreground, [
+              appearance.background,
+              appearance.card,
+              appearance.cardActive,
+            ]);
+            return (
+              <View key={agent.family} style={styles.agentGroup}>
+                <Text style={[styles.agentLabel, { color: appearance.foreground }]}>{agent.label}</Text>
+                <SegmentedRow
+                  label={`${agent.label} session mode`}
+                  options={SESSION_MODE_OPTIONS}
+                  value={currentMode}
+                  onChange={(next) => change(agent.family, next)}
+                />
+                {currentMode === 'agent-cli' ? (
+                  <Text style={[styles.legacyWarning, { color: warnColor }]}>{TERMINAL_MODE_LEGACY_WARNING}</Text>
+                ) : null}
+              </View>
+            );
+          })}
           <Caption>
             Terminal runs in an interactive terminal with instant switching between Chat and Terminal. Native runs
             through a structured host for faster mobile chat and live approvals. Applies to chats started or resumed
@@ -198,6 +212,11 @@ const styles = StyleSheet.create({
   agentLabel: {
     fontSize: 13.5,
     fontWeight: '500',
+    paddingHorizontal: 2,
+  },
+  legacyWarning: {
+    fontSize: 12.5,
+    lineHeight: 17.5,
     paddingHorizontal: 2,
   },
 });
