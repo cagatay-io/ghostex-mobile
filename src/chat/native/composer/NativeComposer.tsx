@@ -55,7 +55,7 @@ import { MenuSheet, type MenuRow, type MenuSearch } from './MenuSheet';
 import { ModelMenuSheet, type ModelSheetMode } from './ModelMenuSheet';
 import { NotePanel } from './NotePanel';
 import { phonePlaceholder } from './placeholder';
-import { BoostCalloutAbove } from '../cards/Boosts';
+import { BoostHintChip } from '../cards/Boosts';
 import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { CompactPromptCard } from '../cards/CompactPromptCard';
@@ -930,11 +930,6 @@ export function NativeComposer({
               openMachines={openMachines}
             />
           ) : null}
-          {/* The Boosts' one-time callout, over the end of the chat and pointing at the Boost pill
-              (`cards/Boosts.tsx`); the box clips anything drawn inside it. */}
-          {strip !== undefined && !compact ? (
-            <BoostCalloutAbove hint={document?.boosts?.hint} dispatch={dispatch} />
-          ) : null}
           <View
             style={[styles.card, focused ? styles.cardFocused : null]}
             onLayout={(event: LayoutChangeEvent) => measureFrame('cardTop', event.nativeEvent.layout.y)}
@@ -976,56 +971,76 @@ export function NativeComposer({
                   />
                 ) : null}
                 {document !== null ? <QueueList document={document} dispatch={dispatch} /> : null}
-                <View style={collapsed ? styles.collapsedRow : null}>
-                  <View
-                    style={collapsed ? styles.grow : null}
-                    onLayout={(event: LayoutChangeEvent) => {
-                      if (!collapsed) measureFrame('field', event.nativeEvent.layout.height);
-                    }}
-                  >
-                    <ComposerInput
-                      ref={field}
-                      model={model}
-                      input={{
-                        ...input,
-                        focused: () => {
-                          setFocused(true);
-                          onFocusChange?.(true);
-                          input.focused();
-                          readTerminalTail();
-                        },
-                        blurred: () => {
-                          setFocused(false);
-                          onFocusChange?.(false);
-                          input.blurred();
-                        },
-                      }}
-                      references={references}
-                      parsedFor={text}
-                      parse={parseDraftReferences}
-                      placeholder={placeholder}
-                      collapsed={collapsed}
-                      maxHeight={inputMaxHeightFor(bottom)}
-                      onTextChange={setText}
-                      onCaret={setCaret}
-                      onImages={receiveImages}
-                    />
-                  </View>
-                  {collapsed ? (
-                    // Collapsed, desktop's toolbar keeps More actions beside Send (`render_toolbar`).
-                    <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
-                  ) : null}
-                  {collapsed ? (
-                    <SendControl
-                      document={document}
-                      hasDraft={hasDraft}
-                      ready={model.ready}
-                      submit={input.submit}
-                      dispatch={dispatch}
-                      onHold={openSendMenu}
-                    />
-                  ) : null}
-                </View>
+                {(() => {
+                  const boostHint =
+                    !collapsed &&
+                    !compact &&
+                    document?.boosts?.hint != null &&
+                    (Boolean(document.boosts.hint.title?.trim()) || Boolean(document.boosts.hint.text?.trim()))
+                      ? document.boosts.hint
+                      : null;
+                  return (
+                    <View
+                      style={
+                        collapsed
+                          ? styles.collapsedRow
+                          : boostHint !== null
+                            ? styles.editorWithChipRow
+                            : null
+                      }
+                    >
+                      <View
+                        style={collapsed || boostHint !== null ? styles.grow : null}
+                        onLayout={(event: LayoutChangeEvent) => {
+                          if (!collapsed) measureFrame('field', event.nativeEvent.layout.height);
+                        }}
+                      >
+                        <ComposerInput
+                          ref={field}
+                          model={model}
+                          input={{
+                            ...input,
+                            focused: () => {
+                              setFocused(true);
+                              onFocusChange?.(true);
+                              input.focused();
+                              readTerminalTail();
+                            },
+                            blurred: () => {
+                              setFocused(false);
+                              onFocusChange?.(false);
+                              input.blurred();
+                            },
+                          }}
+                          references={references}
+                          parsedFor={text}
+                          parse={parseDraftReferences}
+                          placeholder={placeholder}
+                          collapsed={collapsed}
+                          maxHeight={inputMaxHeightFor(bottom)}
+                          onTextChange={setText}
+                          onCaret={setCaret}
+                          onImages={receiveImages}
+                        />
+                      </View>
+                      {boostHint !== null ? <BoostHintChip hint={boostHint} dispatch={dispatch} /> : null}
+                      {collapsed ? (
+                        // Collapsed, desktop's toolbar keeps More actions beside Send (`render_toolbar`).
+                        <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
+                      ) : null}
+                      {collapsed ? (
+                        <SendControl
+                          document={document}
+                          hasDraft={hasDraft}
+                          ready={model.ready}
+                          submit={input.submit}
+                          dispatch={dispatch}
+                          onHold={openSendMenu}
+                        />
+                      ) : null}
+                    </View>
+                  );
+                })()}
                 {/* Quiet lines about the box itself, under its text (`BoxNotes.tsx`). */}
                 {!collapsed ? (
                   <SecretSendWarning
@@ -1271,6 +1286,7 @@ const useStyles = themedStyles((P) => ({
   },
   cardCollapsed: { paddingTop: 6, paddingBottom: 6 },
   collapsedRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  editorWithChipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   grow: { flex: 1, minWidth: 0 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: FOOTER_GAP },
   /*

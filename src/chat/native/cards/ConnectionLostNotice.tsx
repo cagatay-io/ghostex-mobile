@@ -26,14 +26,31 @@ import { cardGap, workingCardShown } from './WorkingCard';
 /** A quick reconnect stays quiet; Voice mode waits as long before its "Reconnecting to …" line (`voice/readAloud.ts`). */
 const NOTICE_AFTER_MS = 5_000;
 
+/** Whether `ConnectionLostNotice` would currently render for `machine` and `document`. */
+export function useConnectionLostNoticeShown(
+  machine: MachineConnectionTarget,
+  active: boolean,
+  document: ChatDocument | null,
+): boolean {
+  const lost = useConnectionLost(machine, active);
+  const box = useCloudBoxesStore((state) => {
+    const boxId = boxIdOfMachine(machine.id);
+    return boxId === null ? null : (state.entries[boxId]?.box ?? null);
+  });
+  if (document?.computerNotice != null) return false;
+  return lost && !(box !== null && wakesOnSend(box.state));
+}
+
 export function ConnectionLostNotice({
   machine,
   active,
   document,
+  gapBelow: explicitGapBelow,
 }: {
   machine: MachineConnectionTarget;
   active: boolean;
   document: ChatDocument | null;
+  gapBelow?: number;
 }) {
   const theme = useTranscriptTheme();
   const lost = useConnectionLost(machine, active);
@@ -50,9 +67,10 @@ export function ConnectionLostNotice({
   // A stopped or paused box is asleep, not lost: its chat already says sending a message wakes it.
   if (!lost || (box !== null && wakesOnSend(box.state))) return null;
   const title = `Reconnecting to ${computer}…`;
+  const bottomPad = explicitGapBelow ?? (document === null ? STACK_GAP : gapBelow(document));
   return (
     <View
-      style={[styles.row, { paddingBottom: document === null ? STACK_GAP : gapBelow(document) }]}
+      style={[styles.row, { paddingBottom: bottomPad }]}
       accessibilityLiveRegion="polite"
     >
       <View style={[singleLineShell(theme), styles.card]} accessible accessibilityLabel={title}>

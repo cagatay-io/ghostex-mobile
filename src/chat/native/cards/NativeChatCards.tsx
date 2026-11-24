@@ -29,17 +29,46 @@ import { useChatViewSize } from '../chatPlacement';
 import type { RustChat } from '../../rust/useRustChat';
 import { AsyncQuestionsCard } from './AsyncQuestionsCard';
 import { ComposerNotReadyCard } from './ComposerNotReadyCard';
-import { arr, obj } from './json';
+import { arr, obj, str } from './json';
 import { NoticeCard } from './NoticeCard';
 import { CARD_BAND_SHARE, QuestionCard } from './QuestionCard';
 import { SecretRequestCards } from './SecretRequestCard';
 import type { CardHostAction } from './types';
 
-/** Whether this stack draws anything, so the working card above it knows what it sits on (`WorkingCard.tsx`). */
+/**
+ * Whether a visible `terminalNotice` is an error/warning/wait issue banner (send failure, agent
+ * error, terminal issue, usage limit, sign-in required, memory guard, etc.) rather than an
+ * interactive dialog, picker, passthrough, side question, or approval prompt.
+ *
+ * Mirrors `is_error_terminal_notice` in `packages/gx-chat-core/src/questions/notice_tone.rs`.
+ */
+export function isErrorTerminalNotice(document: ChatDocument): boolean {
+  if (document.noticeVisible !== true || document.approvalInDock === 'notice') return false;
+  const notice = obj(document.terminalNotice);
+  if (notice === null) return false;
+  if (obj(notice.passthrough) !== null) return false;
+  const presentation = obj(obj(notice.dialog)?.presentation);
+  if (obj(presentation?.picker) !== null || obj(presentation?.sideQuestion) !== null) return false;
+  const tone = str(notice, 'tone');
+  if (tone === 'error' || tone === 'warning' || tone === 'wait') return true;
+  if (tone === 'terminal' || tone === 'approval') return false;
+  return obj(notice.dialog) === null;
+}
+
+/** Whether any error/issue banner shows above the Inbox dock (`NativeChatErrorCards`). */
+export function chatErrorCardsShown(document: ChatDocument): boolean {
+  return typeof document.operationError === 'string' || isErrorTerminalNotice(document);
+}
+
+/** Whether the non-error card stack below the dock/working card draws anything (`WorkingCard.tsx`). */
 export function chatCardsShown(document: ChatDocument): boolean {
+  const nonErrorNotice =
+    obj(document.terminalNotice) !== null &&
+    document.noticeVisible === true &&
+    document.approvalInDock !== 'notice' &&
+    !isErrorTerminalNotice(document);
   return (
-    typeof document.operationError === 'string' ||
-    (obj(document.terminalNotice) !== null && document.noticeVisible === true && document.approvalInDock !== 'notice') ||
+    nonErrorNotice ||
     arr(document.secretRequests).length > 0 ||
     typeof document.asyncQuestions?.question?.key === 'string' ||
     (document.questionCard?.visible === true && document.approvalInDock !== 'prompt')
@@ -52,12 +81,39 @@ export type NativeChatCardsProps = {
   onHostAction?: CardHostAction;
 };
 
+/**
+ * Error and issue banners stacked ABOVE the coordinator Inbox dock: send/operation refusals first,
+ * then error/warning/wait terminal notices (usage limits, agent errors, terminal issues).
+ */
+export function NativeChatErrorCards({
+  chat,
+  onHostAction,
+  gapBelow = 0,
+}: NativeChatCardsProps & { gapBelow?: number }) {
+  const { height } = useChatViewSize();
+  const document = chat.state?.document ?? null;
+  if (document === null || !chatErrorCardsShown(document)) return null;
+  const errorNotice = isErrorTerminalNotice(document);
+  return (
+    <ScrollView
+      style={[styles.band, { maxHeight: height * CARD_BAND_SHARE }]}
+      contentContainerStyle={[styles.errorStack, { paddingBottom: gapBelow }]}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+    >
+      <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
+      {errorNotice ? <NoticeCard chat={chat} document={document} onHostAction={onHostAction} /> : null}
+    </ScrollView>
+  );
+}
+
 export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
   const { height } = useChatViewSize();
   const band = useRef<ScrollViewInstance>(null);
   const document = chat.state?.document ?? null;
   if (document === null) return null;
   if (!chatCardsShown(document)) return null;
+  const nonErrorNotice = document.approvalInDock !== 'notice' && !isErrorTerminalNotice(document);
   return (
     // A phone is short: several cards at once scroll inside a band so the transcript keeps its room.
     // When the band overflows, the newest card (the blocking question, nearest the composer) stays in view.
@@ -69,12 +125,9 @@ export function NativeChatCards({ chat, onHostAction }: NativeChatCardsProps) {
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
     >
-      <ComposerNotReadyCard chat={chat} document={document} onHostAction={onHostAction} />
-      {/* An approval the agent waits on is a row of the dock instead (gx-chat-core
-          extras/dock_approvals.rs, `approvalInDock`), so its card stays out. */}
-      {document.approvalInDock === 'notice' ? null : (
-        <NoticeCard chat={chat} document={document} onHostAction={onHostAction} />
-      )}
+      {/* Error/issue notices stack above the Inbox dock (`NativeChatErrorCards`); interactive
+          dialogs, pickers and approvals not in the dock stay here. */}
+      {nonErrorNotice ? <NoticeCard chat={chat} document={document} onHostAction={onHostAction} /> : null}
       <SecretRequestCards chat={chat} document={document} />
       <AsyncQuestionsCard chat={chat} document={document} />
       {document.approvalInDock === 'prompt' ? null : <QuestionCard chat={chat} document={document} />}
@@ -93,6 +146,12 @@ const styles = StyleSheet.create({
   band: {
     flexGrow: 0,
     width: '100%',
+  },
+  errorStack: {
+    width: '100%',
+    gap: STACK_GAP,
+    paddingHorizontal: 12,
+    paddingTop: STACK_GAP,
   },
   stack: {
     width: '100%',

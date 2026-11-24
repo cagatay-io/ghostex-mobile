@@ -260,6 +260,7 @@ export function WorkDock({
   onOpenWork,
   onAskSettled,
   typing = false,
+  errorShown = false,
   maxHeight,
   gapBelow = 6,
 }: {
@@ -277,6 +278,8 @@ export function WorkDock({
   sessionId?: string;
   /** The chat box has the caret with the keyboard up: the dock folds to its bar until a tap opens it. */
   typing?: boolean;
+  /** An error banner sits above the dock: fold to the header row until the error clears or the user expands it. */
+  errorShown?: boolean;
   /** The most height the whole dock may take (`dockHeightCap`); its rows scroll inside past it. */
   maxHeight?: number;
   /** The space under it: the stack's gap to the working card, or its share of the gap to the box. */
@@ -297,12 +300,16 @@ export function WorkDock({
     [coreChat, onHostAction],
   );
   const flags = useMemo(() => transcriptFlags(document), [document]);
-  // While he types, the dock is folded here, not in the core: the keyboard going down gives back
-  // the dock as it was (its opened row still opened). A tap on the bar opens it for this typing.
+  // While he types or while an error banner sits above the dock, fold locally (not in the core):
+  // when typing ends or the error goes away, the dock returns to its previous state.
   const [peek, setPeek] = useState(false);
   useEffect(() => {
     if (!typing) setPeek(false);
   }, [typing]);
+  const [errorPeek, setErrorPeek] = useState(false);
+  useEffect(() => {
+    if (!errorShown) setErrorPeek(false);
+  }, [errorShown]);
   const styles = useStyles();
   const P = useTranscriptTheme();
   const dispatch = chat.dispatch;
@@ -394,7 +401,7 @@ export function WorkDock({
   // An approval the agent waits on (or one just answered) keeps the dock open while typing: it is
   // drawn nowhere else (gx-chat-core extras/dock_approvals.rs; desktop `render_work_dock`).
   const stays = rows.some((row) => isTrue(row, 'stays'));
-  const collapsed = !collapsible || hiddenInCore || (typing && !peek && !stays);
+  const collapsed = !collapsible || hiddenInCore || (errorShown && !errorPeek) || (typing && !peek && !stays);
   if (shownCollapsed.current !== null && shownCollapsed.current !== collapsed) animateNextFold();
   shownCollapsed.current = collapsed;
   const limit = typeof dock?.phoneLimit === 'number' ? dock.phoneLimit : 3;
@@ -426,10 +433,12 @@ export function WorkDock({
               }
               onToggle={() => {
                 if (!collapsed) {
+                  if (errorShown) setErrorPeek(false);
                   dispatch({ type: 'hideWorkDock' } as never);
                   return;
                 }
-                // Folded for typing: open it for this typing only; folded by him: open it for good.
+                // Folded for an error or typing: open it while that lasts; folded by him: open it for good.
+                if (errorShown) setErrorPeek(true);
                 if (typing) setPeek(true);
                 if (hiddenInCore) dispatch({ type: 'showWorkDock' } as never);
               }}

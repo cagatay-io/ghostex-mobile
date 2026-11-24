@@ -266,55 +266,11 @@ function BoostPromptSheet({ row, onClose }: { row: BoostRow | null; onClose: () 
 }
 
 /**
- * The one-time callout over the end of the conversation, pointing down at the Boost pill: "New: Boosts",
- * one line, Show me (opens the sheet) and an x. Nothing goes inside the chat box (Q4258 "C").
+ * The one-time Boost suggestion chip inside the chat box at its top-right corner (`NativeComposer.tsx`,
+ * matching desktop `boosts.rs` `boost_hint_chip`): small gold pill with sparkles, label, and an x.
+ * Tapping the chip opens Boosts and dismisses it; tapping x dismisses it.
  */
-export function BoostCallout({
-  hint,
-  onShow,
-  dispatch,
-}: {
-  hint: { title: string; text: string };
-  onShow: () => void;
-  dispatch: (action: UserAction) => void;
-}) {
-  const styles = useStyles();
-  const P = useTranscriptTheme();
-  const tone = accent(P.light);
-  return (
-    <View style={styles.callout} accessibilityRole="alert" accessibilityLabel={`${hint.title}. ${hint.text}`}>
-      <Glyph name="sparkles" size={17} color={tone} />
-      <View style={styles.calloutText}>
-        <Text style={styles.calloutTitle}>{hint.title}</Text>
-        <Text style={styles.calloutLine} numberOfLines={2}>
-          {hint.text}
-        </Text>
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => {
-          dispatch({ type: 'dismissBoostHint' });
-          onShow();
-        }}
-        style={({ pressed }) => [styles.show, { backgroundColor: `${tone}${pressed ? '40' : '2e'}` }]}
-      >
-        <Text style={[styles.showLabel, { color: tone }]}>Show me</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        hitSlop={8}
-        onPress={() => dispatch({ type: 'dismissBoostHint' })}
-      >
-        <Glyph name="x" size={14} color={P.cardMuted} />
-      </Pressable>
-      <View style={styles.tail} />
-    </View>
-  );
-}
-
-/** The callout in its spot right above the chat box, while the computer has not shown it yet. */
-export function BoostCalloutAbove({
+export function BoostHintChip({
   hint,
   dispatch,
 }: {
@@ -322,10 +278,48 @@ export function BoostCalloutAbove({
   dispatch: (action: UserAction) => void;
 }) {
   const styles = useStyles();
+  const P = useTranscriptTheme();
   if (hint == null || (!hint.title?.trim() && !hint.text?.trim())) return null;
+  const tone = accent(P.light);
+  const label = hint.title?.trim() || 'Try Boosts';
+  const accessibilityLabel = hint.text?.trim() ? `${label}. ${hint.text}` : label;
   return (
-    <View style={styles.calloutAnchor} pointerEvents="box-none">
-      <BoostCallout hint={hint} onShow={openBoostSheet} dispatch={dispatch} />
+    <View
+      style={[
+        styles.hintChip,
+        {
+          borderColor: `${tone}61`,
+          backgroundColor: `${tone}1a`,
+        },
+      ]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 2 }}
+        onPress={() => {
+          dispatch({ type: 'dismissBoostHint' });
+          openBoostSheet();
+        }}
+        style={({ pressed }) => [styles.hintChipBody, pressed ? styles.hintChipPressed : null]}
+      >
+        <Glyph name="sparkles" size={13} color={tone} />
+        <Text style={[styles.hintChipLabel, { color: tone }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss Boosts hint"
+        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+        onPress={() => dispatch({ type: 'dismissBoostHint' })}
+        style={({ pressed }) => [
+          styles.hintChipDismiss,
+          pressed ? { backgroundColor: `${tone}33` } : null,
+        ]}
+      >
+        <Glyph name="x" size={11} color={tone} />
+      </Pressable>
     </View>
   );
 }
@@ -386,45 +380,30 @@ const useStyles = themedStyles((P) => ({
     borderWidth: 1,
     borderColor: P.ink(0.1),
   },
-  callout: {
-    position: 'absolute',
-    right: 4,
-    bottom: 6,
-    maxWidth: 340,
+  hintChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 9,
-    paddingLeft: 12,
-    paddingRight: 10,
-    borderRadius: 12,
+    flexShrink: 0,
+    height: 24,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: P.ink(0.12),
-    backgroundColor: P.background,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-    zIndex: 10,
+    paddingLeft: 8,
+    paddingRight: 3,
+    gap: 2,
   },
-  calloutText: { flexShrink: 1 },
-  calloutTitle: { color: P.foreground, fontSize: 13.5, fontWeight: '600' },
-  calloutLine: { color: P.cardMuted, fontSize: 12.5, lineHeight: 16 },
-  show: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
-  showLabel: { fontSize: 13 },
-  /** Where the callout hangs: a zero-height spot right above the chat box (`NativeComposer.tsx`). */
-  calloutAnchor: { height: 0, marginBottom: -8, zIndex: 10 },
-  tail: {
-    position: 'absolute',
-    right: 30,
-    bottom: -6,
-    width: 11,
-    height: 11,
-    backgroundColor: P.background,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: P.ink(0.12),
-    transform: [{ rotate: '45deg' }],
+  hintChipBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingRight: 2,
+  },
+  hintChipPressed: { opacity: 0.72 },
+  hintChipLabel: { fontSize: 12, fontWeight: '500' },
+  hintChipDismiss: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }));

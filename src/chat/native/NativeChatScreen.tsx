@@ -70,7 +70,7 @@ import { ChatPlacementProvider, type ChatPlacement } from './chatPlacement';
 import { PillMenuSheet } from './cards/ChatPills';
 import { SessionDetailsSheet } from './cards/SessionDetailsSheet';
 import { readExportedPage, shareExportedPage } from './cards/pageExport';
-import { ConnectionLostNotice } from './cards/ConnectionLostNotice';
+import { ConnectionLostNotice, useConnectionLostNoticeShown } from './cards/ConnectionLostNotice';
 import type { BoardFocus } from './cards/CoordinatorBoard';
 import { num, obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
@@ -80,7 +80,13 @@ import { SideChatBar } from './cards/SideChats';
 import { useTerminalStore } from '../../terminal/sessions';
 import { ScreenArtBackdrop } from '../../theme/ScreenArtBackdrop';
 import { LoneScrollBottom, WorkingCard, cardGap, dockStatusCard, useWorkedLineSpent } from './cards/WorkingCard';
-import { COMPOSER_TOP_PADDING, STACK_GAP, chatCardsShown } from './cards/NativeChatCards';
+import {
+  COMPOSER_TOP_PADDING,
+  NativeChatErrorCards,
+  STACK_GAP,
+  chatCardsShown,
+  chatErrorCardsShown,
+} from './cards/NativeChatCards';
 import { NativeComposer } from './composer';
 import { HandoffSheet, type HandoffRequest } from './composer/HandoffSheet';
 import { ModelMenuSheet } from './composer/ModelMenuSheet';
@@ -685,6 +691,18 @@ export default function NativeChatScreen({
   const workedLineSpent = useWorkedLineSpent(document?.workingCard);
   const dockStatus = document === null ? null : dockStatusCard(document, workedLineSpent);
   const dockShown = document !== null && workDockShown(document, dockStatus);
+  const connectionLostShown = useConnectionLostNoticeShown(machine, visible, document);
+  const errorCardsShown = document !== null && chatErrorCardsShown(document);
+  const errorBannerShown = connectionLostShown || errorCardsShown;
+  const workingBarShown =
+    document !== null &&
+    !dockShown &&
+    !workedLineSpent &&
+    document.workingCard?.inTranscript !== true &&
+    document.workingCard?.visible === true &&
+    document.workingCard?.label !== null;
+  const belowErrorsPresent =
+    dockShown || workingBarShown || (document !== null && chatCardsShown(document));
 
   // A prompt's or a reply's Fork from here, where this screen forks (More actions' Fork).
   const forkFromMessage = useMemo(
@@ -737,12 +755,24 @@ export default function NativeChatScreen({
                   {document === null ? null : <LoneScrollBottom />}
                 </TabSwipeView>
               </View>
-              {/* The offline computer is a row of the dock (gx-chat-core `extras/dock_stack.rs`); it
-                names the computer itself, so "Reconnecting to …" steps aside while it shows. */}
+              {/* Error and connection banners sit above the Inbox dock and collapse it to its header
+                row while shown (`NativeChatErrorCards`, `ConnectionLostNotice`). The offline computer
+                is a row of the dock (gx-chat-core `extras/dock_stack.rs`), so "Reconnecting to …"
+                steps aside while it shows. */}
               {document?.computerNotice != null ? null : (
-                <ConnectionLostNotice machine={machine} active={visible} document={document} />
+                <ConnectionLostNotice
+                  machine={machine}
+                  active={visible}
+                  document={document}
+                  gapBelow={errorCardsShown || belowErrorsPresent ? 0 : STACK_GAP - COMPOSER_TOP_PADDING}
+                />
               )}
-              {/* The dock: what needs the reader, under the transcript and over the working card
+              <NativeChatErrorCards
+                chat={chat}
+                onHostAction={hostAction}
+                gapBelow={belowErrorsPresent ? 0 : STACK_GAP - COMPOSER_TOP_PADDING}
+              />
+              {/* The dock: what needs the reader, under any error banners and over the working card
                 (`WorkCards.tsx`).
 
                 CDXC:Coordinators 2026-11-12 DECISION:
@@ -760,6 +790,7 @@ export default function NativeChatScreen({
                 onOpenWork={openWorkSheet}
                 onAskSettled={(title) => show(title, false)}
                 typing={composerShown && composerFocused && keyboardUp}
+                errorShown={errorBannerShown}
                 {...(dockCap !== undefined ? { maxHeight: dockCap } : {})}
                 gapBelow={
                   document === null
