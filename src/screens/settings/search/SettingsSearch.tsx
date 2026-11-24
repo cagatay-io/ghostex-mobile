@@ -13,6 +13,9 @@ import { create } from 'zustand';
 
 import { SearchGlyph, XGlyph } from '../../../components/sessions/icons';
 import { SettingsSearchCopy } from '../../../copy';
+import { useInventoryStore } from '../../../inventory/store';
+import { useMachinesStore } from '../../../machines/store';
+import { useSidebarOrganization } from '../../../settingsSync/sidebarOrganization';
 import { GhostexRadii, GhostexStrokeWidth } from '../../../theme/palette';
 import { useAppearance } from '../../../theme/useAppearance';
 import type { SettingsPageId } from '../pages';
@@ -111,7 +114,13 @@ export function SettingsSearchResults({
 }) {
   const styles = useSettingsStyles();
   const query = useSettingsSearchStore((state) => state.query);
-  const results = useMemo(() => searchSettings(query, pages), [query, pages]);
+  // The sidebar chosen in Sidebar & Sessions, read as that page reads it: a Unified-only row leads elsewhere without it.
+  const selectedSummary = useInventoryStore((state) => {
+    const machineId = useMachinesStore.getState().selectedMachineId;
+    return machineId === null ? null : (state.inventoriesByMachineId[machineId]?.serverSummary ?? null);
+  });
+  const sidebarView = useSidebarOrganization(selectedSummary).sidebarView;
+  const results = useMemo(() => searchSettings(query, pages, sidebarView), [query, pages, sidebarView]);
 
   if (results.length === 0) {
     return (

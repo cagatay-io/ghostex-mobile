@@ -340,6 +340,8 @@ export const WallCopy = {
 export const SessionGroupsCopy = {
   switchLabel: 'Group sessions by tags',
   switchDetail: 'Group Unified by the Session Tags order. Change the order in Session Tags.',
+  /** The switch's Settings search result while the Project sidebar is chosen, which does not show the switch. */
+  searchInProjectSidebar: 'In the Unified sidebar. Choose Unified sidebar under Sidebar, and the switch shows below.',
   movingKept: 'The Moving section is not shown while grouping is on. Its setting is kept.',
   /** The status entries' names, which are also their groups' headers. */
   status: {
