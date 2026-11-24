@@ -64,12 +64,12 @@ export const GBOT_APPROVALS: readonly { value: GbotApproval; label: string }[] =
   { value: 'ask', label: 'Ask' },
   { value: 'edits', label: 'Edits' },
   { value: 'auto', label: 'Auto' },
-  { value: 'full', label: 'Full' },
+  { value: 'full', label: 'Full permissions' },
 ];
 
-/** Why a Codex GBot starts at Full (server/src/gbots/session.rs `default_approval`). */
+/** Why a Codex GBot starts at Full permissions (server/src/gbots/session.rs `default_approval`). */
 export const GBOT_CODEX_APPROVAL_NOTE =
-  "Codex GBots start at Full access: below it, Codex's sandbox stops them reaching Ghostex.";
+  "Codex GBots start at Full permissions: below it, Codex's sandbox stops them reaching Ghostex.";
 
 /** Whether GBots are on for a computer (server/src/gbots/feature.rs). */
 export function gbotsOnIn(

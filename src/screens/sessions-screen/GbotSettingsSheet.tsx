@@ -265,7 +265,7 @@ export default function GbotSettingsSheet(props: GbotSettingsSheetProps): ReactE
             <Text style={raisingApproval ? styles.warning : styles.hint}>
               {raisingApproval
                 ? approvalFromComputer(name)
-                : 'Ask: it asks before acting. Edits: it may change files. Auto and Full do more without asking.'}
+                : "Ask: it asks before acting. Edits: it may change files. Full permissions: the agent won't ask for permission before edits or commands. At your own risk."}
             </Text>
             <Text style={styles.hint}>{GBOT_CODEX_APPROVAL_NOTE}</Text>
           </View>

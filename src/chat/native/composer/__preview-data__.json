@@ -150,7 +150,7 @@
         },
         {
           "id": "mode:bypass",
-          "label": "Bypass permissions",
+          "label": "Full permissions",
           "checked": false,
           "disabled": false,
           "command": { "type": "selectOption", "descriptorId": "mode", "value": "bypass" }

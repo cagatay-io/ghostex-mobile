@@ -161,7 +161,7 @@ export default function GbotComputerView(props: GbotComputerViewProps): ReactEle
         <Text style={styles.line}>
           {computer.computerUse
             ? `${props.name} may open and drive apps on the computer it works on.`
-            : `${props.name}'s chats start without the screen tools. A Codex GBot at Full access can still run their command-line tools from a shell.`}
+            : `${props.name}'s chats start without the screen tools. A Codex GBot at Full permissions can still run their command-line tools from a shell.`}
         </Text>
         {computer.computerUse ? <View style={styles.buttons}>{button('Turn off', { screen: false })}</View> : null}
       </View>

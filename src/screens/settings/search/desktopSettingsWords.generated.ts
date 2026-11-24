@@ -92,7 +92,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "chatComposerModePicker": {
     "title": "Mode in the chat box",
-    "subtitle": "Show the mode picker (Auto, Plan, Bypass permissions and the like) in the chat box. Off, sessions run in Auto, or in Bypass permissions while Skip permissions is on. The phone has its own switch.",
+    "subtitle": "Show the mode picker (Auto, Plan, Full permissions and the like) in the chat box. Off, sessions run in Auto, or in Full permissions while Agent approvals is set to Full permissions. The phone has its own switch.",
     "options": [],
     "keywords": []
   },
