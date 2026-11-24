@@ -360,10 +360,14 @@ export function sessionLinksRow(
   sessionLinks: GhostexSessionLinks | undefined,
   display: SessionLinksDisplay,
   selected: boolean,
+  showSuggestedBadge = true,
 ): SessionLinksRow {
   if (sessionLinks === undefined || display === 'off') return { line: [], badge: null };
   const links = sessionLinks.items;
   if (links.length === 0) {
+    // CDXC:SessionLinks 2026-11-24 DECISION: User: "don't show suggested link pill on the session
+    // item for a coordinator, also don't show the suggested session pill for coordinator thread".
+    if (!showSuggestedBadge) return { line: [], badge: null };
     // CDXC:SessionLinks 2026-10-24 DECISION: User: "why didn't we suggest #263 here for this session?" A session whose only links are suggestions shows a quiet badge counting them, under every option but Off (gx-core `SessionLinks::row`).
     const suggested = sessionLinks.suggested.length;
     return suggested > 0

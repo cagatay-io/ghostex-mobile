@@ -78,11 +78,18 @@ function boostGlyph(iconPath: string): GlyphName {
   }
 }
 
-/** The pill in the strip: the sparkles and "Boost" in the accent, filled while the message has a Boost. */
+/**
+ * The pill in the strip: the sparkles and "Boost" in the neutral style of the other strip pills
+ * (`ChatPills.tsx` `Pill`), with a subtle neutral fill while the message has a Boost or its sheet
+ * is open.
+ *
+ * CDXC:Boosts 2026-11-24 DECISION:
+ * User: "please color this like the other pills, pill shouldn't be yellow". Matches desktop
+ * `native_chat/boosts.rs` `boost_strip_pill`.
+ */
 export function BoostPill({ boosts, open, onPress }: { boosts: BoostsDocument; open: boolean; onPress: () => void }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
-  const tone = accent(P.light);
   const active = boosts.pill.active || open;
   return (
     <Pressable
@@ -91,14 +98,10 @@ export function BoostPill({ boosts, open, onPress }: { boosts: BoostsDocument; o
       accessibilityState={{ expanded: open }}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [
-        styles.pill,
-        { borderColor: `${tone}${active ? '99' : '66'}` },
-        (active || pressed) && { backgroundColor: `${tone}24` },
-      ]}
+      style={({ pressed }) => [styles.pill, (active || pressed) && styles.pillPressed]}
     >
-      <Glyph name="sparkles" size={13} color={tone} />
-      <Text style={[styles.pillLabel, { color: tone }]} numberOfLines={1}>
+      <Glyph name="sparkles" size={14} color={P.cardMuted} />
+      <Text style={styles.pillLabel} numberOfLines={1}>
         {boosts.pill.label}
       </Text>
     </Pressable>
@@ -336,8 +339,10 @@ const useStyles = themedStyles((P) => ({
     paddingVertical: 2,
     borderRadius: 999,
     borderWidth: 1,
+    borderColor: P.ink(0.1),
   },
-  pillLabel: { fontSize: 13, lineHeight: 19 },
+  pillPressed: { backgroundColor: P.ink(0.08) },
+  pillLabel: { color: P.cardMuted, fontSize: 13, lineHeight: 19 },
   tabLabel: { color: P.cardMuted, fontSize: 13 },
   tabLabelOn: { color: P.foreground },
   rows: { paddingHorizontal: 8, paddingBottom: 12 },

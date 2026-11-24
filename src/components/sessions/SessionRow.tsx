@@ -531,9 +531,13 @@ export default function SessionRow({
   // A thread whose coordinator's banner answers its offer draws none of its own (CleanupBanner.tsx).
   const cleanupInBanner = nesting?.cleanupInBanner === true;
   const offerCleanup = session.work?.offerCleanup === true && !cleanupInBanner;
+  // CDXC:SessionLinks 2026-11-24 DECISION: hide automatic suggested-link badges on coordinator
+  // rows and coordinator thread rows; manual linking stays available in the row's menu.
+  const showSuggestedBadge =
+    !session.isCoordinator && !session.isChief && (session.coordinatorSessionId ?? '').length === 0;
   const linksRow = useMemo(
-    () => sessionLinksRow(session.links, sessionLinksDisplay, session.isFocused),
-    [session.links, sessionLinksDisplay, session.isFocused],
+    () => sessionLinksRow(session.links, sessionLinksDisplay, session.isFocused, showSuggestedBadge),
+    [session.links, sessionLinksDisplay, session.isFocused, showSuggestedBadge],
   );
   const chips = useMemo((): WorkChip[] => {
     if (offerCleanup) {
