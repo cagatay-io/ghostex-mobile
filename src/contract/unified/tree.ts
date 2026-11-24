@@ -102,8 +102,12 @@ function isRecent(session: UnifiedSessionInput, nowMs: number): boolean {
   );
 }
 
-/** A session that needs the user: approval, stuck, a question, waiting on them, or failed. */
+/**
+ * A session that needs the user: approval, stuck, a question, waiting on them, or failed.
+ * A resolved thread (`done`) is finished and never lifts or marks its coordinator.
+ */
 export function needsYou(session: UnifiedSessionInput): boolean {
+  if (session.threadState === 'done') return false;
   return (
     session.awaitingApproval ||
     session.stuck === true ||
@@ -251,7 +255,13 @@ export function nestUnifiedRows<S>(
     return facts;
   };
   const approvalsBelow = (row: UnifiedRow<S>): number =>
-    row.threads.reduce((sum, child) => sum + (child.session.awaitingApproval ? 1 : 0) + approvalsBelow(child), 0);
+    row.threads.reduce(
+      (sum, child) =>
+        sum +
+        (child.session.threadState !== 'done' && child.session.awaitingApproval ? 1 : 0) +
+        approvalsBelow(child),
+      0,
+    );
   const layOut = (row: UnifiedRow<S>, narrowingHere: boolean, subtreeMatched: boolean): void => {
     const query = narrowing;
     row.subtreeMatched = subtreeMatched;
@@ -315,7 +325,9 @@ export function nestUnifiedRows<S>(
     const teamStatus: FoldedStatus = { ...foldedStatus };
     const stack: UnifiedRow<S>[] = [row];
     for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
-      addFolded(teamStatus, next.session);
+      if (next === row || next.session.threadState !== 'done') {
+        addFolded(teamStatus, next.session);
+      }
       stack.push(...next.threads);
     }
     if (!open) Object.assign(foldedStatus, teamStatus);

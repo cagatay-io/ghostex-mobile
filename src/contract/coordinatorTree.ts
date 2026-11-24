@@ -341,7 +341,7 @@ export function coordinatorBadges(
     if (seen.has(key)) continue;
     seen.add(key);
     parents.set(key, parent);
-    if (session.awaitingApproval) approvals.push(parent);
+    if (session.coordinatorThreadState !== 'done' && session.awaitingApproval) approvals.push(parent);
     const tally = tallyOf(parent);
     if (isRecentThread(session, nowMs, capabilities)) tally.total += 1;
     const state = talliedState(session, capabilities);
@@ -465,7 +465,9 @@ export function nestCoordinatorThreads<S>(
     };
     const stack = [index];
     for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
-      addFoldedStatus(status, sessions[next], capabilities);
+      if (next === index || sessions[next].coordinatorThreadState !== 'done') {
+        addFoldedStatus(status, sessions[next], capabilities);
+      }
       stack.push(...(children.get(next) ?? []));
     }
     return status.working || status.attention || status.backgroundWork || status.question || status.approval
