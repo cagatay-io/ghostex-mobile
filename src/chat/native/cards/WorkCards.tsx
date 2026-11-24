@@ -1376,11 +1376,25 @@ function DockRow({
                 )}
               </View>
               {str(row, 'answeredBy').length > 0 ? (
-                <View
-                  style={[
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${str(row, 'answeredBy')}. Open Live page to view their answers.`}
+                  hitSlop={6}
+                  onPress={(event) => {
+                    event.stopPropagation?.();
+                    if (obj(row.open) !== null) dispatch(row.open as never);
+                    else onShow?.();
+                  }}
+                  style={({ pressed }) => [
                     styles.sourcesChip,
                     {
-                      backgroundColor: P.light ? 'rgba(22, 128, 73, 0.12)' : 'rgba(52, 211, 153, 0.16)',
+                      backgroundColor: P.light
+                        ? pressed
+                          ? 'rgba(22, 128, 73, 0.22)'
+                          : 'rgba(22, 128, 73, 0.12)'
+                        : pressed
+                          ? 'rgba(52, 211, 153, 0.26)'
+                          : 'rgba(52, 211, 153, 0.16)',
                       borderColor: P.light ? 'rgba(22, 128, 73, 0.30)' : 'rgba(52, 211, 153, 0.34)',
                     },
                   ]}
@@ -1389,7 +1403,7 @@ function DockRow({
                   <Text style={[styles.sourcesChipText, { color: P.light ? '#168049' : '#34d399' }]}>
                     {str(row, 'answeredBy')}
                   </Text>
-                </View>
+                </Pressable>
               ) : null}
               {duplicates.length > 0 ? (
                 <Pressable

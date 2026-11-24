@@ -135,6 +135,12 @@ function SinglePageAnswersCard({
   const more = num(answers, 'more') ?? 0;
   const pageId = str(answers, 'pageId');
   const by = str(answers, 'by');
+  const outside = obj(answers)?.outside === true;
+  const noteLabel = str(answers, 'noteLabel') || 'Your note';
+  const ownAnswerLabel = str(answers, 'ownAnswerLabel') || 'Your own answer';
+  const headLabel = str(answers, 'headLabel');
+  const outsideAccent = theme.light ? '#059669' : '#34d399';
+  const outsideBorder = theme.light ? 'rgba(5, 150, 105, 0.45)' : 'rgba(52, 211, 153, 0.50)';
   const scope = rowId.length > 0 ? `${rowId}:${occurrence}:` : `${occurrence}:`;
   const cardKey = `answers-card:${scope}${pageId}:${by}`;
   const [toggledOpen, toggle] = useDisclosure(disclosures, cardKey, defaultOpen);
@@ -187,7 +193,7 @@ function SinglePageAnswersCard({
                     drawn > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline } : null,
                   ]}
                 >
-                  <Text style={[styles.noteLabel, { color: theme.muted }]}>Your note</Text>
+                  <Text style={[styles.noteLabel, { color: theme.muted }]}>{noteLabel}</Text>
                   <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.value} lead />
                 </View>
               );
@@ -235,7 +241,7 @@ function SinglePageAnswersCard({
                 {own.length > 0 ? (
                   <View>
                     <Text style={[styles.own, { color: theme.foreground }]}>{`“${own}”`}</Text>
-                    <Text style={[styles.ownAside, { color: theme.muted }]}>Your own answer</Text>
+                    <Text style={[styles.ownAside, { color: theme.muted }]}>{ownAnswerLabel}</Text>
                   </View>
                 ) : null}
                 {note.length > 0 ? <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={note} /> : null}
@@ -321,25 +327,65 @@ function SinglePageAnswersCard({
   const hasBody = open || delivery !== null;
   if (bodyOnly) {
     return (
-      <View style={[styles.lined, { borderColor: theme.inputBorder, backgroundColor: theme.cardPanel }]}>{body}</View>
+      <View
+        style={[
+          styles.lined,
+          { borderColor: theme.inputBorder, backgroundColor: theme.cardPanel },
+          outside ? { borderLeftWidth: 2.5, borderLeftColor: outsideBorder } : null,
+        ]}
+      >
+        {body}
+      </View>
     );
   }
+  const titleText = outside && headLabel.length > 0 ? headLabel : str(answers, 'title');
+  const trailingCount = outside
+    ? count
+    : by.length > 0
+      ? count.length > 0
+        ? `${by} · ${count}`
+        : by
+      : count;
+  const toggleLabel = outside
+    ? open
+      ? `Hide ${by || 'Visitor'}'s answers`
+      : `Show ${by || 'Visitor'}'s answers`
+    : open
+      ? 'Hide your answers'
+      : 'Show your answers';
   return (
-    <View style={singleLineShell(theme)}>
+    <View style={[singleLineShell(theme), outside ? { borderLeftWidth: 2.5, borderLeftColor: outsideBorder } : null]}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={open ? 'Hide your answers' : 'Show your answers'}
+        accessibilityLabel={toggleLabel}
         onPress={toggle}
         style={({ pressed }) => [styles.head, pressed ? singleLinePressed(theme) : null]}
       >
-        <SingleLineTile glyph="question" badge="check" />
+        {outside ? (
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.light ? 'rgba(5, 150, 105, 0.14)' : 'rgba(52, 211, 153, 0.18)',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: outsideBorder,
+            }}
+          >
+            <Glyph name="user" size={15} color={outsideAccent} />
+          </View>
+        ) : (
+          <SingleLineTile glyph="question" badge="check" />
+        )}
         <Text numberOfLines={1} style={[SINGLE_LINE_TITLE, styles.title, { color: theme.foreground }]}>
-          {str(answers, 'title')}
+          {titleText}
         </Text>
-        {count.length > 0 || by.length > 0 ? (
+        {trailingCount.length > 0 ? (
           <Text numberOfLines={1} style={[styles.count, { color: theme.muted }]}>
-            {by.length > 0 ? (count.length > 0 ? `${by} · ${count}` : by) : count}
+            {trailingCount}
           </Text>
         ) : null}
         {pageUrl.length > 0 ? (

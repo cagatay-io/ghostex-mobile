@@ -228,6 +228,10 @@ const GLYPHS = {
   'text-wrap': ['M4 6l16 0', 'M4 18l5 0', 'M4 12h13a3 3 0 0 1 0 6h-4l2 -2m0 4l-2 -2'],
   'arrows-diagonal': ['M16 4l4 0l0 4', 'M14 10l6 -6', 'M8 20l-4 0l0 -4', 'M4 20l6 -6'],
   'arrows-diagonal-minimize': ['m4 4 6 6M4 10h6V4M20 20l-6-6M20 14h-6v6M20 4l-6 6M14 4v6h6M4 20l6-6M10 20v-6H4'],
+  user: [
+    'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2',
+    'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  ],
   maximize: [
     'M4 8v-2a2 2 0 0 1 2 -2h2',
     'M4 16v2a2 2 0 0 0 2 2h2',

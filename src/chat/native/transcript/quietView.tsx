@@ -292,14 +292,22 @@ export function SummaryQuietRun({ line, rows }: { line: QuietStretch; rows: Proj
 
 /** An answers card drawn shut as its own line, "You answered “…” · 7 answers"; opened, the card follows it. */
 function AnswersLine({ card, children }: { card: QuietAnswers; children: ReactNode }) {
+  const { theme } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, card.key, card.open === true);
   const segments: QuietSegment[] = [{ text: card.text }];
   if ((card.count ?? '').length > 0) segments.push({ text: ` · ${card.count}` });
+  const outsideColor = theme.light ? '#059669' : '#34d399';
   return (
     <View style={[styles.column, { gap: 4 }]}>
       <QuietLine
-        icons={(tone) => <Glyph name="message-question" size={13} color={tone} />}
+        icons={(tone) =>
+          card.outside ? (
+            <Glyph name="user" size={13} color={outsideColor} />
+          ) : (
+            <Glyph name="message-question" size={13} color={tone} />
+          )
+        }
         segments={segments}
         open={open}
         expandable

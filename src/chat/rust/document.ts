@@ -424,7 +424,7 @@ export type QuietTurnLook = {
 };
 
 /** An answers card drawn shut as its own small line: a row's id, or `<turn id>#questions`. */
-export type QuietAnswers = { id: string; key: string; text: string; count?: string; open?: boolean };
+export type QuietAnswers = { id: string; key: string; text: string; count?: string; open?: boolean; outside?: boolean };
 
 /** The document's `quietView`: absent where the chat has no Quiet View settings (an older computer). */
 export type QuietViewDocument = {
