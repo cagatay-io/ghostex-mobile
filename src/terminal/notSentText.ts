@@ -16,9 +16,14 @@ const sending = new Set<string>();
 // Android: a failed call means the terminal entry closed or failed; the terminal's state overlay shows that.
 const ignoreClosedTerminal = (): void => undefined;
 
+/** True when native `sendText` rejected because the terminal is missing or has no live link. */
+function isNotConnectedError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'E_NOT_CONNECTED';
+}
+
 /**
- * Sends `text` into `sessionKey`'s terminal. iOS: false when it was not sent (no terminal, or no link). Android: the
- * call as before, its rejection reaching the caller.
+ * Sends `text` into `sessionKey`'s terminal. iOS: false when it was not sent (`E_NOT_CONNECTED`: no terminal, or no
+ * link); unexpected errors rethrow. Android: the call as before, its rejection reaching the caller.
  */
 export async function sendNamedText(sessionKey: string, text: string, sent: SentText): Promise<boolean> {
   if (Platform.OS !== 'ios') {
@@ -28,8 +33,9 @@ export async function sendNamedText(sessionKey: string, text: string, sent: Sent
   try {
     await GhostexNative.sendText(sessionKey, text, sent);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (isNotConnectedError(error)) return false;
+    throw error;
   }
 }
 

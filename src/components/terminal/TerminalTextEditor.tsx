@@ -117,11 +117,15 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
       onSent?.();
       return;
     }
-    void sendTextEditorDraft(sessionKey, text).then((sent) => {
-      if (!sent) return;
-      setShownText(useTerminalStore.getState().textEditorDraftBySessionKey[sessionKey] ?? '');
-      onSent?.();
-    });
+    void sendTextEditorDraft(sessionKey, text)
+      .then((sent) => {
+        if (!sent) return;
+        setShownText(useTerminalStore.getState().textEditorDraftBySessionKey[sessionKey] ?? '');
+        onSent?.();
+      })
+      .catch((error) => {
+        console.warn(`Terminal text editor: sending draft failed for session ${sessionKey}.`, error);
+      });
   };
 
   const forwardEditingKey = (key: string): void => {

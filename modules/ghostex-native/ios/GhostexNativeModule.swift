@@ -767,8 +767,10 @@ public class GhostexNativeModule: Module {
 
         // MARK: Input
 
-        AsyncFunction("sendText") { (sessionKey: String, text: String, sent: SentTextRecord?) async throws in
-            try await MainActor.run {
+        // Rejected through the promise (like `startPortForward`) so `E_NOT_CONNECTED` reaches JS
+        // intact instead of being wrapped in Expo's `ERR_FUNCTION_CALL`.
+        AsyncFunction("sendText") { (sessionKey: String, text: String, sent: SentTextRecord?, promise: Promise) in
+            Task { @MainActor in
                 let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey)
                 // A text that says what it is (the pad's text editor, an upload's link) passes the not-sent boundary:
                 // without a link it is counted, kept from Ghostty and never sent later; the caller learns it was not
@@ -778,13 +780,20 @@ public class GhostexNativeModule: Module {
                     let (goesOn, report) = self.notSent.admit(item, sessionKey: sessionKey, linked: linked)
                     if let report { self.reportNotSent(report, sessionKey) }
                     guard goesOn else {
-                        throw GhostexException(code: .notConnected, reason: "Not sent: no link for session \(sessionKey)")
+                        promise.reject(
+                            GhostexException(code: .notConnected, reason: "Not sent: no link for session \(sessionKey)")
+                        )
+                        return
                     }
                 }
                 guard let entry, let view = entry.view else {
-                    throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
+                    promise.reject(
+                        GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
+                    )
+                    return
                 }
                 view.sendText(text)
+                promise.resolve(nil)
             }
         }
 
