@@ -26,7 +26,7 @@ export type AgentCli = {
   updateAvailable?: boolean;
   updateHeldBack?: string | null;
   detectedMethodId?: string | null;
-  methods?: { id: string; label?: string; unavailableReason?: string | null }[];
+  methods?: { id: string; label?: string; command?: string | null; unavailableReason?: string | null }[];
   job?: ToolJob | null;
 };
 
@@ -115,7 +115,12 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
   }
   const failure = failedJob(agent.job);
   if (!installed) {
-    const method = agent.methods?.find((candidate) => !candidate.unavailableReason) ?? null;
+    const method =
+      agent.methods?.find(
+        (candidate) =>
+          !candidate.unavailableReason?.trim() &&
+          (candidate.command === undefined || (candidate.command ?? '').trim() !== ''),
+      ) ?? null;
     const unavailable = method === null ? agent.methods?.[0]?.unavailableReason?.trim() : null;
     return {
       key,
@@ -128,8 +133,23 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
   }
   const version = agent.version?.trim();
   let detail = version ? `Installed · ${version}` : 'Installed';
-  const update = agent.updateAvailable === true && !agent.updateHeldBack && agent.detectedMethodId;
-  if (agent.updateAvailable === true && agent.latestVersion) detail += ` · ${agent.latestVersion} available`;
+  const detectedMethod = agent.detectedMethodId
+    ? agent.methods?.find((candidate) => candidate.id === agent.detectedMethodId) ?? null
+    : null;
+  const unavailableReason = detectedMethod?.unavailableReason?.trim() || null;
+  const noCommand =
+    detectedMethod !== null && detectedMethod.command !== undefined && (detectedMethod.command ?? '').trim() === '';
+  const update =
+    agent.updateAvailable === true &&
+    !agent.updateHeldBack &&
+    Boolean(agent.detectedMethodId) &&
+    unavailableReason === null &&
+    !noCommand;
+  if (agent.updateAvailable === true && unavailableReason) {
+    detail = `${version ? `${version}. ` : ''}${unavailableReason}`;
+  } else if (agent.updateAvailable === true && agent.latestVersion && !noCommand) {
+    detail += ` · ${agent.latestVersion} available`;
+  }
   return {
     key,
     title,
