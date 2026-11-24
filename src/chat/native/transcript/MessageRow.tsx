@@ -4,8 +4,16 @@
  * a system or harness turn becomes. What each row is and says comes from the core's projection.
  */
 
-import { memo, useContext, useRef } from 'react';
+import { memo, useContext, useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
+import Animated, {
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { ProjectedMessage } from '../../rust/document';
 import { ApiErrorCard, ApiErrorNote, QuestionExchangeCards } from '../cards';
@@ -41,8 +49,8 @@ import { GbotCards, shownGbotCards } from './GbotCard';
 import { estimatedLines, StartupDelivery, SuppressedRow, SystemCard } from './SystemRows';
 import { MESSAGE_PART_GAP, MONO_FONT, PROSE_LINE, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SideQuestionRow } from './SideQuestionRow';
-import { BoxedToolCards } from './ToolCard';
-import { hasVisibleTools, ShellCommandCard, ToolRows } from './ToolRows';
+import { BoxedToolCards, InWorkingLine } from './ToolCard';
+import { BoxedCardToolRows, hasVisibleTools, ShellCommandCard, ToolRows } from './ToolRows';
 import { fileNames, QuietEditLine } from './quietWork';
 import { LeftUserMessage, userStyleProse } from './userMessageLook';
 import { HeldNotesLine } from './HeldNotesLine';
@@ -50,6 +58,17 @@ import { Glyph } from './icons';
 import { strengthenedText } from './textStrength';
 import { useHiddenWorkFor } from './hiddenWorkButton';
 import { FoldChevron } from './foldChevron';
+import { FOLD_MS } from './foldMotion';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLinePill,
+  SingleLineTile,
+  TITLE_ROW_GAP,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
 
 /** The gap below an agent's thinking at Message spacing Default (desktop `THINKING_GAP`). */
 const THINKING_GAP = 13;
@@ -226,6 +245,7 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   const strengthened = (color: string) => strengthenedText(color, flags.chatTextStrength, theme.light);
   const { inWorkFold, hideFileChanges, quietSteps } = useFoldPlace();
   const boxedTools = useContext(BoxedToolCards);
+  const inWorkingLine = useContext(InWorkingLine);
   const id = message.id;
   const body = typeof message.text === 'string' ? message.text : '';
   const reasoning = message.role === 'reasoning';
@@ -354,7 +374,9 @@ function AgentMessage({ message, proseColor }: { message: ProjectedMessage; pros
   const filesCard = !hideFileChanges && !toolCard && arr(message.files).length > 0;
   // Inside an opened Quiet View line the plain tool rows are a card too (`ToolRows`, `BoxedToolCards`).
   const boxedRows = boxedTools && !inWorkFold && quietSteps !== true && hasVisibleTools(message, inWorkFold, flags.workflowCards);
-  const callsCard = filesCard || (!toolsRendered && (toolCard || boxedRows));
+  const thoughtCard =
+    body.length > 0 && reasoning && message.thinkingCard !== undefined && inWorkingLine && !inWorkFold && quietSteps !== true;
+  const callsCard = filesCard || thoughtCard || (!toolsRendered && (toolCard || boxedRows));
   const questionCards = !inWorkFold && arr(message.questions).length > 0;
   const sentCards = !inWorkFold && arr(message.sentMessages).length > 0;
   const gbotCards = !inWorkFold && shownGbotCards(message.gbotCards, flags.gbotCardStates).length > 0;
@@ -494,16 +516,113 @@ function ThinkingRow({ id, body, references }: { id: string; body: string; refer
   );
 }
 
+const THOUGHT_FADE_CURVE = Easing.bezier(0.4, 0, 0.2, 1);
+
 /**
  * A thought as one slim line shaped like a tool row (desktop `thinking_card.rs`; the user's decision
  * is in gx-chat-core `transcript/thinking_card.rs`): a brain tile, "Thinking…" while it is written or
- * "Thought" after, and its line (the newest finished one while it streams). A press opens the full
- * thought below it; open while it is being written, it keeps the newest lines in view until the
- * reader scrolls up. A running thought that owns the calls it made ends its line with "N tool calls"
- * and a chevron that folds them, on a sentence's default (open in detailed mode or while a call
- * waits on an approval).
+ * "Thought" after, and its line (the newest finished one while it streams). Inside an opened Quiet
+ * View Working line it renders as `BoxedThinkingCard` matching plain tool-call cards.
  */
 function ThinkingLine({ id, body, message }: { id: string; body: string; message: ProjectedMessage }) {
+  const inWorkingLine = useContext(InWorkingLine);
+  const { inWorkFold, quietSteps } = useFoldPlace();
+  if (message.thinkingCard !== undefined && inWorkingLine && !inWorkFold && quietSteps !== true) {
+    return <BoxedThinkingCard id={id} body={body} message={message} />;
+  }
+  return <SlimThinkingLine id={id} body={body} message={message} />;
+}
+
+/**
+ * A running thought inside an opened Quiet View Working line, styled as the same single-line card
+ * as a plain "N tool calls" group (`ToolRows.tsx`, desktop `thinking_card.rs` `boxed_thinking_card`).
+ *
+ * CDXC:SessionChat 2026-11-24 DECISION: User (Q4839 A, Q4840 "working only", Q4841 "build"):
+ * "when thought is collapsed just show single line truncated. when i expand fade out that line
+ * that's truncated and show full thoughts inside the card below the header".
+ */
+function BoxedThinkingCard({ id, body, message }: { id: string; body: string; message: ProjectedMessage }) {
+  const { theme, mutedThinking } = useTranscriptEnv();
+  const { disclosures } = useNativeChatUi();
+  const [open, toggle] = useDisclosure(disclosures, `thinking-card:${id}`, message.toolsOpen === true);
+  const reduceMotion = useReducedMotion();
+  const previewOpacity = useSharedValue(open ? 0 : 0.8);
+  useEffect(() => {
+    const target = open ? 0 : 0.8;
+    previewOpacity.value = reduceMotion
+      ? target
+      : withTiming(target, { duration: FOLD_MS, easing: THOUGHT_FADE_CURVE });
+  }, [open, reduceMotion, previewOpacity]);
+  const previewStyle = useAnimatedStyle(() => ({ opacity: previewOpacity.value }));
+  const scroll = useRef<ScrollViewInstance>(null);
+  const atEnd = useRef(true);
+  const lane = thinkingTone(theme, mutedThinking);
+  const card = message.thinkingCard;
+  const live = card?.live === true;
+  const preview = (card?.preview ?? '') || (message.thinkingRow?.preview ?? '');
+  const title = live ? 'Thinking\u2026' : 'Thought';
+  const calls = card?.calls;
+  return (
+    <View style={singleLineShell(theme)}>
+      <Pressable
+        onPress={toggle}
+        accessibilityRole="button"
+        accessibilityLabel={preview.length > 0 ? `${title} ${preview}` : title}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [styles.boxedThoughtHeader, pressed && singleLinePressed(theme)]}
+      >
+        <SingleLineTile glyph="brain" />
+        <View style={styles.boxedThoughtHead}>
+          <Text style={[SINGLE_LINE_TITLE, styles.boxedThoughtLabel, { color: theme.foreground }]}>{title}</Text>
+          <Animated.Text
+            numberOfLines={1}
+            importantForAccessibility={open ? 'no' : 'auto'}
+            accessibilityElementsHidden={open}
+            style={[styles.boxedThoughtPreview, { color: theme.prose }, previewStyle]}
+          >
+            {preview}
+          </Animated.Text>
+        </View>
+        {calls !== undefined ? <SingleLinePill label={calls} color={theme.muted} /> : null}
+      </Pressable>
+      {open ? (
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeIn.duration(FOLD_MS)}
+          style={[styles.boxedThoughtBody, { borderTopColor: theme.ink(SINGLE_LINE_CARD.borderAlpha) }]}
+        >
+          <View style={styles.boxedThoughtProse}>
+            <ScrollView
+              ref={scroll}
+              style={styles.thinkingScroll}
+              nestedScrollEnabled
+              scrollEventThrottle={32}
+              onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+                atEnd.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 2;
+              }}
+              onContentSizeChange={() => {
+                if (live && atEnd.current) scroll.current?.scrollToEnd({ animated: false });
+              }}
+            >
+              <Markdown
+                text={body}
+                references={message.markdownReferences}
+                color={lane}
+                headingColor={mutedThinking ? lane : undefined}
+              />
+            </ScrollView>
+          </View>
+          {calls !== undefined ? <BoxedCardToolRows message={message} /> : null}
+        </Animated.View>
+      ) : calls !== undefined && (message.readImages ?? []).length > 0 ? (
+        <View style={styles.boxedThoughtPictures}>
+          <ReadImageStrip images={message.readImages} inset={FOLDED_CALLS_INSET} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SlimThinkingLine({ id, body, message }: { id: string; body: string; message: ProjectedMessage }) {
   const { theme, mutedThinking, workOpen } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [open, toggle] = useDisclosure(disclosures, `thinking-card:${id}`);
@@ -642,6 +761,20 @@ const styles = StyleSheet.create({
   thinkingCallsLabel: { fontSize: 12.5, lineHeight: 20 },
   thinkingInset: { paddingLeft: 8 },
   thinkingScroll: { maxHeight: THINKING_CAP },
+  boxedThoughtHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TITLE_ROW_GAP,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    minHeight: SINGLE_LINE_HEADER_HEIGHT,
+    minWidth: 0,
+  },
+  boxedThoughtHead: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  boxedThoughtLabel: { flexShrink: 0 },
+  boxedThoughtPreview: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: 20 },
+  boxedThoughtBody: { borderTopWidth: StyleSheet.hairlineWidth, minWidth: 0 },
+  boxedThoughtProse: { paddingHorizontal: SINGLE_LINE_CARD.paddingX, paddingTop: 10, paddingBottom: 11, minWidth: 0 },
+  boxedThoughtPictures: { paddingHorizontal: SINGLE_LINE_CARD.paddingX, paddingBottom: 8 },
   promptColumn: { gap: 8 },
   slashCommand: { fontFamily: MONO_FONT, fontSize: PROSE_SIZE, lineHeight: PROSE_LINE },
   showMore: { flexDirection: 'row', alignItems: 'center', gap: 4 },

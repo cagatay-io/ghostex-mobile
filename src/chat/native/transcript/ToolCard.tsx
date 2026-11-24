@@ -128,6 +128,9 @@ function ToolIcon({ icon, size, round }: { icon: JsonRecord; size: number; round
  */
 export const BoxedToolCards = createContext(false);
 
+/** True while rendering rows inside an opened Working line (running Quiet View stretch). */
+export const InWorkingLine = createContext(false);
+
 /** The card for `message.toolCard`. */
 export function ToolCard({ message }: { message: ProjectedMessage }) {
   const { theme, workOpen, toolLines } = useTranscriptEnv();

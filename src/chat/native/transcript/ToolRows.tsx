@@ -107,6 +107,39 @@ export function hasVisibleTools(
 }
 
 /**
+ * A message's visible plain tool rows inside a boxed Quiet View card (such as an opened Working
+ * thought card, `MessageRow.tsx` `BoxedThinkingCard`): full width under a hairline, padded like
+ * the plain "N tool calls" card's body, with no nested card or rail (desktop `boxed_card_tool_rows`).
+ */
+export function BoxedCardToolRows({ message }: { message: ProjectedMessage }) {
+  const { theme } = useTranscriptEnv();
+  const { workflowCards } = useTranscriptFlags();
+  const { inWorkFold } = useFoldPlace();
+  const tools = arr(message.tools)
+    .map((tool) => obj(tool))
+    .filter((tool): tool is JsonRecord => tool !== null);
+  if (tools.length === 0) return null;
+  const cardsAsRows = message.toolsShowAllRows === true || inWorkFold;
+  const visible = tools
+    .map((_, index) => index)
+    .filter(
+      (index) =>
+        cardsAsRows ||
+        (tools[index]!.exchange !== true &&
+          tools[index]!.sentMessage !== true &&
+          obj(workflowCards[str(tools[index]!, 'workflow')]) === null),
+    );
+  if (visible.length === 0) return null;
+  return (
+    <View style={[styles.cardBody, styles.column, { borderTopColor: theme.ink(SINGLE_LINE_CARD.borderAlpha) }]}>
+      {visible.map((index) => (
+        <ToolRow key={index} messageId={message.id} index={index} tool={tools[index]!} />
+      ))}
+    </View>
+  );
+}
+
+/**
  * A message's plain tool rows. `boxed`: in an opened Quiet View line they sit in the "Message to"
  * card's shell, where a folded group's "3 tool calls" or a lone call is the card's header, filling
  * it edge to edge with that card's pressed fill (desktop `tool_rows`).

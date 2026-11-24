@@ -31,7 +31,7 @@ import { QuietLine, QuietStatusMark, type QuietSegment } from './quietWork';
 import { RAIL_ROW_GAP, useRowGap } from './messageSpacing';
 import { AnswersUnderQuietLine } from './PageAnswersCard';
 import { useDisclosure } from './state';
-import { BoxedToolCards } from './ToolCard';
+import { BoxedToolCards, InWorkingLine } from './ToolCard';
 import { TranscriptItemView } from './TranscriptItemRow';
 
 /** The space between a shut line and the reply that ends it (desktop `LINE_TO_REPLY`). */
@@ -137,9 +137,11 @@ export function QuietRow({
             {cards.length > 0 ? <WorkCardStack cards={cards} dispatch={dispatch} gap={RAIL_ROW_GAP} /> : null}
             {/* Its tool calls are cards, as its "Message to …" cards are (`ToolCard.tsx`). */}
             <BoxedToolCards.Provider value>
-              <QuietTurnContext.Provider value={turnLook}>
-                <QuietItem item={tail !== null ? foldPart(item, tail) : item} />
-              </QuietTurnContext.Provider>
+              <InWorkingLine.Provider value={line.running === true}>
+                <QuietTurnContext.Provider value={turnLook}>
+                  <QuietItem item={tail !== null ? foldPart(item, tail) : item} />
+                </QuietTurnContext.Provider>
+              </InWorkingLine.Provider>
             </BoxedToolCards.Provider>
             {/* The rail runs on through the body's own 8px gap to the line's next row, the same
                 space as between the rows' parts (`RAIL_ROW_GAP` in the desktop's quiet_view.rs). */}
