@@ -169,6 +169,12 @@ export type GhostexSettings = ThemeColourSettings & {
    * any theme setting from the earlier Graphite/System defaults without touching customised themes.
    */
   polarDefaultThemeApplied: boolean;
+  /**
+   * Marker, true once saved after the 2026-11-24 default theme accent update (`#5581a9` -> `#95d7f6`
+   * dark, `#8da101` -> `#0c74a6` light) so existing default-theme phones migrate once without
+   * overriding later manual colour picks.
+   */
+  defaultAccentBlueMigrated: boolean;
   /** The terminal palettes per appearance (desktop `terminalGhosttyTheme` / `terminalGhosttyLightTheme`). */
   terminalGhosttyTheme: string;
   terminalGhosttyLightTheme: string;
@@ -395,6 +401,7 @@ export function defaultSettings(): GhostexSettings {
     windowLiveStyle: 'none',
     showHeaderArtworkBackdrop: true,
     polarDefaultThemeApplied: true,
+    defaultAccentBlueMigrated: true,
     terminalGhosttyTheme: DEFAULT_TERMINAL_PALETTE.dark,
     terminalGhosttyLightTheme: DEFAULT_TERMINAL_PALETTE.light,
     terminalBackgroundMode: 'theme',
@@ -473,6 +480,7 @@ type ColourModelKey =
   | 'windowLiveStyle'
   | 'showHeaderArtworkBackdrop'
   | 'polarDefaultThemeApplied'
+  | 'defaultAccentBlueMigrated'
   | 'sidebarTheme'
   | 'terminalGhosttyTheme'
   | 'terminalGhosttyLightTheme'
@@ -501,6 +509,7 @@ const COLOUR_MODEL_STORED_KEYS = Object.keys({
   windowLiveStyle: true,
   showHeaderArtworkBackdrop: true,
   polarDefaultThemeApplied: true,
+  defaultAccentBlueMigrated: true,
   terminalGhosttyTheme: true,
   terminalGhosttyLightTheme: true,
   terminalBackgroundMode: true,
@@ -595,6 +604,7 @@ function themeSettingsFromRecord(
           ? record.showHeaderArtworkBackdrop
           : defaults.showHeaderArtworkBackdrop,
       polarDefaultThemeApplied: true,
+      defaultAccentBlueMigrated: true,
       terminalGhosttyTheme: defaults.terminalGhosttyTheme,
       terminalGhosttyLightTheme: defaults.terminalGhosttyLightTheme,
       terminalBackgroundMode: defaults.terminalBackgroundMode,
@@ -623,22 +633,45 @@ function themeSettingsFromRecord(
   // For an existing customised theme saved before newer keys existed, absent keys fall back to neutral
   // values rather than injecting Polar Night art or roles on top of the user's saved theme.
   const darkDefault = darkDepth === DEFAULT_THEME_DEPTH && darkTint === DEFAULT_THEME_TINT;
+  const resolvedDarkPreset =
+    oneOf<DarkThemePreset>('darkThemePreset', DARK_THEME_PRESETS) ?? (darkDefault ? 'gray' : 'custom');
+  const resolvedLightPreset = oneOf<LightThemePreset>('lightThemePreset', LIGHT_THEME_PRESETS) ?? 'gray';
+  const resolvedLightTint = normalizeHexColor(
+    record.customSidebarTitlebarLightBackgroundTintColor,
+    DEFAULT_THEME_TINT,
+  );
+  let resolvedRoles = sanitizeThemeRoles(record.themeRoles);
+  if (record.defaultAccentBlueMigrated !== true) {
+    const darkIsDefault =
+      resolvedDarkPreset === 'custom' && darkTint.toLowerCase() === '#404e78';
+    const lightIsDefault =
+      resolvedLightPreset === 'custom' && resolvedLightTint.toLowerCase() === '#fcf3da';
+    if (darkIsDefault && resolvedRoles.dark?.accent?.trim().toLowerCase() === '#5581a9') {
+      resolvedRoles = {
+        ...resolvedRoles,
+        dark: { ...resolvedRoles.dark, accent: '#95d7f6' },
+      };
+    }
+    if (lightIsDefault && resolvedRoles.light?.accent?.trim().toLowerCase() === '#8da101') {
+      resolvedRoles = {
+        ...resolvedRoles,
+        light: { ...resolvedRoles.light, accent: '#0c74a6' },
+      };
+    }
+  }
   return {
     sidebarTheme: oneOf('sidebarTheme', SIDEBAR_THEME_OPTIONS) ?? 'dark-2',
-    darkThemePreset: oneOf<DarkThemePreset>('darkThemePreset', DARK_THEME_PRESETS) ?? (darkDefault ? 'gray' : 'custom'),
-    lightThemePreset: oneOf<LightThemePreset>('lightThemePreset', LIGHT_THEME_PRESETS) ?? 'gray',
+    darkThemePreset: resolvedDarkPreset,
+    lightThemePreset: resolvedLightPreset,
     customSidebarTitlebarBackgroundTintColor: darkTint,
-    customSidebarTitlebarLightBackgroundTintColor: normalizeHexColor(
-      record.customSidebarTitlebarLightBackgroundTintColor,
-      DEFAULT_THEME_TINT,
-    ),
+    customSidebarTitlebarLightBackgroundTintColor: resolvedLightTint,
     customSidebarTitlebarBackgroundDarknessPercent: darkDepth,
     customSidebarTitlebarLightBackgroundLightnessPercent: clampLightThemeDepth(
       number('customSidebarTitlebarLightBackgroundLightnessPercent') ?? DEFAULT_THEME_DEPTH,
     ),
     themeSidebarContrast: contrast('themeSidebarContrast'),
     themeWorkAreaContrast: contrast('themeWorkAreaContrast'),
-    themeRoles: sanitizeThemeRoles(record.themeRoles),
+    themeRoles: resolvedRoles,
     windowArt: sanitizeWindowArt(record.windowArt, 'none'),
     windowArtLight: sanitizeWindowArt(record.windowArtLight, 'none'),
     windowArtDim: Math.min(100, Math.max(0, Math.round(number('windowArtDim') ?? defaults.windowArtDim))),
@@ -648,6 +681,7 @@ function themeSettingsFromRecord(
         ? record.showHeaderArtworkBackdrop
         : defaults.showHeaderArtworkBackdrop,
     polarDefaultThemeApplied: true,
+    defaultAccentBlueMigrated: true,
     terminalGhosttyTheme: name('terminalGhosttyTheme', LEGACY_DEFAULT_TERMINAL_PALETTE.dark),
     terminalGhosttyLightTheme: name('terminalGhosttyLightTheme', LEGACY_DEFAULT_TERMINAL_PALETTE.light),
     terminalBackgroundMode: oneOf('terminalBackgroundMode', TERMINAL_BACKGROUND_MODES) ?? 'pure',

@@ -279,7 +279,7 @@ export function countThemeRoleOverrides(roles: ThemeRolesByAppearance | undefine
  * (5ce4a5f7d / 67eb86437: Polar Night).
  */
 export const DEFAULT_DARK_THEME_ROLES: ThemeRoleMap = {
-  accent: '#5581a9',
+  accent: '#95d7f6',
   focusRing: '#5581a9',
   border: '8%',
   divider: '6%',
@@ -299,12 +299,12 @@ export const DEFAULT_DARK_THEME_ROLES: ThemeRoleMap = {
 
 /**
  * Built-in default light `themeRoles` matching desktop `packages/settings-catalog/src/data/defaults.rs`
- * (5ce4a5f7d: Everforest Light).
+ * (5ce4a5f7d: Everforest Light, with `#0c74a6` sky-blue accent matching `#95d7f6` dark).
  */
 export const DEFAULT_LIGHT_THEME_ROLES: ThemeRoleMap = {
   text: '#5c6a72',
   mutedText: '#939f91',
-  accent: '#8da101',
+  accent: '#0c74a6',
   focusRing: '#8da101',
   link: '#3a94c5',
   success: '#8da101',

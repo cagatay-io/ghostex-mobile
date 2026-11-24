@@ -220,11 +220,11 @@ export const DEFAULT_THEME_LOOK: ThemeLook = {
   preview: {
     sidebar: '#141c2e',
     work: '#1a2335',
-    accent: '#5581a9',
+    accent: '#95d7f6',
     gradient: ['#141c2e', '#1f2d47', '#101624'],
   },
   matchTint: '#404e78',
-  matchAccent: '#5581a9',
+  matchAccent: '#95d7f6',
   patch: {
     sidebarTheme: 'dark-2',
     darkThemePreset: 'custom',
@@ -459,7 +459,7 @@ export function themeLookMatches(
       settings.customSidebarTitlebarBackgroundTintColor.trim().toLowerCase() === '#404e78' &&
       settings.themeSidebarContrast === 0 &&
       settings.themeWorkAreaContrast === 0 &&
-      accent === '#5581a9'
+      accent === '#95d7f6'
     );
   }
   const tintMatches =
