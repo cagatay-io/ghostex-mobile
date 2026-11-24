@@ -840,10 +840,11 @@ export default function NativeChatScreen({
                     {...(composerRoom !== undefined ? { room: composerRoom } : {})}
                     {...(document !== null
                       ? {
-                          strip: (
+                          renderStrip: (draftToggles) => (
                             <PillsStrip
                               chat={chat}
                               document={document}
+                              draftToggles={draftToggles}
                               menu={pillMenu}
                               onMenuChange={setPillMenu}
                               armed={armed}

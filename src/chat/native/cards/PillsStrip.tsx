@@ -34,6 +34,7 @@ import { BLOCKED_PILL } from './CoordinatorBoard';
 import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
 import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
+import { FlowerGlyph } from '../../../components/sessions/icons';
 import { Glyph as ComposerGlyph } from '../composer/icons';
 import { sessionLinksChatPill } from '../sessionLinks';
 import { SessionDetailsPill, sessionDetailsRingOf } from './SessionDetailsSheet';
@@ -45,6 +46,17 @@ import { NativeSwitchPill } from './NativeSwitchPill';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
 import { WherePill, WhereSheet } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
+
+/** The new-chat "No project" and "Coordinator" toggle pills, shown at the strip's left end while a draft is idle. */
+export type DraftStripToggles = {
+  busy: boolean;
+  noProject: boolean;
+  canToggleNoProject: boolean;
+  onToggleNoProject: () => void;
+  coordinatorOn: boolean;
+  canToggleCoordinator: boolean;
+  onToggleCoordinator: () => void;
+};
 
 /** The session's links and the Links pill's tap, from the screen that knows the session (`TerminalScreen`). */
 export type PillsStripLinks = {
@@ -109,8 +121,10 @@ export function pillsStripShown(
   muted: string,
   hiddenPages = 0,
   omitPills: readonly string[] = NO_PILLS,
+  hasDraftToggles = false,
 ): boolean {
   return (
+    hasDraftToggles ||
     hiddenPages > 0 ||
     armed.length > 0 ||
     (document.savedDraftPill ?? null) !== null ||
@@ -145,11 +159,14 @@ export function PillsStrip({
   onSwitchToNative,
   onCancelSwitchToNative,
   onDismissNativeSwitch,
+  draftToggles = null,
 }: {
   chat: RustChat;
   /** Pills left out of the strip (`PILLS_IN_DOCK_BAR` while the dock's bar shows). */
   omitPills?: readonly string[];
   document: ChatDocument;
+  /** The new-chat "No project" and "Coordinator" toggle pills, placed at the strip's left end (Q4833 A, Q4834 C). */
+  draftToggles?: DraftStripToggles | null;
   /** Opens the "Switch to Native?" confirm sheet (`Q4768`, `Q4769`). */
   onSwitchToNative?: (offer: NativeSwitchOffer) => void;
   /** Cancels a queued mid-reply Terminal -> Native switch (`Q4771`). */
@@ -215,7 +232,17 @@ export function PillsStrip({
   }, [savedDraft]);
   // The box's width, which the Saved draft pill shortens its label by (`savedDraft.ts`).
   const [stripWidth, setStripWidth] = useState(0);
-  const shown = pillsStripShown(document, armed, links, P.cardMuted, hiddenPages.length, omitPills);
+  const hasDraftToggles =
+    draftToggles !== null && (draftToggles.canToggleNoProject || draftToggles.canToggleCoordinator);
+  const shown = pillsStripShown(
+    document,
+    armed,
+    links,
+    P.cardMuted,
+    hiddenPages.length,
+    omitPills,
+    hasDraftToggles,
+  );
   // Grows in and shrinks away; drawn while it shrinks, dropped once it has.
   const open = useRef(new Animated.Value(shown ? 1 : 0)).current;
   const [drawn, setDrawn] = useState(shown);
@@ -286,6 +313,9 @@ export function PillsStrip({
             contentContainerStyle={styles.band}
             onLayout={(event) => setStripWidth(event.nativeEvent.layout.width)}
           >
+            {shown && hasDraftToggles && draftToggles !== null ? (
+              <DraftTogglePills toggles={draftToggles} />
+            ) : null}
             {shown && where !== null ? (
               <WherePill pill={where} tier="full" open={whereOpen} onPress={() => setWhereOpen(true)} />
             ) : null}
@@ -375,6 +405,72 @@ export function PillsStrip({
         dispatch={chat.dispatch}
         {...(onOpenFolder !== undefined ? { onOpenFolder } : {})}
       />
+    </>
+  );
+}
+
+/**
+ * The new-chat "No project" and "Coordinator" toggle pills at the strip's left end, matching the
+ * existing 25pt strip pills and neutral active style (Q4833 A, Q4834 C; desktop `pills_strip.rs`).
+ */
+function DraftTogglePills({ toggles }: { toggles: DraftStripToggles }) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <>
+      {toggles.canToggleNoProject ? (
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel="No project"
+          accessibilityState={{ checked: toggles.noProject, disabled: toggles.busy }}
+          disabled={toggles.busy}
+          hitSlop={4}
+          onPress={toggles.onToggleNoProject}
+          style={({ pressed }) => [
+            styles.draftPill,
+            toggles.noProject ? styles.draftPillActive : null,
+            pressed ? styles.draftPillPressed : null,
+            toggles.busy ? styles.draftPillBusy : null,
+          ]}
+        >
+          {toggles.noProject ? (
+            <ComposerGlyph name="check" size={14} color={P.foreground} />
+          ) : (
+            <FlowerGlyph size={14} color={P.cardMuted} />
+          )}
+          <Text style={[styles.draftPillLabel, toggles.noProject ? styles.draftPillLabelActive : null]} numberOfLines={1}>
+            No project
+          </Text>
+        </Pressable>
+      ) : null}
+      {toggles.canToggleCoordinator ? (
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel="Coordinator"
+          accessibilityState={{ checked: toggles.coordinatorOn, disabled: toggles.busy }}
+          disabled={toggles.busy}
+          hitSlop={4}
+          onPress={toggles.onToggleCoordinator}
+          style={({ pressed }) => [
+            styles.draftPill,
+            toggles.coordinatorOn ? styles.draftPillActive : null,
+            pressed ? styles.draftPillPressed : null,
+            toggles.busy ? styles.draftPillBusy : null,
+          ]}
+        >
+          <ComposerGlyph
+            name={toggles.coordinatorOn ? 'check' : 'coordinator-crown-points'}
+            size={14}
+            color={toggles.coordinatorOn ? P.foreground : P.cardMuted}
+          />
+          <Text
+            style={[styles.draftPillLabel, toggles.coordinatorOn ? styles.draftPillLabelActive : null]}
+            numberOfLines={1}
+          >
+            Coordinator
+          </Text>
+        </Pressable>
+      ) : null}
     </>
   );
 }
@@ -548,5 +644,35 @@ const useStyles = themedStyles((P) => ({
     color: P.foreground,
     fontSize: VISUAL.fontSize,
     lineHeight: VISUAL.fontSize * 1.5,
+  },
+  draftPill: {
+    height: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: 5,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: P.ink(0.1),
+  },
+  draftPillActive: {
+    backgroundColor: P.ink(0.1),
+    borderColor: P.ink(0.28),
+  },
+  draftPillPressed: {
+    backgroundColor: P.ink(0.14),
+  },
+  draftPillBusy: {
+    opacity: 0.6,
+  },
+  draftPillLabel: {
+    color: P.cardMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  draftPillLabelActive: {
+    color: P.foreground,
+    fontWeight: '500',
   },
 }));

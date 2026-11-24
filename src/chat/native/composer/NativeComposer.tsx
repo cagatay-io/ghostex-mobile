@@ -59,6 +59,7 @@ import { BoostHintChip } from '../cards/Boosts';
 import { BoxNotes } from './BoxNotes';
 import { CatchUpCard } from '../cards/CatchUpCard';
 import { CompactPromptCard } from '../cards/CompactPromptCard';
+import type { DraftStripToggles } from '../cards/PillsStrip';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
 import { FilesLinksCard } from '../cards/FilesLinksCard';
 import { secretRequestOpen } from '../cards/SecretRequestCard';
@@ -145,6 +146,8 @@ export type NativeComposerProps = {
   room?: number;
   /** The chat's pill strip (`PillsStrip.tsx`), drawn along the box's top edge inside its border; not in a pane. */
   strip?: ReactNode;
+  /** Renders the chat's pill strip with the draft's "No project" and "Coordinator" toggles when active. */
+  renderStrip?: (draftToggles: DraftStripToggles | null) => ReactNode;
   /** The session sleeps: More actions' Sleep row reads Wake. */
   sleeping?: boolean;
   /**
@@ -212,6 +215,7 @@ export function NativeComposer({
   voiceCallGbotName = '',
   room,
   strip,
+  renderStrip,
   sleeping = false,
   voiceAgent = false,
 }: NativeComposerProps) {
@@ -959,6 +963,20 @@ export function NativeComposer({
           ),
         );
 
+  const draftToggles: DraftStripToggles | null =
+    document?.worktreeTray != null && document.worktreeTray.status == null
+      ? {
+          busy: document.worktreeTray.busy === true,
+          noProject: noProjectOn,
+          canToggleNoProject: homeProjectId !== null || mainHubMachineChoice() !== null,
+          onToggleNoProject: toggleNoProject,
+          coordinatorOn: draftCoordinatorMode,
+          canToggleCoordinator: document.firstMessageCard == null,
+          onToggleCoordinator: toggleCoordinator,
+        }
+      : null;
+  const stripNode = renderStrip !== undefined ? renderStrip(draftToggles) : strip;
+
   return (
     <KeyboardLiftedView style={styles.root}>
       {(bottom) => (
@@ -1039,11 +1057,6 @@ export function NativeComposer({
               machineLabel={machineChipLabel}
               openMachines={openMachines}
               noProject={noProjectOn}
-              canToggleNoProject={homeProjectId !== null || mainHubMachineChoice() !== null}
-              onToggleNoProject={toggleNoProject}
-              coordinatorOn={draftCoordinatorMode}
-              canToggleCoordinator={document.firstMessageCard == null}
-              onToggleCoordinator={toggleCoordinator}
             />
           ) : null}
           <View
@@ -1051,11 +1064,11 @@ export function NativeComposer({
             onLayout={(event: LayoutChangeEvent) => measureFrame('cardTop', event.nativeEvent.layout.y)}
           >
             {/* The chat's pills ride in a strip along the box's top edge, inside its border (`PillsStrip.tsx`); what the box holds under it is unchanged. */}
-            {strip !== undefined && !compact ? (
+            {stripNode !== undefined && !compact ? (
               <View
                 onLayout={(event: LayoutChangeEvent) => setStripHeight(Math.round(event.nativeEvent.layout.height))}
               >
-                {strip}
+                {stripNode}
               </View>
             ) : null}
             <Animated.View style={[styles.cardInner, motion.cardStyle]}>

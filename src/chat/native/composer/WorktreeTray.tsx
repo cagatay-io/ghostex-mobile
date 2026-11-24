@@ -89,11 +89,6 @@ export function WorktreeTray({
   machineLabel,
   openMachines,
   noProject = false,
-  canToggleNoProject = false,
-  onToggleNoProject,
-  coordinatorOn = false,
-  canToggleCoordinator = false,
-  onToggleCoordinator,
 }: {
   tray: Tray;
   /** Opens the composer's menu sheet with these rows, and a search over them. */
@@ -112,12 +107,6 @@ export function WorktreeTray({
   openMachines: () => void;
   /** No project pill is toggled on: hides project/where/detail, leaving only the computer picker. */
   noProject?: boolean;
-  canToggleNoProject?: boolean;
-  onToggleNoProject?: () => void;
-  /** Coordinator pill is toggled on: starts this draft as a coordinator on first send. */
-  coordinatorOn?: boolean;
-  canToggleCoordinator?: boolean;
-  onToggleCoordinator?: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -237,8 +226,10 @@ export function WorktreeTray({
   if (place.length + choice.length > 0) {
     if (layout.twoRows) {
       const gridWidth = layout.columns.reduce((total, width) => total + width, 0) + SEPARATOR * (layout.columns.length - 1);
+      // CDXC:NewSession 2026-11-24 DECISION: User: "Also on phone don't center the row for picking
+      // machine branch etc make it align left like always". Keep the phone tray left-aligned.
       breadcrumb = (
-        <View style={[styles.grid, layout.centered ? styles.centeredColumn : null]}>
+        <View style={styles.grid}>
           {rows
             .filter((row) => row.length > 0)
             .map((row) => {
@@ -259,7 +250,7 @@ export function WorktreeTray({
     } else {
       const parts = [...place.map((part, index) => ({ part, row: 0, index })), ...choice.map((part, index) => ({ part, row: 1, index }))];
       breadcrumb = (
-        <View style={[styles.row, layout.centered ? styles.centeredRow : null]}>
+        <View style={styles.row}>
           {parts.flatMap(({ part, row, index }, at) => [
             ...(at > 0 ? [separator(`sep-${part.id}`)] : []),
             drawPart(part, cutWidth(row, index)),
@@ -267,6 +258,12 @@ export function WorktreeTray({
         </View>
       );
     }
+  }
+
+  const hasStatusLine = status?.state === 'creating' || status?.state === 'opened' || status?.state === 'failed';
+  const hasCloudCard = status !== null && status.state !== 'failed' && Boolean(status.card);
+  if (breadcrumb === null && peek === null && !hasStatusLine && !tray.folderPrompt && !hasCloudCard) {
+    return null;
   }
 
   return (
@@ -298,44 +295,6 @@ export function WorktreeTray({
           ))}
         </View>
       </View>
-      {canToggleNoProject || canToggleCoordinator ? (
-        <View style={[styles.toggleRow, busy ? styles.busy : null]}>
-          {canToggleNoProject && onToggleNoProject !== undefined ? (
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityLabel="No project"
-              accessibilityState={{ checked: noProject, disabled: busy }}
-              disabled={busy}
-              onPress={onToggleNoProject}
-              style={({ pressed }) => [
-                styles.togglePill,
-                noProject ? styles.togglePillActive : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              {noProject ? <Glyph name="check" size={12} color={P.foreground} /> : null}
-              <Text style={[styles.toggleLabel, noProject ? styles.toggleLabelActive : null]}>No project</Text>
-            </Pressable>
-          ) : null}
-          {canToggleCoordinator && onToggleCoordinator !== undefined ? (
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityLabel="Coordinator"
-              accessibilityState={{ checked: coordinatorOn, disabled: busy }}
-              disabled={busy}
-              onPress={onToggleCoordinator}
-              style={({ pressed }) => [
-                styles.togglePill,
-                coordinatorOn ? styles.togglePillActive : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Glyph name="coordinator-crown-points" size={12} color={coordinatorOn ? P.foreground : P.muted} />
-              <Text style={[styles.toggleLabel, coordinatorOn ? styles.toggleLabelActive : null]}>Coordinator</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
       {peek !== null ? (
         <Text style={styles.peek} numberOfLines={3}>
           {peek}
@@ -422,9 +381,7 @@ const useStyles = themedStyles((P) => ({
   content: { alignSelf: 'stretch' },
   busy: { opacity: 0.6 },
   grid: { gap: 2 },
-  centeredColumn: { alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center' },
-  centeredRow: { justifyContent: 'center' },
   cell: { flexDirection: 'row' },
   separator: { width: SEPARATOR, alignItems: 'center' },
   part: {
@@ -449,29 +406,4 @@ const useStyles = themedStyles((P) => ({
   promptLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 2 },
   promptActions: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -PART_PADDING },
   promptFirst: { fontWeight: '600' },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: PART_PADDING,
-    paddingTop: 2,
-  },
-  togglePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    height: 26,
-    paddingHorizontal: 9,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: P.border,
-    backgroundColor: 'transparent',
-  },
-  togglePillActive: {
-    backgroundColor: P.neutralFill,
-    borderColor: P.muted,
-  },
-  toggleLabel: { color: P.muted, fontSize: 12.5 },
-  toggleLabelActive: { color: P.foreground, fontWeight: '600' },
 }));
