@@ -337,6 +337,8 @@ function chatSurfaces(roles: ChatRoles, background: string, menu: string): Pick<
   const lifted = (dark: number, lightAmount: number): string => (light ? down(lightAmount) : up(dark));
   const cardBackground = light ? up(0.3) : background;
   const cardPanel = up(light ? 0.6 : 0.035);
+  const composerBackground = up(light ? 0.3 : 0.03);
+  const floatingSurface = light ? cardPanel : composerBackground;
   return {
     background,
     input: lifted(0.03, 0.032),
@@ -349,14 +351,14 @@ function chatSurfaces(roles: ChatRoles, background: string, menu: string): Pick<
     cardPanel,
     cardRow: lifted(0.015, 0.032),
     cardFooter: up(light ? 0.1 : 0.025),
-    composerBackground: up(light ? 0.3 : 0.03),
+    composerBackground,
     composerBorder: lifted(0.08, 0.067),
     controlBorder: light ? down(0.095) : 'rgba(255,255,255,0.06)',
     inputBorder: light ? down(0.095) : 'rgba(255,255,255,0.08)',
     menu,
     wellFill: light ? '#f7f7f7' : colorWithOpacity(background, 70),
-    floatingSurface: cardPanel,
-    floatingTile: light ? stepTowardHex(cardPanel, false, 0.035) : stepTowardHex(cardPanel, true, 0.055),
+    floatingSurface,
+    floatingTile: light ? stepTowardHex(floatingSurface, false, 0.035) : stepTowardHex(floatingSurface, true, 0.04),
     markCard: mixHexColors(roles.foreground, cardBackground, 12),
   };
 }
@@ -405,15 +407,27 @@ export function transcriptThemeFor(settings: ThemeColourSettings, light: boolean
     const surfaces: Pick<TranscriptTheme, ChatSurfaceKey> = {
       ...baseSurfaces,
       ...(userMessageOverride !== null ? { userBubble: userMessageOverride } : {}),
-      ...(chatBoxOverride !== null ? { composerBackground: chatBoxOverride } : {}),
+      ...(chatBoxOverride !== null
+        ? {
+            composerBackground: chatBoxOverride,
+            ...(!light
+              ? {
+                  floatingSurface: chatBoxOverride,
+                  floatingTile: stepTowardHex(chatBoxOverride, true, 0.04),
+                }
+              : {}),
+          }
+        : {}),
       ...(surfaceOverride !== null
         ? {
             cardBackground: surfaceOverride,
             cardPanel: surfaceOverride,
-            floatingSurface: surfaceOverride,
-            floatingTile: light
-              ? stepTowardHex(surfaceOverride, false, 0.035)
-              : stepTowardHex(surfaceOverride, true, 0.055),
+            ...(light
+              ? {
+                  floatingSurface: surfaceOverride,
+                  floatingTile: stepTowardHex(surfaceOverride, false, 0.035),
+                }
+              : {}),
           }
         : {}),
       ...(controlOverride !== null ? { input: controlOverride, cardRow: controlOverride } : {}),
