@@ -44,6 +44,15 @@ export function starRow(pageId: string, starred: boolean): MenuRow {
   };
 }
 
+/** A page's Share link row (shown only when the connected computer advertises `shareLinks`). */
+export function shareLinkRow(shared = false): MenuRow {
+  return {
+    label: shared ? 'Shared · Manage link…' : 'Share link…',
+    iconPath: shared ? 'titlebar/world.svg' : 'titlebar/link.svg',
+    command: { local: 'shareLink' },
+  };
+}
+
 /** A page's Export page and Import answers rows. */
 export function pageRows(pageId: string): MenuRow[] {
   return [
@@ -61,12 +70,14 @@ export function CardMoreMenu({
   dispatch,
   color,
   onSnoozed,
+  onShare,
   size = 18,
 }: {
   rows: MenuRow[];
   dispatch: (action: UserAction) => void;
   color: string;
   onSnoozed?: () => void;
+  onShare?: () => void;
   size?: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -102,6 +113,13 @@ export function CardMoreMenu({
           run?.();
         }}
         onCommand={(command) => {
+          if (command.local === 'shareLink') {
+            if (onShare) {
+              if (Platform.OS === 'ios') pending.current = onShare;
+              else onShare();
+            }
+            return;
+          }
           if (command.local === 'importAnswers') {
             if (Platform.OS === 'ios') pending.current = importAnswers;
             else importAnswers();

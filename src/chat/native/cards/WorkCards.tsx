@@ -1381,6 +1381,22 @@ function DockRow({
                   </Text>
                 )}
               </View>
+              {str(row, 'answeredBy').length > 0 ? (
+                <View
+                  style={[
+                    styles.sourcesChip,
+                    {
+                      backgroundColor: P.light ? 'rgba(22, 128, 73, 0.12)' : 'rgba(52, 211, 153, 0.16)',
+                      borderColor: P.light ? 'rgba(22, 128, 73, 0.30)' : 'rgba(52, 211, 153, 0.34)',
+                    },
+                  ]}
+                >
+                  <Glyph name="user" size={11} color={P.light ? '#168049' : '#34d399'} />
+                  <Text style={[styles.sourcesChipText, { color: P.light ? '#168049' : '#34d399' }]}>
+                    {str(row, 'answeredBy')}
+                  </Text>
+                </View>
+              ) : null}
               {duplicates.length > 0 ? (
                 <Pressable
                   accessibilityRole="button"

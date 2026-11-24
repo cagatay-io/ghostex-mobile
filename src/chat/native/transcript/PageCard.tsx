@@ -14,15 +14,18 @@
  * packages/gx-chat-core/visual/page-card.json. Change them together.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
+import { useMachinesStore } from '../../../machines/store';
+import { useMachineShares, useShareLinksSupported } from '../../../sharing/api';
+import { ShareLinkSheet } from '../../../sharing/ShareLinkSheet';
 import { useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { Glyph } from './icons';
 import { str, type JsonRecord } from './json';
 import { answeredColor } from './PageAnswersCard';
 import { askColor } from '../cards/askCard';
-import { CardMoreMenu, pageRows, snoozeRow, starRow } from '../cards/CardMoreMenu';
+import { CardMoreMenu, pageRows, shareLinkRow, snoozeRow, starRow } from '../cards/CardMoreMenu';
 import { askedPageThumbnail, usePageThumbnailStore } from './pageThumbnails';
 import { QuestionFlashFrame } from './OpenQuestions';
 import {
@@ -78,7 +81,13 @@ function PageCardBody({
   onLayout: (event: LayoutChangeEvent) => void;
 }) {
   const { theme, dispatch, collapsePageCards } = useTranscriptEnv();
-  const { disclosures } = useNativeChatUi();
+  const { disclosures, homeMachineId } = useNativeChatUi();
+  const machine = useMachinesStore((state) =>
+    homeMachineId ? state.machines.find((candidate) => candidate.id === homeMachineId) : undefined,
+  );
+  const canShare = useShareLinksSupported(machine);
+  const { pages: sharedPages } = useMachineShares(homeMachineId);
+  const [shareOpen, setShareOpen] = useState(false);
   const flags = useTranscriptFlags();
   const url = str(answer, 'url');
   const file = str(answer, 'file');
@@ -269,6 +278,12 @@ function PageCardBody({
             <Text style={[styles.answeredText, { color: good }]}>Answered</Text>
           </View>
         ) : null}
+        {canShare && pageId.length > 0 && sharedPages.has(pageId) ? (
+          <View style={[styles.answered, { backgroundColor: `${good}24` }]}>
+            <Glyph name="world" size={11} color={good} />
+            <Text style={[styles.answeredText, { color: good }]}>Shared</Text>
+          </View>
+        ) : null}
         <Pressable
           style={({ pressed }) => [styles.open, { backgroundColor: theme.controlPrimary }, pressed && { opacity: 0.8 }]}
           onPress={open}
@@ -304,18 +319,28 @@ function PageCardBody({
             </Pressable>
           ) : null}
           {pageId.length > 0 ? (
-            // While it waits Snooze, then Star, Export page and Import answers (`cards/CardMoreMenu.tsx`).
+            // While it waits Snooze, then Star, optional Share link, Export page and Import answers (`cards/CardMoreMenu.tsx`).
             <CardMoreMenu
               rows={[
                 ...(waiting ? [snoozeRow(pageId)] : []),
                 starRow(pageId, flags.starredPages.has(pageId)),
+                ...(canShare ? [shareLinkRow(sharedPages.has(pageId))] : []),
                 ...pageRows(pageId),
               ]}
               dispatch={dispatch}
               color={theme.foreground}
+              onShare={canShare ? () => setShareOpen(true) : undefined}
             />
           ) : null}
         </View>
+      ) : null}
+      {canShare && pageId.length > 0 ? (
+        <ShareLinkSheet
+          visible={shareOpen}
+          machine={machine}
+          target={{ kind: 'page', pageId, title }}
+          onClose={() => setShareOpen(false)}
+        />
       ) : null}
     </Pressable>
   );

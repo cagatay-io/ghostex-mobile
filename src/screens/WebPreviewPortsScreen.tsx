@@ -32,6 +32,8 @@ import { fetchRemotePorts, type RemoteListeningPort } from '../webPreview/ports'
 import { useWebPreviewStore } from '../webPreview/store';
 import { parseAddressInput } from '../webPreview/urls';
 import { webPreviewTargetForUrl } from '../webPreview/routing';
+import { refreshMachineShares, useMachineShares, useShareLinksSupported } from '../sharing/api';
+import { ShareLinkSheet, type ShareSheetTarget } from '../sharing/ShareLinkSheet';
 import { useWebPreviewStyles } from './web-preview/styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WebPreviewPorts'>;
@@ -101,6 +103,9 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
   const [refreshing, setRefreshing] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<ShareSheetTarget | null>(null);
+  const canShare = useShareLinksSupported(machine);
+  const { ports: sharedPorts } = useMachineShares(machineId);
   const listingRequestRef = useRef(0);
 
   /*
@@ -310,8 +315,27 @@ export function WebPreviewPortsView({ machineId, inPane, controlInset, onOpen }:
           </View>
         ) : null}
         {detailsError ? <Text style={styles.hint}>{detailsError}</Text> : null}
-        {listedPorts.length > 0 ? <PortSections ports={listedPorts} onOpen={openPort} /> : null}
+        {listedPorts.length > 0 ? (
+          <PortSections
+            ports={listedPorts}
+            onOpen={openPort}
+            canShare={canShare}
+            sharedPorts={sharedPorts}
+            onShare={(entry, title) => {
+              if (machine) void refreshMachineShares(machine);
+              setShareTarget({ kind: 'port', port: entry.port, title });
+            }}
+          />
+        ) : null}
       </KeyboardAwareScrollView>
+      {canShare ? (
+        <ShareLinkSheet
+          visible={shareTarget !== null}
+          machine={machine}
+          target={shareTarget}
+          onClose={() => setShareTarget(null)}
+        />
+      ) : null}
     </Frame>
   );
 }

@@ -55,7 +55,9 @@ import type { RustChat } from '../../rust/useRustChat';
 import { chatIsLightNow, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
-import { CardMoreMenu, pageRows, snoozeRow, starRow } from './CardMoreMenu';
+import { CardMoreMenu, pageRows, shareLinkRow, snoozeRow, starRow } from './CardMoreMenu';
+import { useMachineShares, useShareLinksSupported } from '../../../sharing/api';
+import { ShareLinkSheet } from '../../../sharing/ShareLinkSheet';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
 import { PAGE_DICTATION_SCRIPT, usePageDictation } from './pageDictation';
 import { usePageArtBackdrop, type PageOrigin, type SheetSize } from './pageArtBackdrop';
@@ -136,6 +138,9 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
   const insets = useSafeAreaInsets();
   const bar = useVerticalBarSpace();
   const windowDims = useWindowDimensions();
+  const canShare = useShareLinksSupported(machine);
+  const { pages: sharedPages } = useMachineShares(machine.id);
+  const [shareOpen, setShareOpen] = useState(false);
   // Laptop pose: the page area's bottom edge in the window (the sheet covers the window from its top), so the page
   // ends above the fold.
   const fold = useLaptopFold();
@@ -529,12 +534,18 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
             </Pressable>
           ) : null}
           {pageId !== null ? (
-            // Snooze, Star, Export page and Import answers (`CardMoreMenu.tsx`); a snoozed page's sheet closes.
+            // Snooze, Star, optional Share link, Export page and Import answers (`CardMoreMenu.tsx`); a snoozed page's sheet closes.
             <CardMoreMenu
-              rows={[snoozeRow(pageId), starRow(pageId, starredPages?.includes(pageId) ?? false), ...pageRows(pageId)]}
+              rows={[
+                snoozeRow(pageId),
+                starRow(pageId, starredPages?.includes(pageId) ?? false),
+                ...(canShare ? [shareLinkRow(sharedPages.has(pageId))] : []),
+                ...pageRows(pageId),
+              ]}
               dispatch={chat.dispatch}
               color={P.primary}
               onSnoozed={close}
+              onShare={canShare ? () => setShareOpen(true) : undefined}
             />
           ) : null}
           {onHide !== undefined ? (
@@ -627,6 +638,14 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       </View>
       {/* Inside the sheet's modal so it opens over the page, which stays open underneath. */}
       <ImageViewerModal chat={chat} viewer={pictures} onChange={setPictures} />
+      {canShare && pageId !== null ? (
+        <ShareLinkSheet
+          visible={shareOpen}
+          machine={machine}
+          target={{ kind: 'page', pageId, title: title.length > 0 ? title : 'Live page' }}
+          onClose={() => setShareOpen(false)}
+        />
+      ) : null}
     </Modal>
   );
 }

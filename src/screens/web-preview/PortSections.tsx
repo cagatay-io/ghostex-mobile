@@ -6,14 +6,21 @@ import { WorldGlyph } from '../../components/sessions/icons';
 
 import { groupPorts, type PortListRow, type PortSectionId } from '../../webPreview/portSections';
 import type { RemoteListeningPort } from '../../webPreview/ports';
+import { isPortShareBlocked } from '../../sharing/api';
 import { useWebPreviewStyles } from './styles';
 
 export function PortSections({
   ports,
   onOpen,
+  canShare = false,
+  sharedPorts,
+  onShare,
 }: {
   ports: RemoteListeningPort[];
   onOpen: (entry: RemoteListeningPort) => void;
+  canShare?: boolean;
+  sharedPorts?: ReadonlySet<number>;
+  onShare?: (entry: RemoteListeningPort, title: string) => void;
 }) {
   const appearance = useAppearance();
   const styles = useWebPreviewStyles();
@@ -66,7 +73,18 @@ export function PortSections({
               </View>
               <Text style={styles.portSectionCount}>{section.rows.length}</Text>
             </Pressable>
-            {expanded ? section.rows.map((row) => <PortRow key={row.entry.port} row={row} onOpen={onOpen} />) : null}
+            {expanded
+              ? section.rows.map((row) => (
+                  <PortRow
+                    key={row.entry.port}
+                    row={row}
+                    onOpen={onOpen}
+                    canShare={canShare}
+                    shared={sharedPorts?.has(row.entry.port) === true}
+                    onShare={onShare}
+                  />
+                ))
+              : null}
           </View>
         );
       })}
@@ -74,14 +92,28 @@ export function PortSections({
   );
 }
 
-function PortRow({ row, onOpen }: { row: PortListRow; onOpen: (entry: RemoteListeningPort) => void }) {
+function PortRow({
+  row,
+  onOpen,
+  canShare,
+  shared,
+  onShare,
+}: {
+  row: PortListRow;
+  onOpen: (entry: RemoteListeningPort) => void;
+  canShare: boolean;
+  shared: boolean;
+  onShare?: (entry: RemoteListeningPort, title: string) => void;
+}) {
   const appearance = useAppearance();
   const styles = useWebPreviewStyles();
   const [failedIcon, setFailedIcon] = useState<string | null>(null);
   const icon = row.entry.web?.faviconDataUrl;
+  const blocked = isPortShareBlocked(row.entry.port, row.entry.command);
   const process = [row.entry.command, row.entry.pid === null ? null : `PID ${row.entry.pid}`]
     .filter(Boolean)
     .join(' · ');
+  const green = appearance.light ? '#168049' : '#34d399';
   return (
     <Pressable
       accessibilityRole="button"
@@ -114,6 +146,29 @@ function PortRow({ row, onOpen }: { row: PortListRow; onOpen: (entry: RemoteList
           </Text>
         ) : null}
       </View>
+      {canShare && onShare && blocked === null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={shared ? `Manage shared link for ${row.title}` : `Share ${row.title}`}
+          hitSlop={6}
+          onPress={(event) => {
+            event.stopPropagation();
+            onShare(row.entry, row.title);
+          }}
+          style={({ pressed }) => [
+            styles.pillButton,
+            shared && {
+              borderColor: `${green}55`,
+              backgroundColor: `${green}20`,
+            },
+            pressed && styles.pillButtonPressed,
+          ]}
+        >
+          <Text style={[styles.pillButtonLabel, shared && { color: green }]}>
+            {shared ? 'Shared' : 'Share'}
+          </Text>
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
