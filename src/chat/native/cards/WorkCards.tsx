@@ -1225,7 +1225,15 @@ function DockRow({
   const opened = onClose !== undefined && !direct;
   // A question with details shows Details on its closed row, its answers only in its sheet under
   // the details. A computer too old to send `details` keeps today's row.
-  const details = !opened && isTrue(row, 'details') && onShow !== undefined ? onShow : null;
+  //
+  // CDXC:Coordinators 2026-11-25 DECISION:
+  // The user's "please only show the title line for all these work items in inbox" removed the
+  // Inbox row's second line, which was the only place a short detail (`details` false, gx-chat-core
+  // `details_fields`) showed. So a row with any detail (`hasDetail`) gets Details too, its answers
+  // staying beside it. A computer too old to send `hasDetail` keeps today's row. `DockRow` is only
+  // the Inbox: the Work sheet's cards (`CoordinatorBoard`) still draw the short detail as text.
+  const details =
+    !opened && (isTrue(row, 'details') || isTrue(row, 'hasDetail')) && onShow !== undefined ? onShow : null;
   // An approval row's answers take no tap for a moment after it appears, so a tap meant for the row
   // that was there before lands on nothing (desktop `approval_armed`).
   const shownAt = useRef<{ key: string; at: number }>({ key: '', at: 0 });
