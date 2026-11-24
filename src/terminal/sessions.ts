@@ -17,6 +17,7 @@ import { create } from 'zustand';
 
 import { GhostexNative, type OpenTerminalOptions } from '../../modules/ghostex-native/src';
 import { attachCommand } from '../commands/ghostexCli';
+import { forgetTabToken, newTabToken, tabTokenFor } from './tabTokens';
 import { ensureConnected } from '../inventory/client';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { useMachinesStore } from '../machines/store';
@@ -556,7 +557,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
         if (open.ended !== null) return tab.sessionKey;
         if (remoteCommand !== null) opts.command = remoteCommand;
         openStartedAt = Date.now();
-        await openNativeTerminal(tab.sessionKey, machine.id, opts, open);
+        await openNativeTerminal(tab.sessionKey, machine.id, { ...opts, tabToken: newTabToken(tab.sessionKey) }, open);
         // A terminal its tab no longer waits for is closed again by key (which finds it only while its native entry is
         // still registered); a newer open of the key waits until this one settled.
         const stale = open.ended !== null || !get().tabs.some((entry) => entry.sessionKey === tab.sessionKey);
@@ -826,6 +827,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
       // An open still under way stops counting toward its limit and lets go of its request; it runs on natively.
       latestTabOpens.get(sessionKey)?.detach();
       latestTabOpens.delete(sessionKey);
+      // A Paste answered later for the closed tab makes no sign on a tab opened anew for the session.
+      forgetTabToken(sessionKey);
       // Chat mode is intentionally NOT cleared here: the persisted last-used
       // view survives tab close so a later reopen restores it.
       try {
@@ -971,7 +974,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => {
           }
           if (open.ended !== null) return;
           openStartedAt = Date.now();
-          await openNativeTerminal(sessionKey, tab.machineId, opts, open);
+          await openNativeTerminal(sessionKey, tab.machineId, { ...opts, tabToken: tabTokenFor(sessionKey) }, open);
           // A terminal its tab no longer waits for (given up, or the tab closed) is closed by key, as in `openTab`.
           if (open.ended !== null) await GhostexNative.closeTerminal(sessionKey);
         } catch (error) {

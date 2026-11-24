@@ -171,13 +171,12 @@ extension GhosttyTerminalView {
             }
             if let fallbackKey = self.repeatingFallbackKey,
                let surface = self.surface {
-                surface.sendKeyEvent(
-                    self.fallbackHardwareEvent(
-                        key: fallbackKey,
-                        action: .repeat,
-                        modifiers: self.repeatingFallbackModifiers
-                    )
+                let event = self.fallbackHardwareEvent(
+                    key: fallbackKey,
+                    action: .repeat,
+                    modifiers: self.repeatingFallbackModifiers
                 )
+                if self.admitsHardwareKey(event) { surface.sendKeyEvent(event) }
             }
             self.requestRender()
         }
@@ -236,6 +235,8 @@ extension GhosttyTerminalView {
         else {
             return false
         }
+        // A key the terminal could not send is handled: it stays here, counted (`admitsKey`).
+        guard admitsHardwareKey(event) else { return true }
         return event.withCValue { cEvent in
             ghostty_surface_key(cSurface, cEvent)
         }
@@ -325,13 +326,12 @@ extension GhosttyTerminalView {
                 startKeyRepeat(for: key)
                 result.didHandleGhosttyInput = true
             } else if let fallbackKey = fallbackHardwareKey(for: key) {
-                surface.sendKeyEvent(
-                    fallbackHardwareEvent(
-                        key: fallbackKey,
-                        action: .press,
-                        modifiers: key.modifierFlags
-                    )
+                let event = fallbackHardwareEvent(
+                    key: fallbackKey,
+                    action: .press,
+                    modifiers: key.modifierFlags
                 )
+                if admitsHardwareKey(event) { surface.sendKeyEvent(event) }
                 hardwarePressesSentToGhostty.insert(keyCode)
                 fallbackHardwarePressKeys[keyCode] = fallbackKey
                 fallbackHardwarePressModifiers[keyCode] = key.modifierFlags

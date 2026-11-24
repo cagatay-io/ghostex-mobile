@@ -41,6 +41,7 @@ import { initChatGridClaim } from './src/terminal/chatGridClaim';
 import { initTerminalKeepAwake } from './src/terminal/keepAwake';
 import { initTerminalEvents, useTerminalStore } from './src/terminal/sessions';
 import { initTabTitleSync } from './src/terminal/tabTitles';
+import { initNotSentKeys } from './src/terminal/notSentKeys';
 import { initZmxDisplayPolicy } from './src/terminal/zmxDisplay';
 import { initAppUpdates } from './src/updates/appUpdateStore';
 import { initTestFlightNotice } from './src/updates/testFlightNotice';
@@ -168,6 +169,7 @@ export default function App() {
   useEffect(() => {
     initTerminalEvents();
     initTabTitleSync();
+    initNotSentKeys();
     initZmxDisplayPolicy();
     initAppLifecycle();
     initPersistentNotification();

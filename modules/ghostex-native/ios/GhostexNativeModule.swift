@@ -49,6 +49,8 @@ struct OpenTerminalOptionsRecord: Record {
     @Field var zmxBacked: Bool = false
     /// Scrollback row limit for newly created buffers: 500...20000 in 500-row steps.
     @Field var scrollbackRows: Int = 2000
+    /// The JavaScript tab this terminal belongs to; a reattach keeps it, a tab opened anew gets a new one.
+    @Field var tabToken: String?
 }
 
 struct TerminalRuntimeSettingsRecord: Record {
@@ -80,6 +82,13 @@ struct KeyModifiersRecord: Record {
     @Field var ctrlLocked: Bool = false
     @Field var altLocked: Bool = false
     @Field var shiftLocked: Bool = false
+}
+
+/// What a `sendText` sends, for the not-sent sign: `kind` "text" (the pad's text editor) or "link" with the upload's
+/// `title`. A call without it is not counted.
+struct SentTextRecord: Record {
+    @Field var kind: String = ""
+    @Field var title: String?
 }
 
 /// What `voiceStart` opens (gxserver's `/api/voice`, GhostexVoice.swift).
@@ -136,6 +145,8 @@ public class GhostexNativeModule: Module {
     private let shareSheets = GhostexShareSheets()
     /// Sends `onNetworkChanged` while JS listens to it (OnStartObserving / OnStopObserving).
     private var networkObserver: GhostexNetworkObserver?
+    /// Which terminals may show the not-sent sign (main actor); this instance's own, so a reload starts without one.
+    private let notSent = GhostexTerminalNotSent()
 
     /// Starts (`listening`) or ends following the app to another window for the bar observation.
     private func followBarWindows(_ listening: Bool) {
@@ -195,6 +206,8 @@ public class GhostexNativeModule: Module {
             "onTerminalBell",
             "onFontSizeChange",
             "onKeyModifiersConsumed",
+            "onTerminalInputNotSent",
+            "onTerminalInputSent",
             "onTerminalGridChange",
             "onConnectionState",
             "onNetworkChanged",
@@ -604,6 +617,29 @@ public class GhostexNativeModule: Module {
                         try? await connection.write(data, to: shellId)
                     }
                 }
+                // Keys typed while the link is replaced (no channel yet, or it ended) are kept from Ghostty, counted for
+                // the not-sent sign (never what was typed) and never sent later. Only the key paths ask; what the
+                // terminal writes (keys already handed on, its own replies) is never counted.
+                view.admitsKey = { [weak self, weak entry] key in
+                    MainActor.assumeIsolated {
+                        let linked = entry?.shellId != nil
+                        guard let self else { return linked }
+                        let (goesOn, report) = self.notSent.admit(key, sessionKey: sessionKey, linked: linked)
+                        if let report { self.reportNotSent(report, sessionKey) }
+                        return goesOn
+                    }
+                }
+                view.reportsUnsentKeys = { [weak self] key in
+                    MainActor.assumeIsolated {
+                        guard let self, let report = self.notSent.lost(key, sessionKey: sessionKey) else { return }
+                        self.reportNotSent(report, sessionKey)
+                    }
+                }
+                view.linkIdentity = { [weak entry] in
+                    MainActor.assumeIsolated { entry?.shellId.map { "\($0)" } }
+                }
+                view.tabToken = opts.tabToken
+                self.notSent.opened(sessionKey)
 
                 registry.register(entry)
 
@@ -708,6 +744,7 @@ public class GhostexNativeModule: Module {
 
         AsyncFunction("closeTerminal") { (sessionKey: String) async in
             let hadEntry = await MainActor.run { () -> Bool in
+                self.notSent.closed(sessionKey)
                 guard let entry = GhostexTerminalRegistry.shared.remove(sessionKey) else {
                     return false
                 }
@@ -730,10 +767,21 @@ public class GhostexNativeModule: Module {
 
         // MARK: Input
 
-        AsyncFunction("sendText") { (sessionKey: String, text: String) async throws in
+        AsyncFunction("sendText") { (sessionKey: String, text: String, sent: SentTextRecord?) async throws in
             try await MainActor.run {
-                guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
-                      let view = entry.view else {
+                let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey)
+                // A text that says what it is (the pad's text editor, an upload's link) passes the not-sent boundary:
+                // without a link it is counted, kept from Ghostty and never sent later; the caller learns it was not
+                // sent.
+                if let sent, let item = GhostexTerminalUnsentKeys(sentText: sent.kind, title: sent.title) {
+                    let linked = entry?.view != nil && entry?.shellId != nil
+                    let (goesOn, report) = self.notSent.admit(item, sessionKey: sessionKey, linked: linked)
+                    if let report { self.reportNotSent(report, sessionKey) }
+                    guard goesOn else {
+                        throw GhostexException(code: .notConnected, reason: "Not sent: no link for session \(sessionKey)")
+                    }
+                }
+                guard let entry, let view = entry.view else {
                     throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
                 }
                 view.sendText(text)
@@ -761,6 +809,13 @@ public class GhostexNativeModule: Module {
             try await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
                       let view = entry.view else {
+                    // No terminal while its link is replaced: this key is not sent either.
+                    let (_, report) = self.notSent.admit(
+                        GhostexTerminalUnsentKeys(keyName: key),
+                        sessionKey: sessionKey,
+                        linked: false
+                    )
+                    if let report { self.reportNotSent(report, sessionKey) }
                     throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
                 }
 
@@ -811,6 +866,15 @@ public class GhostexNativeModule: Module {
             try await MainActor.run {
                 guard let entry = GhostexTerminalRegistry.shared.entry(for: sessionKey),
                       let view = entry.view else {
+                    // No terminal while its link is replaced: a paste of the clipboard's text is not sent either.
+                    if UIPasteboard.general.hasStrings {
+                        let (_, report) = self.notSent.admit(
+                            GhostexTerminalUnsentKeys(item: .paste),
+                            sessionKey: sessionKey,
+                            linked: false
+                        )
+                        if let report { self.reportNotSent(report, sessionKey) }
+                    }
                     throw GhostexException(code: .notConnected, reason: "No terminal for session \(sessionKey)")
                 }
                 view.paste(nil)
@@ -1293,6 +1357,17 @@ public class GhostexNativeModule: Module {
         }
 
         return false
+    }
+
+    /// Tells JavaScript about `sessionKey`'s sign: keys counted as not sent (never what was typed), or that it can go.
+    @MainActor
+    private func reportNotSent(_ report: GhostexTerminalNotSent.Report, _ sessionKey: String) {
+        switch report {
+        case .notSent(let unsent):
+            sendEvent("onTerminalInputNotSent", unsent.payload(sessionKey: sessionKey))
+        case .sent:
+            sendEvent("onTerminalInputSent", ["sessionKey": sessionKey])
+        }
     }
 
     private func sendTerminalState(

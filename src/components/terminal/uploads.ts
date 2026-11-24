@@ -12,7 +12,7 @@ import { windowsAttachmentPath } from '../../remote/files';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
-import { GhostexNative } from '../../../modules/ghostex-native/src';
+import { sendNamedText } from '../../terminal/notSentText';
 
 const REMOTE_PATH_EXEC_TIMEOUT_MS = 20000;
 
@@ -137,7 +137,11 @@ export function localPathFromUri(uri: string): string {
   }
 }
 
-export type AttachmentUploadResult = 'sent' | 'cancelled';
+/**
+ * 'linkNotSent': the file is on the computer but the terminal had no link, so its reference was not typed; the
+ * terminal's not-sent sign names it, and the upload is not a failure.
+ */
+export type AttachmentUploadResult = 'sent' | 'linkNotSent' | 'cancelled';
 
 /**
  * Delivers the finished `[Title](remotePath)` reference. The terminal view
@@ -175,11 +179,10 @@ async function sendPickedAttachment(
   const reference = `[${title}](${remotePath})`;
   if (deliver !== undefined) {
     await deliver(reference);
-  } else {
-    // No trailing newline, per spec.
-    await GhostexNative.sendText(sessionKey, reference);
+    return 'sent';
   }
-  return 'sent';
+  // No trailing newline, per spec.
+  return (await sendNamedText(sessionKey, reference, { kind: 'link', title })) ? 'sent' : 'linkNotSent';
 }
 
 /**

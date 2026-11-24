@@ -3,7 +3,8 @@
  * keyboard (its grid stays while the keyboard comes and goes, and while the divider is dragged until it is let go),
  * sliding over what the keyboard rules take from the pane the way the full-screen terminal slides
  * (`terminalSlideOffset`: the bottom row above the cover, the cursor row wins), with the session's connection state
- * over it. The terminal's own gestures (selection, scrolling, pinch) stay inside it: nothing here takes a touch.
+ * over it and, in the pane typed into last, the "not sent" sign above what covers its bottom. The terminal's own
+ * gestures (selection, scrolling, pinch) stay inside it: nothing here takes a touch.
  */
 
 import { useEffect, useState } from 'react';
@@ -12,10 +13,12 @@ import { Platform, StyleSheet } from 'react-native';
 import { GhostexTerminalView } from '../../modules/ghostex-native/src';
 import DemoTerminalView from '../demo/DemoTerminalView';
 import { isDemoMachineId } from '../demo/identity';
+import NotSentSign from '../components/terminal/NotSentSign';
 import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
 import { terminalSlideOffset } from '../components/terminal/terminalKeyboardSlide';
 import { summarizeFailure } from '../inventory/client';
 import { useInventoryStore } from '../inventory/store';
+import { useMachinesStore } from '../machines/store';
 import { sessionProjectIdFor } from '../screens/terminal-screen/session-lookups';
 import { useTerminalStore } from '../terminal/sessions';
 import { useOpenMachineLink } from '../webPreview/useOpenMachineLink';
@@ -38,6 +41,10 @@ export default function SessionPane({ sessionKey, view, covered, active }: Sessi
   );
   const openMachineLink = useOpenMachineLink();
   const [caretTop, setCaretTop] = useState<number | null>(null);
+  const [notSentHeight, setNotSentHeight] = useState(0);
+  const computer = useMachinesStore((state) =>
+    tab === null ? null : (state.machines.find((machine) => machine.id === tab.machineId)?.name ?? null),
+  );
   const detached = tab?.state === 'detached';
 
   // A session last shown in its Chat View has no terminal yet; showing it in a pane attaches it.
@@ -56,6 +63,8 @@ export default function SessionPane({ sessionKey, view, covered, active }: Sessi
     );
   }
   const offset = terminalSlideOffset(caretTop, view.height, covered);
+  // The sign stands 16 pt above what covers the pane's bottom, at the pane's right edge, as the round buttons do.
+  const notSentBottom = covered + 16;
   return (
     <>
       <GhostexTerminalView
@@ -71,7 +80,11 @@ export default function SessionPane({ sessionKey, view, covered, active }: Sessi
         onRetry={() => void useTerminalStore.getState().reopenTab(sessionKey)}
         onReconnect={() => void useTerminalStore.getState().reopenTab(sessionKey)}
         onResetConnection={() => void useInventoryStore.getState().retryMachine(tab.machineId)}
+        contentBottom={active && notSentHeight > 0 ? notSentBottom + notSentHeight + 12 : 0}
       />
+      {active ? (
+        <NotSentSign tab={tab} computer={computer} bottom={notSentBottom} side="right" onHeight={setNotSentHeight} />
+      ) : null}
     </>
   );
 }

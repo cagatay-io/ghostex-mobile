@@ -50,6 +50,8 @@ export type SshChannelStats = {
 };
 
 export type OpenTerminalOptions = {
+  /** iOS: the JavaScript tab this terminal belongs to (`src/terminal/tabTokens.ts`), for the not-sent sign. */
+  tabToken?: string;
   /** Command to run in the PTY. Omit for an interactive login shell. */
   command?: string;
   /** Defaults to "xterm-256color". */
@@ -254,6 +256,34 @@ export type KeyModifiersConsumedEvent = {
   sessionKey: string;
 };
 
+/** Keys and texts a terminal could not send while its link was replaced, counted; never the characters typed. */
+export type TerminalInputNotSentEvent = {
+  sessionKey: string;
+  /** Keys other than the three named below. */
+  keys: number;
+  returns: number;
+  backspaces: number;
+  escapes: number;
+  /** The pad's text editor's sends (`SentText` kind "text"). */
+  texts: number;
+  /** The terminal's Paste. */
+  pastes: number;
+  /** Upload references by their title, e.g. "Image #1" (`SentText` kind "link"). */
+  links: string[];
+  /** A late paste's tab (`OpenTerminalOptions.tabToken`): no sign when that tab was closed meanwhile. */
+  tabToken?: string;
+};
+
+/**
+ * iOS: what a `sendText` sends, for the not-sent sign. Without a link such a text is counted, not sent, and the call
+ * rejects; a call without it is not counted.
+ */
+export type SentText = { kind: 'text' } | { kind: 'link'; title: string };
+
+export type TerminalInputSentEvent = {
+  sessionKey: string;
+};
+
 /** Terminal grid in cells. */
 export type TerminalGrid = {
   cols: number;
@@ -286,6 +316,10 @@ export type GhostexNativeEvents = {
   onTerminalBell: (event: TerminalBellEvent) => void;
   onFontSizeChange: (event: FontSizeChangeEvent) => void;
   onKeyModifiersConsumed: (event: KeyModifiersConsumedEvent) => void;
+  /** iOS: keys typed into a terminal whose link is being replaced, which were not sent and never will be. */
+  onTerminalInputNotSent: (event: TerminalInputNotSentEvent) => void;
+  /** iOS: a typed key went on to the terminal after `onTerminalInputNotSent`, or first after the terminal opened again. */
+  onTerminalInputSent: (event: TerminalInputSentEvent) => void;
   onVisibleWindowFrameChange: (event: VisibleWindowFrameChangeEvent) => void;
   onTerminalGridChange: (event: TerminalGridChangeEvent) => void;
   onConnectionState: (event: ConnectionStateEvent) => void;

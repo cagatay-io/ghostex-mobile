@@ -56,6 +56,7 @@ extension GhosttyTerminalView: UITextInput {
                 return
             }
             guard let range = terminalTextInputRange(from: newValue) else { return }
+            guard softwareInputTakes(.select) else { return }
             applyTerminalTextInputEffects(
                 textInputModel.handleSetSelection(location: range.location, length: range.length)
             )
@@ -104,6 +105,7 @@ extension GhosttyTerminalView: UITextInput {
             handleInsertText(text, fromIMEComposition: false)
             return
         }
+        guard softwareInputTakes(.replace(text)) else { return }
         let replacementRange = terminalTextInputRange(from: range)
         applyTerminalTextInputEffects(
             textInputModel.handleReplace(
@@ -119,6 +121,7 @@ extension GhosttyTerminalView: UITextInput {
             guard exitNativeSelectionTextInputContextForTerminalInput() else { return }
         }
         discardPendingSystemTextInputHardwareKey()
+        guard softwareInputTakes(.setMarked(markedText)) else { return }
         applyTerminalTextInputEffects(
             textInputModel.handleSetMarkedText(
                 markedText,
@@ -133,6 +136,7 @@ extension GhosttyTerminalView: UITextInput {
             guard exitNativeSelectionTextInputContextForTerminalInput() else { return }
         }
         discardPendingSystemTextInputHardwareKey()
+        guard softwareInputTakes(.unmark) else { return }
         applyTerminalTextInputEffects(textInputModel.handleUnmarkText())
     }
 

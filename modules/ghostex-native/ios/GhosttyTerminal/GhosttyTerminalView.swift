@@ -414,6 +414,9 @@ class GhosttyTerminalView: UIView {
         onSingleTap = nil
         onOpenUrl = nil
         writeCallback = nil
+        admitsKey = nil
+        reportsUnsentKeys = nil
+        linkIdentity = nil
 
         // Stop rendering/input callbacks and mark the surface as not visible.
         if let cSurface = surface?.unsafeCValue {
@@ -516,4 +519,23 @@ class GhosttyTerminalView: UIView {
 
     /// Callback invoked when user types in the terminal
     var writeCallback: ((Data) -> Void)?
+
+    /// Asked by every key path before a typed key goes to Ghostty (GhosttyTerminalView+SoftwareKeyboard.swift); false
+    /// keeps the key here: the terminal has no link, and the module counted the key as not sent. Nil lets every key on.
+    var admitsKey: ((GhostexTerminalUnsentKeys) -> Bool)?
+
+    /// Counts keys the software keyboard's boundary kept back (`softwareInputTakes`) as not sent.
+    var reportsUnsentKeys: ((GhostexTerminalUnsentKeys) -> Void)?
+
+    /// The terminal's current link (its shell channel), nil without one; a paste's question compares it when answered.
+    var linkIdentity: (() -> String?)?
+
+    /// Set when Ghostty asks the unsafe-paste question for the paste being completed (Ghostty.App.swift).
+    var pasteQuestionAsked = false
+
+    /// The JavaScript tab this view's terminal belongs to (`OpenTerminalOptions.tabToken`); a paste's question keeps it.
+    var tabToken: String?
+
+    /// The software keyboard's operations at the not-sent boundary, before `textInputModel` takes them.
+    var softwareInputGate = GhostexSoftwareInputGate()
 }

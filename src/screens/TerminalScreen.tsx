@@ -60,7 +60,6 @@ import {
   useRailOverflow,
   useFoldDivisions,
   useVerticalBarSpace,
-  type RailButtons,
 } from '../components/common/verticalBar/VerticalBarArea';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import CommandPad from '../components/terminal/CommandPad';
@@ -74,9 +73,10 @@ import TerminalFloatingControls from '../components/terminal/TerminalFloatingCon
 import TerminalKeyBar from '../components/terminal/TerminalKeyBar';
 import TerminalMenu, { type TerminalMenuActionId } from '../components/terminal/TerminalMenu';
 import TerminalSkillsMenu from '../components/terminal/TerminalSkillsMenu';
+import NotSentSign from '../components/terminal/NotSentSign';
 import TerminalStateOverlay from '../components/terminal/TerminalStateOverlay';
 import TerminalTabsBar, { MIN_TAB_WIDTH } from '../components/terminal/TerminalTabsBar';
-import { ChatDropZone, TabDragOverlay, useTabDrag, type TabDropRequest } from '../components/terminal/tabDrag/TabDrag';
+import { ChatDropZone, TabDragOverlay } from '../components/terminal/tabDrag/TabDrag';
 import TerminalTextEditor, { TEXT_EDITOR_HEIGHT } from '../components/terminal/TerminalTextEditor';
 import {
   ChatBubbleIcon,
@@ -113,14 +113,13 @@ import { summarizeFailure } from '../inventory/client';
 import { hasPassword } from '../machines/credentials';
 import { useInventoryStore } from '../inventory/store';
 import { sessionNotesOnIn } from '../sessions/sessionNotesSwitch';
-import { beadsOnFor, useBeadsOn } from '../beads/featureSwitch';
+import { useBeadsOn } from '../beads/featureSwitch';
 import type { RootStackParamList } from '../navigation/types';
-import { contextSessionFor } from '../files/sessionContext';
 import { FORK_AGENT_ICONS, renameInitialTitle } from '../sessions/sessionCommands';
 import { useSettingsStore } from '../settings/store';
 import { acknowledgeSessionAttention } from '../terminal/attention';
 import { useTerminalStore, type TerminalTab } from '../terminal/sessions';
-import { saveTerminalView, toggleSessionView, useSavedChatView } from '../terminal/terminalHold';
+import { toggleSessionView, useSavedChatView } from '../terminal/terminalHold';
 import { setChatGridSessionKey } from '../terminal/chatGridClaim';
 import { setMountedSessionKeys } from '../terminal/zmxDisplay';
 import { colorWithOpacity, GhostexPalette } from '../theme/palette';
@@ -160,6 +159,9 @@ import { SplitChatPanes, SplitPaneChat, SplitTabsHeader } from './terminal-scree
 import { splitView, splitWindow } from '../terminal/tabSplit';
 import { useTerminalAgentActions } from './terminal-screen/use-agent-actions';
 import { padPlace, useKeyboardEntry } from './terminal-screen/use-keyboard-entry';
+import { useTerminalMenuAction } from './terminal-screen/use-terminal-menu-action';
+import { useTerminalTabActions } from './terminal-screen/use-terminal-tab-actions';
+import { useTerminalRailButtons } from './terminal-screen/use-terminal-rail-buttons';
 import { boxMachineRecord, useCloudBoxesStore } from '../cloudBoxes/store';
 import { boxIdOfMachine } from '../cloudBoxes/types';
 import CloudBoxPill from '../components/terminal/CloudBoxPill';
@@ -264,6 +266,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, []);
   // What covers the terminal's bottom besides the keyboard: the text editor on it, or a pad layer in its place.
   const [editorHeight, setEditorHeight] = useState(0);
+  const [notSentHeight, setNotSentHeight] = useState(0);
   const [layerHeight, setLayerHeight] = useState(0);
 
   const openMachineLink = useOpenMachineLink();
@@ -876,6 +879,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
         : 16 + floatingLift;
   const floatingRoom =
     slidesWithKeyboard && terminalArea !== null ? terminalArea.height - floatingBottom - 16 : undefined;
+  // The "not sent" sign beside the pad's toggle, or without the pad beside the round buttons (NotSentSign.tsx).
+  const notSentBottom = padSessionKey !== null ? foldAboveAreaBottom + padAt.bottom : floatingBottom;
   // The round buttons over a terminal on screen (not in chat view, not while a pane without a terminal is active):
   // without the pad while the key bar is down, with it while the pad is closed and no layer stands.
   const terminalButtonsShown =
@@ -957,81 +962,8 @@ export default function TerminalScreen({ navigation, route }: Props) {
     [closeTab, settings.confirmTabClose],
   );
 
-  const handleSelectTab = useCallback(
-    (sessionKey: string): void => {
-      if (sessionKey !== useTerminalStore.getState().selectedSessionKey) {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      // Desktop parity: tapping a session's tab acknowledges its attention
-      // status (even when the tab is already selected).
-      const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
-      if (tab?.ghostexSessionId !== undefined) {
-        acknowledgeSessionAttention(tab.machineId, tab.ghostexSessionId);
-      }
-      selectTab(sessionKey);
-    },
-    [selectTab],
-  );
-
-  const closeTabByKey = useCallback(
-    (sessionKey: string): void => {
-      const tab = useTerminalStore.getState().tabs.find((entry) => entry.sessionKey === sessionKey);
-      if (tab !== undefined) requestCloseTab(tab);
-    },
-    [requestCloseTab],
-  );
-
-  // A held tab let go over a bar or the chat (`useTabDrag` in tabDrag/TabDrag.tsx): reordered, moved to the other side, or opened
-  // beside the rest. Only a chat view goes side by side, so a drop on the screen's right half is offered for a tab with
-  // one, on a wide window with one bar; from the terminal view too, as the chat view's strip does, when the selected
-  // tab has a chat view as well (the two then show as chats side by side).
-  const canSplitTab = useCallback(
-    (sessionKey: string): boolean => {
-      if (!splitWide || sideBySide !== null || twoPanes !== null) return false;
-      const store = useTerminalStore.getState();
-      if (store.tabs.length < 2) return false;
-      const hasChat = (key: string | null): boolean => {
-        const tab = store.tabs.find((entry) => entry.sessionKey === key) ?? null;
-        return tabChatCapable(
-          tab,
-          tab === null ? undefined : useInventoryStore.getState().inventoriesByMachineId[tab.machineId]?.summary,
-        );
-      };
-      return hasChat(sessionKey) && (chatModeActive || hasChat(store.selectedSessionKey));
-    },
-    [splitWide, sideBySide, chatModeActive, twoPanes],
-  );
-  const handleTabDrop = useCallback((request: TabDropRequest): void => {
-    const store = useTerminalStore.getState();
-    if (request.kind === 'split') store.splitTab(request.key);
-    else if (request.kind === 'side') store.moveTab(request.key, { bar: request.side, index: Number.MAX_SAFE_INTEGER });
-    // The only bar while a split is kept for a wide window: places in the order both sides make.
-    else store.moveTab(request.key, { bar: request.bar, index: request.index });
-  }, []);
-  const tabDrag = useTabDrag({ canSplit: canSplitTab, onDrop: handleTabDrop });
-  // The split's handle: one bar again, the selected tab kept.
-  const mergeTabs = useCallback((): void => useTerminalStore.getState().mergeTabs(), []);
-  // A side's chat asks for its terminal, which needs the whole screen: the sides merge, then `saveTerminalView`.
-  const showSplitTabTerminal = useCallback((sessionKey: string): void => {
-    const store = useTerminalStore.getState();
-    store.mergeTabs();
-    store.selectTab(sessionKey);
-    saveTerminalView(sessionKey);
-  }, []);
-  // A touch in a side's chat: that side's tab is the selected one, quietly (no tap, the chat keeps its place).
-  const focusSplitTab = useCallback((sessionKey: string): void => {
-    useTerminalStore.getState().selectTab(sessionKey, { scrollToBottom: false });
-  }, []);
-
-  const switchTabBy = useCallback((delta: -1 | 1): void => {
-    const store = useTerminalStore.getState();
-    const index = store.tabs.findIndex((tab) => tab.sessionKey === store.selectedSessionKey);
-    if (index < 0) return;
-    const next = store.tabs[index + delta];
-    if (next === undefined) return;
-    store.selectTab(next.sessionKey);
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+  const { handleSelectTab, closeTabByKey, tabDrag, mergeTabs, showSplitTabTerminal, focusSplitTab, switchTabBy } =
+    useTerminalTabActions({ selectTab, requestCloseTab, splitWide, sideBySide, twoPanes, chatModeActive });
 
   // What a touch, a pick, the Panes button and Back do with the two panes; the keyboard follows the active one.
   const {
@@ -1155,86 +1087,21 @@ export default function TerminalScreen({ navigation, route }: Props) {
     if (pending !== null) sessionMenu.run(pending.target, pending.command);
   }, [handleMenuDismissed, sessionMenu]);
 
-  const handleTerminalMenuAction = useCallback(
-    (id: Parameters<typeof handleMenuAction>[0]): void => {
-      if (id === 'docs') {
-        setMenuVisible(false);
-        if (activeTab !== null && activeProject !== null && (activeProject.path ?? '').length > 0) {
-          // The agent session Files was opened from takes Add to Session Context.
-          const session = contextSessionFor(
-            activeTab,
-            activeAgentId,
-            activeSession === null || activeSession.displayTitle.length === 0
-              ? SessionCopy.fallbackTitle
-              : activeSession.displayTitle,
-            chatCapable,
-          );
-          navigation.navigate('Docs', {
-            machineId: activeTab.machineId,
-            projectId: activeProject.projectId,
-            projectName: activeProject.name ?? '',
-            projectPath: activeProject.path ?? '',
-            ...(session !== null ? { session } : {}),
-          });
-        }
-        return;
-      }
-      if (id === 'beads') {
-        setMenuVisible(false);
-        if (
-          activeTab !== null &&
-          beadsOnFor(activeTab.machineId) &&
-          activeProject !== null &&
-          activeProject.projectId.length > 0
-        ) {
-          navigation.navigate('Beads', {
-            machineId: activeTab.machineId,
-            projectId: activeProject.projectId,
-            projectName: activeProject.name ?? '',
-            projectPath: activeProject.path ?? '',
-          });
-        }
-        return;
-      }
-      if (id === 'changes') {
-        setMenuVisible(false);
-        if (activeTab !== null && activeProject !== null && activeProject.projectId.length > 0) {
-          navigation.navigate('Changes', {
-            machineId: activeTab.machineId,
-            projectId: activeProject.projectId,
-            projectName: activeProject.name ?? '',
-          });
-        }
-        return;
-      }
-      if (id === 'sessionNote') {
-        setMenuVisible(false);
-        if (!chatModeActive) {
-          toggleChatView();
-          if (showsPanes && activeTab !== null) {
-            setNoteWhenChatShows(activeTab.sessionKey);
-            return;
-          }
-        }
-        setChatSessionNoteRequestId((current) => current + 1);
-        return;
-      }
-      handleMenuAction(id);
-    },
-    [
-      activeAgentId,
-      activeProject,
-      activeSession,
-      activeTab,
-      chatCapable,
-      chatModeActive,
-      handleMenuAction,
-      navigation,
-      setMenuVisible,
-      showsPanes,
-      toggleChatView,
-    ],
-  );
+  const handleTerminalMenuAction = useTerminalMenuAction({
+    activeAgentId,
+    activeProject,
+    activeSession,
+    activeTab,
+    chatCapable,
+    chatModeActive,
+    handleMenuAction,
+    navigation,
+    setMenuVisible,
+    showsPanes,
+    toggleChatView,
+    setNoteWhenChatShows,
+    setChatSessionNoteRequestId,
+  });
 
   const uploadEnabled = activeTab !== null && (chatModeActive ? agentActionsCapable : activeTab.state === 'open');
   // The pad's Upload key asks for the source as the terminal menu's "Send & Attach File" does.
@@ -1349,76 +1216,20 @@ export default function TerminalScreen({ navigation, route }: Props) {
    * above; the iPhone is unchanged (its composer lifts itself to the keyboard from wherever the spacer leaves it).
    */
   const chatBottomSpacer = headerPlacement.kind === 'top' && !(Platform.OS === 'android' && keyboardVisible);
-  // The same buttons standing in the iPhone Duo's side bar below the status items (rail): Back never
-  // moves into the menu. The voice button has no rail entry: the rail exists only on iOS, where it does
-  // not render (VOICE_SUPPORTED). Memoized on the header's inputs, so terminal output and tab updates
-  // do not republish the side bar. Its capsules and menus take the app appearance; the header row takes `ink`.
-  const railButtons = useMemo<RailButtons>(
-    () => ({
-      pinned: 1,
-      moreMenu: 'always',
-      // The terminal and the chat composer both take the keyboard.
-      reserveKeyboard: true,
-      entries: [
-        {
-          key: 'back',
-          label: DuoChromeCopy.back,
-          icon: (size) => <ChevronLeftIcon size={size} color={appearance.foreground} />,
-          onPress: goBack,
-        },
-        ...(panesAvailable
-          ? [
-              {
-                key: 'panes',
-                label: panesLabel,
-                icon: (size: number) => (
-                  <PanesIcon
-                    across={!panesUpright}
-                    size={size - 2}
-                    color={showsTwoPanes ? appearance.accent : appearance.foreground}
-                  />
-                ),
-                onPress: pressPanes,
-              },
-            ]
-          : []),
-        ...(chatCapable
-          ? [
-              {
-                key: 'view',
-                label: chatModeActive ? TerminalHeaderCopy.terminalView : TerminalHeaderCopy.chatView,
-                icon: (size: number) =>
-                  chatModeActive ? (
-                    <TerminalPromptIcon size={size - 3} color={appearance.foreground} />
-                  ) : (
-                    <ChatBubbleIcon size={size - 3} color={appearance.foreground} />
-                  ),
-                onPress: toggleChatView,
-              },
-            ]
-          : []),
-        {
-          key: 'more',
-          label: DuoChromeCopy.more,
-          icon: (size) => <EllipsisIcon size={size} color={appearance.foreground} />,
-          onPress: openMenu,
-        },
-      ],
-    }),
-    [
-      appearance,
-      chatCapable,
-      chatModeActive,
-      toggleChatView,
-      goBack,
-      openMenu,
-      panesAvailable,
-      showsTwoPanes,
-      panesLabel,
-      panesUpright,
-      pressPanes,
-    ],
-  );
+  // The same buttons in the iPhone Duo's side bar (rail) and status band (`useTerminalRailButtons`).
+  const railButtons = useTerminalRailButtons({
+    appearance,
+    chatCapable,
+    chatModeActive,
+    toggleChatView,
+    goBack,
+    openMenu,
+    panesAvailable,
+    showsTwoPanes,
+    panesLabel,
+    panesUpright,
+    pressPanes,
+  });
   useRailButtons(railButtons, surfaceBackground, inRail && isFocused);
   const railOverflow = useRailOverflow(railButtons, inRail && isFocused);
   // The status band's row: Back, the tab strip (one tab wide at least, it scrolls), the chat
@@ -1865,8 +1676,17 @@ export default function TerminalScreen({ navigation, route }: Props) {
             onRetry={() => void reopenTab(activeTab)}
             onReconnect={() => void reopenTab(activeTab)}
             onResetConnection={() => void useInventoryStore.getState().retryMachine(activeTab.machineId)}
-            // Laptop pose: Retry and Reconnect above the fold, never on it.
-            contentBottom={foldAboveAreaBottom}
+            // Laptop pose: Retry and Reconnect above the fold, never on it; "Connecting..." clear of the not-sent sign.
+            contentBottom={Math.max(foldAboveAreaBottom, notSentHeight > 0 ? notSentBottom + notSentHeight + 12 : 0)}
+          />
+        )}
+        {activeTab !== null && !chatModeActive && twoPanes === null && (
+          <NotSentSign
+            tab={activeTab}
+            computer={activeMachine?.name ?? null}
+            bottom={notSentBottom}
+            side={padSessionKey !== null ? padAt.side : 'right'}
+            onHeight={setNotSentHeight}
           />
         )}
         {twoPanes === null && sideBySide === null ? queuedPill : null}
