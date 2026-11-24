@@ -19,6 +19,18 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "options": [],
     "keywords": []
   },
+  "analyticsEnabled": {
+    "title": "Share 100% Fully Anonymous Usage Analytics to Support Ghostex Development",
+    "subtitle": "Zero personal data. Helps us continue supporting and building Ghostex. Turning this off stops all usage tracking and keeps only 1 anonymous weekly active count (stop all with DO_NOT_TRACK=1 or --no-analytics).",
+    "options": [],
+    "keywords": [
+      "privacy",
+      "telemetry",
+      "posthog",
+      "tracking",
+      "do not track"
+    ]
+  },
   "attentionAlertsFor": {
     "title": "Alert me for",
     "subtitle": "A red dot (an approval, a stuck or blocked session) always alerts. All plays the finished sound and shows the system notification whenever an agent finishes, and for a coordinator only once none of its workers is still working; Needs you only does that only when it asks you something, waits for approval, or ends with Blocked or Needs you. Workers follow the Workers setting instead. The bell keeps a row either way.",

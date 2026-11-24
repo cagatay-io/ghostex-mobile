@@ -1055,7 +1055,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     group: 'Usage analytics',
     title: ANALYTICS_TOGGLE_TITLE,
     description: `${ANALYTICS_PURPOSE_COPY}. Synced with your connected computer's analyticsEnabled setting.`,
-    keywords: ['analytics', 'telemetry', 'privacy', 'anonymous', 'opt out', 'do not track', 'tracking', 'analyticsEnabled'],
+    catalog: 'analyticsEnabled',
+    keywords: ['anonymous', 'opt out', 'analyticsEnabled'],
   },
   {
     page: 'privacy',
