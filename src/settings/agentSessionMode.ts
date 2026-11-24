@@ -51,12 +51,22 @@ export function canonicalNativeModeFamily(raw: string): NativeModeFamily | null 
 
 export function extractAgentSessionModes(rawSettings: unknown): Record<string, AgentSessionMode> {
   const modes: Record<string, AgentSessionMode> = {};
-  const settings = rawSettings as { agentSessionMode?: unknown } | null | undefined;
+  const settings = rawSettings as { agentSessionMode?: unknown; agentAcpMode?: unknown } | null | undefined;
   const raw = settings?.agentSessionMode;
   if (raw !== null && raw !== undefined && typeof raw === 'object' && !Array.isArray(raw)) {
     for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
       if (value === 'non-cli' || value === 'agent-cli') {
         modes[key] = value;
+      }
+    }
+  }
+  // Match server (`server/src/acp/mod.rs::agent_acp_setting`): fall back to legacy `agentAcpMode`
+  // booleans for any agent family not explicitly set under `agentSessionMode`.
+  const legacy = settings?.agentAcpMode;
+  if (legacy !== null && legacy !== undefined && typeof legacy === 'object' && !Array.isArray(legacy)) {
+    for (const [key, value] of Object.entries(legacy as Record<string, unknown>)) {
+      if (modes[key] === undefined && typeof value === 'boolean') {
+        modes[key] = value ? 'non-cli' : 'agent-cli';
       }
     }
   }

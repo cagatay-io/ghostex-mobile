@@ -16,22 +16,53 @@ import { Glyph as ComposerGlyph } from '../../chat/native/composer/icons';
 import { chatMachineLink, onChatLinkHandshake } from '../../chat/rust/machine-link';
 import { isDemoMachine } from '../../demo/identity';
 import type { MachineConnectionTarget } from '../../machines/credentials';
+import { extractAgentSessionModes } from '../../settings/agentSessionMode';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import BottomSheet from '../common/BottomSheet';
 
 const SEEN_STORAGE_KEY = 'ghostex.nativeModeAnnounceSeen.v1';
 const NATIVE_FAMILIES = ['antigravity', 'claude', 'codex'] as const;
 
-function formatBulkSwitchSummary(switched: number, deferred: number, computerName: string): string {
+type BulkSwitchSummary = {
+  completed: boolean;
+  totalEligible: number;
+  switched: number;
+  skippedBusy: number;
+  skippedThreads: number;
+  failed: number;
+};
+
+function formatBulkSwitchSummary(summary: BulkSwitchSummary, computerName: string): string {
   const plural = (count: number) => (count === 1 ? 'chat' : 'chats');
-  if (switched > 0 && deferred > 0) {
-    return `Switched ${switched} ${plural(switched)}; ${deferred} will switch when they finish or reload.`;
+  if (!summary.completed) {
+    return `Switching ${summary.totalEligible} eligible ${plural(summary.totalEligible)} in the background. New chats will use Native.`;
   }
-  if (switched > 0) {
-    return `Switched ${switched} ${plural(switched)} to Native mode. New chats will use Native.`;
+  const notes: string[] = [];
+  if (summary.skippedBusy > 0) {
+    notes.push(
+      summary.skippedBusy === 1
+        ? '1 is busy and stays in Terminal until you switch it'
+        : `${summary.skippedBusy} are busy and stay in Terminal until you switch them`,
+    );
   }
-  if (deferred > 0) {
-    return `Native mode is on for new chats. ${deferred} active ${plural(deferred)} will switch when they finish or reload.`;
+  if (summary.skippedThreads > 0) {
+    notes.push(
+      summary.skippedThreads === 1
+        ? '1 worker thread will use Native on reload'
+        : `${summary.skippedThreads} worker threads will use Native on reload`,
+    );
+  }
+  if (summary.failed > 0) {
+    notes.push(`${summary.failed} could not switch and stayed in Terminal`);
+  }
+  if (summary.switched > 0 && notes.length > 0) {
+    return `Switched ${summary.switched} ${plural(summary.switched)}; ${notes.join('; ')}.`;
+  }
+  if (summary.switched > 0) {
+    return `Switched ${summary.switched} ${plural(summary.switched)} to Native mode. New chats will use Native.`;
+  }
+  if (notes.length > 0) {
+    return `Native mode is on for new chats. ${notes.join('; ')}.`;
   }
   return `Native mode is on for new chats on ${computerName}.`;
 }
@@ -114,13 +145,9 @@ export function NativeModeAnnounceSheet({
           checkedRef.current.delete(machine.id);
           return;
         }
-        const settings = (read.result as { settings?: { agentSessionMode?: Record<string, unknown> } })?.settings;
-        const modes = settings?.agentSessionMode;
-        const alreadyOn =
-          modes !== null &&
-          modes !== undefined &&
-          typeof modes === 'object' &&
-          NATIVE_FAMILIES.some((family) => modes[family] === 'non-cli');
+        const settings = (read.result as { settings?: unknown })?.settings;
+        const modes = extractAgentSessionModes(settings);
+        const alreadyOn = NATIVE_FAMILIES.some((family) => modes[family] === 'non-cli');
         if (alreadyOn) {
           await markMachineSeen(machine.id);
           return;
@@ -155,15 +182,8 @@ export function NativeModeAnnounceSheet({
         let modes: Record<string, string> = {};
         try {
           const read = await link.rpc('readSharedSettings', {}, 8_000);
-          const rawModes =
-            read.error === null
-              ? (read.result as { settings?: { agentSessionMode?: Record<string, unknown> } })?.settings
-                  ?.agentSessionMode
-              : null;
-          if (rawModes !== null && typeof rawModes === 'object' && !Array.isArray(rawModes)) {
-            for (const [k, v] of Object.entries(rawModes)) {
-              if (v === 'non-cli' || v === 'agent-cli') modes[k] = v;
-            }
+          if (read.error === null) {
+            modes = { ...extractAgentSessionModes((read.result as { settings?: unknown })?.settings) };
           }
         } catch {
           modes = {};
@@ -189,12 +209,32 @@ export function NativeModeAnnounceSheet({
         const computerLabel = machineName || current.host;
         let summary = `Native mode is on for new chats on ${computerLabel}.`;
         try {
-          const switched = await link.rpc('switchEligibleSessionsToAcp', {}, 60_000);
+          const switched = await link.rpc('switchEligibleSessionsToAcp', {}, 45_000);
           if (switched.error === null) {
-            const payload = (switched.result ?? {}) as { switched?: unknown; deferred?: unknown };
-            const switchedCount = typeof payload.switched === 'number' ? payload.switched : 0;
-            const deferredCount = typeof payload.deferred === 'number' ? payload.deferred : 0;
-            summary = formatBulkSwitchSummary(switchedCount, deferredCount, computerLabel);
+            const payload = (switched.result ?? {}) as {
+              completed?: unknown;
+              totalEligible?: unknown;
+              switched?: unknown;
+              skippedBusy?: unknown;
+              skippedWorking?: unknown;
+              skippedThreads?: unknown;
+              skippedCannotResume?: unknown;
+              failed?: unknown;
+            };
+            const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+            const busyCount =
+              typeof payload.skippedBusy === 'number' ? num(payload.skippedBusy) : num(payload.skippedWorking);
+            summary = formatBulkSwitchSummary(
+              {
+                completed: payload.completed !== false,
+                totalEligible: num(payload.totalEligible),
+                switched: num(payload.switched),
+                skippedBusy: busyCount,
+                skippedThreads: num(payload.skippedThreads),
+                failed: num(payload.failed) + num(payload.skippedCannotResume),
+              },
+              computerLabel,
+            );
           }
         } catch {
           // Older servers without bulk switch still keep Native mode enabled for new chats.
