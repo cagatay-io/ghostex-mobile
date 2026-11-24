@@ -76,6 +76,8 @@ export type FeedRow = {
   /** ISO time the row was written. */
   createdAt: string;
   read: boolean;
+  /** Whether the bell panel has already shown this row (badge cleared), even while still unread. */
+  seen?: boolean;
   /** Present on account rows only. */
   accountId?: string;
   /**
@@ -138,6 +140,7 @@ export function parseFeedRow(value: unknown): FeedRow | null {
     agentName: text(raw, 'agentName')?.trim() ?? '',
     createdAt,
     read: raw.read === true,
+    ...(typeof raw.seen === 'boolean' ? { seen: raw.seen } : {}),
     ...(accountId !== undefined && accountId.length > 0 ? { accountId } : {}),
     ...(raw.awaitingApproval === true ? { awaitingApproval: true } : {}),
     ...(openSessionId !== undefined && openSessionId.length > 0 ? { openSessionId } : {}),

@@ -49,11 +49,22 @@ export async function updateFeed(rpc: FeedRpc, update: FeedUpdate): Promise<Feed
 }
 
 /**
- * Mark all read or Clear all on one computer (the desktop panel's header actions); the computer keeps an open
+ * Mark all read, Mark all seen or Clear all on one computer (the desktop panel's actions); the computer keeps an open
  * approval's row unread and in the list. Answers with the whole feed after it.
  */
-export async function updateWholeFeed(rpc: FeedRpc, action: 'markAllRead' | 'markFinishedSeen' | 'clearAll'): Promise<FeedSnapshot> {
+export async function updateWholeFeed(
+  rpc: FeedRpc,
+  action: 'markAllRead' | 'markAllSeen' | 'markFinishedSeen' | 'clearAll',
+): Promise<FeedSnapshot> {
   return snapshotOf(await rpc(UPDATE_FEED_METHOD, { action }));
+}
+
+/**
+ * Marks the shown rows read on one computer when the Notifications list closes, without acknowledging their sessions.
+ * Answers with the whole feed after it.
+ */
+export async function markShownRowsRead(rpc: FeedRpc, notificationIds: readonly string[]): Promise<FeedSnapshot> {
+  return snapshotOf(await rpc(UPDATE_FEED_METHOD, { action: 'markShownRead', notificationIds: [...notificationIds] }));
 }
 
 /**

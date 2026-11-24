@@ -16,9 +16,9 @@ import { useFeedPanel } from './useFeedPanel';
 
 export type BellCount = { count: number; lastKnown: boolean };
 
-/** The unread notifications across every online computer. */
+/** The unseen unread notifications across every online computer. */
 export function useNeedsYouCount(): BellCount {
-  const count = useFeedPanel().unreadCount;
+  const count = useFeedPanel().unseenCount;
   return useMemo(() => ({ count, lastKnown: false }), [count]);
 }
 

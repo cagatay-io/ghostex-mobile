@@ -88,6 +88,8 @@ import {
 import {
   changeEveryFeed,
   changeFeedRow,
+  markEveryFeedSeen,
+  markShownFeedRowsRead,
   removeFeedRowDevice,
   refreshAttentionFeeds,
   restoreEndedSession,
@@ -639,9 +641,17 @@ export default function AttentionList({
     void done.then((ok) => setFailed(!ok));
   }, []);
 
+  const keptUnreadKeysRef = useRef<Set<string>>(new Set());
+
   const change = useCallback(
-    (row: PanelRow, action: 'markRead' | 'markUnread' | 'dismiss') =>
-      report(changeFeedRow(row.machineId, { action, notificationId: row.id })),
+    (row: PanelRow, action: 'markRead' | 'markUnread' | 'dismiss') => {
+      if (action === 'markUnread') {
+        keptUnreadKeysRef.current.add(row.key);
+      } else {
+        keptUnreadKeysRef.current.delete(row.key);
+      }
+      report(changeFeedRow(row.machineId, { action, notificationId: row.id }));
+    },
     [report],
   );
 
@@ -693,21 +703,44 @@ export default function AttentionList({
     [panel],
   );
 
-  // CDXC:Notifications 2026-11-20 DECISION: opening the list reads the "finished" rows, so the bell's number drops to what
-  // still needs the user (the desktop's bell does the same when its panel opens); open approvals, questions and failures
-  // keep counting, and the sessions' own "finished" marks clear when a session is opened, not here.
-  // It runs again when the list closes, for the rows that arrived while it was open.
-  const finishedSeenSent = useRef(false);
-  const machinesRef = useRef(onlineMachines);
-  machinesRef.current = onlineMachines;
+  // CDXC:Notifications 2026-11-24 DECISION: opening the list clears the bell's unread count badge right away by
+  // marking unseen rows seen (`markAllSeen`), while rows keep their unread highlight until the user marks a row read
+  // or leaves the list (`markShownRead` on unmount). New rows arriving while the list is open show highlighted and are
+  // marked seen so they do not bump the badge.
+  const seenAttemptedKeysRef = useRef<Set<string>>(new Set());
+  const initialSeenSentRef = useRef(false);
+  const unreadRef = useRef(panel.unread);
+  unreadRef.current = panel.unread;
   useEffect(() => {
-    if (finishedSeenSent.current || onlineMachines.length === 0) return;
-    finishedSeenSent.current = true;
-    void changeEveryFeed(onlineMachines, 'markFinishedSeen');
-  }, [onlineMachines]);
+    const unseenMachines = new Set<string>();
+    for (const row of panel.unread) {
+      if (
+        row.seen !== true &&
+        !keptUnreadKeysRef.current.has(row.key) &&
+        !seenAttemptedKeysRef.current.has(row.key)
+      ) {
+        seenAttemptedKeysRef.current.add(row.key);
+        unseenMachines.add(row.machineId);
+      }
+    }
+    if (!initialSeenSentRef.current && onlineMachines.length > 0) {
+      initialSeenSentRef.current = true;
+      for (const machineId of onlineMachines) unseenMachines.add(machineId);
+    }
+    if (unseenMachines.size > 0) {
+      void markEveryFeedSeen([...unseenMachines]);
+    }
+  }, [panel.unread, onlineMachines]);
   useEffect(
     () => () => {
-      if (machinesRef.current.length > 0) void changeEveryFeed(machinesRef.current, 'markFinishedSeen');
+      const byMachine = new Map<string, string[]>();
+      for (const row of unreadRef.current) {
+        if (row.awaitingApproval === true || keptUnreadKeysRef.current.has(row.key)) continue;
+        const ids = byMachine.get(row.machineId);
+        if (ids !== undefined) ids.push(row.id);
+        else byMachine.set(row.machineId, [row.id]);
+      }
+      if (byMachine.size > 0) void markShownFeedRowsRead(byMachine);
     },
     [],
   );
@@ -759,14 +792,18 @@ export default function AttentionList({
       },
     });
     return [
-      item('mark-all-read', NotificationsCopy.feed.markAllRead, panel.unreadCount === 0, () =>
-        report(changeEveryFeed(onlineMachines, 'markAllRead')),
-      ),
+      item('mark-all-read', NotificationsCopy.feed.markAllRead, panel.unreadCount === 0, () => {
+        keptUnreadKeysRef.current.clear();
+        report(changeEveryFeed(onlineMachines, 'markAllRead'));
+      }),
       item(
         'clear-all',
         NotificationsCopy.feed.clearAll,
         nothing,
-        () => report(changeEveryFeed(onlineMachines, 'clearAll')),
+        () => {
+          keptUnreadKeysRef.current.clear();
+          report(changeEveryFeed(onlineMachines, 'clearAll'));
+        },
         true,
       ),
     ];

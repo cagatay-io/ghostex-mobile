@@ -58,7 +58,16 @@ import {
 } from './attentionRows';
 import { HOST_EVENT_KINDS, hostEventFromFeedRow, sessionFacts, type HostEvent } from './events';
 import { FeedEventSource, FeedUnavailableError, type FeedReadFailure } from './eventSource';
-import { FeedRequestError, markRowsRead, readFeed, updateFeed, updateWholeFeed, type FeedRpc, type FeedUpdate } from './feedClient';
+import {
+  FeedRequestError,
+  markRowsRead,
+  markShownRowsRead,
+  readFeed,
+  updateFeed,
+  updateWholeFeed,
+  type FeedRpc,
+  type FeedUpdate,
+} from './feedClient';
 import { ACCOUNT_SESSION_PREFIX, isAccountRow, isSessionlessRow, type FeedRow, type FeedSnapshot } from './feedContract';
 import { NOTIFICATION_STREAM_CAPABILITY, openFeedStream } from './feedStream';
 import { noteSwitchRequestFrame } from './switchRequestStore';
@@ -629,7 +638,7 @@ export async function changeFeedRow(machineId: string, update: FeedUpdate): Prom
       : rows.map((row) =>
           row.id !== update.notificationId || row.awaitingApproval === true
             ? row
-            : { ...row, read: update.action === 'markRead' },
+            : { ...row, read: update.action === 'markRead', seen: update.action === 'markRead' },
         ),
   );
   const ok = await updateAttentionFeed(machineId, update);
@@ -638,7 +647,57 @@ export async function changeFeedRow(machineId: string, update: FeedUpdate): Prom
 }
 
 /**
- * Mark all read, Mark finished seen (opening the list: only the "finished" rows, see the desktop's bell) or Clear all on every computer the list shows (the desktop panel's header actions, on its All tab):
+ * Marks unseen rows seen on every listed computer when the Notifications list opens (or a new row arrives while open):
+ * the bell badge clears right away while each unread row keeps its highlight until marked read or the list closes.
+ */
+export async function markEveryFeedSeen(machineIds: readonly string[]): Promise<boolean> {
+  const results = await Promise.all(
+    machineIds.map(async (machineId) => {
+      editFeed(machineId, (rows) => rows.map((row) => (row.seen === true ? row : { ...row, seen: true })));
+      const machine = machineById(machineId);
+      if (machine === undefined) return false;
+      try {
+        applySnapshot(machineId, await updateWholeFeed(await feedRpc(machine), 'markAllSeen'));
+        return true;
+      } catch (error) {
+        logAppEvent(`${machineDisplayLabel(machine)}: notification markAllSeen failed (${failureCategory(error)})`);
+        return false;
+      }
+    }),
+  );
+  return results.every(Boolean);
+}
+
+/**
+ * Marks the shown unread rows read on their owning computers when the Notifications list closes, without acknowledging
+ * their sessions. Falls back to per-row `markRead` for an older computer that predates `markShownRead`.
+ */
+export async function markShownFeedRowsRead(byMachine: ReadonlyMap<string, readonly string[]>): Promise<boolean> {
+  const entries = [...byMachine.entries()].filter(([, ids]) => ids.length > 0);
+  if (entries.length === 0) return true;
+  const results = await Promise.all(
+    entries.map(async ([machineId, ids]) => {
+      const idSet = new Set(ids);
+      editFeed(machineId, (rows) =>
+        rows.map((row) =>
+          idSet.has(row.id) && row.awaitingApproval !== true ? { ...row, read: true, seen: true } : row,
+        ),
+      );
+      const machine = machineById(machineId);
+      if (machine === undefined) return false;
+      try {
+        applySnapshot(machineId, await markShownRowsRead(await feedRpc(machine), ids));
+        return true;
+      } catch {
+        return markAttentionRowsRead(machineId, ids);
+      }
+    }),
+  );
+  return results.every(Boolean);
+}
+
+/**
+ * Mark all read, Mark finished seen or Clear all on every computer the list shows (the desktop panel's header actions, on its All tab):
  * each one's copy changes at once and its answer replaces it. An open approval stays unread and stays in the list, as
  * the computer keeps it. False when a computer did not take it (its feed is read again).
  */
@@ -657,8 +716,8 @@ export async function changeEveryFeed(machineIds: readonly string[], action: 'ma
         action === 'clearAll'
           ? rows.filter((row) => row.awaitingApproval === true)
           : action === 'markFinishedSeen'
-            ? rows.map((row) => (row.kind === 'finished' && row.awaitingApproval !== true ? { ...row, read: true } : row))
-            : rows.map((row) => (row.awaitingApproval === true ? row : { ...row, read: true })),
+            ? rows.map((row) => (row.kind === 'finished' && row.awaitingApproval !== true ? { ...row, read: true, seen: true } : row))
+            : rows.map((row) => (row.awaitingApproval === true ? row : { ...row, read: true, seen: true })),
       );
       const machine = machineById(machineId);
       if (machine === undefined) return false;

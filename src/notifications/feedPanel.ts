@@ -42,8 +42,10 @@ export type PanelRow = FeedRow & {
 export type FeedPanel = {
   unread: PanelRow[];
   read: PanelRow[];
-  /** Unread rows of every online computer (an open approval counts as unread), the bell's number. */
+  /** Unread rows of every online computer (an open approval counts as unread). */
   unreadCount: number;
+  /** Unread rows not yet seen in the Notifications list; drives the bell's badge number. */
+  unseenCount: number;
   /** "<Computer> is offline. ..." while an offline computer has rows waiting to come back. */
   offlineNotice: string | null;
 };
@@ -74,10 +76,12 @@ export function buildFeedPanel(feeds: readonly PanelMachineFeed[]): FeedPanel {
   }
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const unread = rows.filter((row) => !row.read);
+  const unseen = unread.filter((row) => row.seen !== true);
   return {
     unread,
     read: rows.filter((row) => row.read),
     unreadCount: unread.length,
+    unseenCount: unseen.length,
     offlineNotice: offlineNotice(offline),
   };
 }
