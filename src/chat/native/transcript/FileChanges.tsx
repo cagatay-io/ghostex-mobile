@@ -12,14 +12,34 @@ import { memo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useNativeChatUi, useRowDetail, useTranscriptEnv } from './context';
-import { DisclosureHeading } from './Disclosure';
+import { DisclosureBody } from './Disclosure';
 import { Glyph, type GlyphName } from './icons';
 import { arr, num, obj, str, type JsonRecord } from './json';
+import { successTone } from './quietWork';
+import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
-import { MONO_FONT, type TranscriptTheme } from './theme';
+import { MONO_FONT, PROSE_SIZE, type TranscriptTheme } from './theme';
 import { SingleLineTile } from './singleLineCard';
 import { openTranscriptMenu } from './transcriptMenuStore';
 import { FoldChevron } from './foldChevron';
+
+/** The tool row's horizontal padding, icon tile size, and described label opacity (`ToolRows.tsx`). */
+const ROW_PAD_X = 8;
+const TILE = 22;
+const DESCRIBED_LABEL_OPACITY = 0.8;
+
+/** A `#rrggbb` theme colour at an alpha (`ToolRows.tsx`). */
+function dimmed(hex: string, alpha: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  return `${hex}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, '0')}`;
+}
+
+/** A failed row's tint: the error tone at 6% (`ToolRows.tsx`). */
+function errorWash(error: string): string {
+  return `${error}0f`;
+}
 
 function fileRows(files: unknown): JsonRecord[] {
   return arr(files)
@@ -115,7 +135,92 @@ export function hasCompletedFiles(files: unknown, deferred?: unknown): boolean {
   return fileRows(files).length > 0 || arr(obj(deferred)?.filePaths).length > 0;
 }
 
-/** A finished turn's writes, folded behind "N files changed", drawn under the turn's card while it is open. */
+/**
+ * The "Edited N files" fold row styled like the tool and thought rows around it (desktop
+ * `files_fold_row` in `file_change_card.rs`, CDXC:SessionChat 2026-11-24): 22pt neutral pencil
+ * tile, 8pt inset, prose size at 80% opacity, +/- counts and right-side check or error mark,
+ * expanding on a rail into per-file rows in the same style.
+ */
+export function FilesFold({
+  foldKey,
+  stackId,
+  files,
+  card,
+  label,
+  open,
+  onToggle,
+  unread = false,
+  notice,
+}: {
+  foldKey: string;
+  stackId: string;
+  files: unknown;
+  card: unknown;
+  label: string;
+  open: boolean;
+  onToggle(): void;
+  unread?: boolean;
+  notice?: ReactNode;
+}) {
+  const { theme } = useTranscriptEnv();
+  const find = useRowFind();
+  const rows = fileRows(files);
+  const colors = palette(theme);
+  const summary = obj(card) ?? {};
+  const added = num(summary, 'added') ?? 0;
+  const removed = num(summary, 'removed') ?? 0;
+  const anyFailed = rows.some((file) => file.failed === true);
+  const allFailed = rows.length > 0 && rows.every((file) => file.failed === true);
+  return (
+    <View style={styles.fold}>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [
+          styles.foldTrigger,
+          allFailed && { backgroundColor: errorWash(theme.error) },
+          pressed && { backgroundColor: theme.pressed },
+        ]}
+      >
+        <View style={[styles.foldTile, { backgroundColor: theme.ink(0.05) }]}>
+          <Glyph name="pencil" size={13} color={theme.muted} />
+        </View>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.foldLabel,
+            { color: allFailed ? theme.error : dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) },
+          ]}
+        >
+          {highlightLabel(label, find, foldKey)}
+        </Text>
+        {added + removed > 0 ? <Counts added={added} removed={removed} /> : null}
+        <Glyph
+          name={anyFailed ? 'x' : 'check'}
+          size={13}
+          color={anyFailed ? theme.error : successTone(theme.light)}
+        />
+      </Pressable>
+      {open ? (
+        unread ? (
+          (notice ?? null)
+        ) : (
+          <View style={styles.foldInset}>
+            <DisclosureBody onCollapse={onToggle} label="Collapse edited files" gap={2}>
+              {rows.map((file, index) => (
+                <FileFoldEntryRow key={index} stackId={stackId} index={index} file={file} colors={colors} />
+              ))}
+            </DisclosureBody>
+          </View>
+        )
+      ) : null}
+    </View>
+  );
+}
+
+/** A finished turn's writes, folded behind "N files changed" / "Edited N files", drawn inside the opened turn. */
 export function CompletedFilesFold({
   itemId,
   files,
@@ -136,7 +241,8 @@ export function CompletedFilesFold({
 }) {
   const { dispatch } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
-  const [open, toggleRaw] = useDisclosure(disclosures, `work-files:${itemId}`);
+  const foldKey = `work-files:${itemId}`;
+  const [open, toggleRaw] = useDisclosure(disclosures, foldKey);
   const work = obj(deferred);
   // An older turn arrives collapsed with only the paths its unread work changed: the row stays and
   // reads that work on open (desktop `file_change_card.rs`, React `list.tsx`).
@@ -147,18 +253,96 @@ export function CompletedFilesFold({
     toggleRaw();
   };
   return (
-    <View style={styles.fold}>
-      <DisclosureHeading label={label} open={open} onToggle={toggle} />
+    <FilesFold
+      foldKey={foldKey}
+      stackId={`work:${itemId}`}
+      files={files}
+      card={card}
+      label={label}
+      open={open}
+      onToggle={toggle}
+      unread={unread}
+      notice={notice}
+    />
+  );
+}
+
+/** One file row inside an expanded "Edited N files" fold, matching `ToolRow` and opening onto its diff on a rail. */
+const FileFoldEntryRow = memo(function FileFoldEntryRow({
+  stackId,
+  index,
+  file,
+  colors,
+}: {
+  stackId: string;
+  index: number;
+  file: JsonRecord;
+  colors: Palette;
+}) {
+  const { theme, filePreviews } = useTranscriptEnv();
+  const { disclosures } = useNativeChatUi();
+  const key = `file:${stackId}:${num(file, 'disclosureIndex') ?? index}`;
+  const [open, toggle] = useDisclosure(disclosures, key, filePreviews || file.awaitingApproval === true);
+  const status = str(file, 'status') || 'edited';
+  const glyphColor = status === 'new' ? colors.new : status === 'deleted' ? colors.deleted : theme.muted;
+  const failed = file.failed === true;
+  const added = num(file, 'added') ?? 0;
+  const removed = num(file, 'removed') ?? 0;
+  const filename = str(file, 'filename');
+  const parent = str(file, 'parent');
+  const path = str(file, 'path');
+  return (
+    <View style={styles.foldEntry}>
+      <Pressable
+        onPress={toggle}
+        {...(path.length > 0 ? { onLongPress: () => openTranscriptMenu({ href: path }) } : {})}
+        accessibilityRole="button"
+        accessibilityLabel={parent.length > 0 ? `${parent}${filename}` : filename}
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [
+          styles.foldTrigger,
+          failed && { backgroundColor: errorWash(theme.error) },
+          pressed && { backgroundColor: theme.pressed },
+        ]}
+      >
+        <View style={[styles.foldTile, { backgroundColor: theme.ink(0.05) }]}>
+          <Glyph name={statusGlyph(status)} size={13} color={glyphColor} />
+        </View>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.foldFileName,
+            { color: failed ? theme.error : dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) },
+          ]}
+        >
+          {filename}
+        </Text>
+        {parent.length > 0 ? (
+          <Text numberOfLines={1} ellipsizeMode="head" style={[styles.parent, { color: theme.muted }]}>
+            {parent}
+          </Text>
+        ) : null}
+        {failed ? <Text style={[styles.failed, { color: theme.error }]}>Failed</Text> : null}
+        <View style={styles.spacer} />
+        {added + removed > 0 ? <Counts added={added} removed={removed} /> : null}
+        <Glyph
+          name={failed ? 'x' : 'check'}
+          size={13}
+          color={failed ? theme.error : successTone(theme.light)}
+        />
+      </Pressable>
       {open ? (
-        unread ? (
-          (notice ?? null)
-        ) : (
-          <FileChangeStack stackId={`work:${itemId}`} files={files} card={card} />
-        )
+        <View style={styles.foldInset}>
+          <DisclosureBody onCollapse={toggle} label={`Collapse ${filename}`} rail="tool" gap={4}>
+            <View style={[styles.framedDiff, { borderColor: colors.border }]}>
+              <FileChangeDiff rowKey={key} file={file} colors={colors} borderTop={false} />
+            </View>
+          </DisclosureBody>
+        </View>
       ) : null}
     </View>
   );
-}
+});
 
 const FileChangeRow = memo(function FileChangeRow({
   stackId,
@@ -226,7 +410,17 @@ const FileChangeRow = memo(function FileChangeRow({
 });
 
 /** An open row's diff on its darker well, with the buttons under it. */
-export function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file: JsonRecord; colors: Palette }) {
+export function FileChangeDiff({
+  rowKey,
+  file,
+  colors,
+  borderTop = true,
+}: {
+  rowKey: string;
+  file: JsonRecord;
+  colors: Palette;
+  borderTop?: boolean;
+}) {
   const { theme, dispatch } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const [showAll, toggleAll] = useDisclosure(disclosures, `file-all:${rowKey}`);
@@ -242,7 +436,7 @@ export function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file:
   const numbered = lines.some((line) => typeof line.old === 'number' || typeof line.new === 'number');
   const status = str(file, 'status');
   return (
-    <View style={[styles.well, { backgroundColor: colors.well, borderTopColor: colors.hairline }]}>
+    <View style={[styles.well, { backgroundColor: colors.well }, borderTop && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline }]}>
       {shown.length === 0 ? (
         <Text style={[styles.code, styles.pad, { color: theme.muted }]}>
           {status === 'deleted' ? 'File removed' : 'Empty file'}
@@ -340,7 +534,29 @@ export function FileChangeDiff({ rowKey, file, colors }: { rowKey: string; file:
 }
 
 const styles = StyleSheet.create({
-  fold: { gap: 8, minWidth: 0 },
+  fold: { gap: 4, minWidth: 0 },
+  foldEntry: { gap: 4, minWidth: 0 },
+  foldTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: ROW_PAD_X,
+    paddingVertical: 5,
+    borderRadius: 8,
+    minWidth: 0,
+  },
+  foldTile: {
+    width: TILE,
+    height: TILE,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  foldLabel: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400' },
+  foldFileName: { fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400', flexShrink: 0, maxWidth: '50%' },
+  foldInset: { paddingLeft: ROW_PAD_X + TILE / 2 - 10 },
+  framedDiff: { borderRadius: 8, borderWidth: 1, overflow: 'hidden', minWidth: 0 },
   card: { borderRadius: 14, borderWidth: 1, overflow: 'hidden', minWidth: 0 },
   header: {
     flexDirection: 'row',
@@ -371,7 +587,7 @@ const styles = StyleSheet.create({
   spacer: { flex: 1 },
   bars: { flexDirection: 'row', gap: 2 },
   bar: { width: 6, height: 6, borderRadius: 1.5 },
-  well: { paddingTop: 6, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  well: { paddingTop: 6, paddingBottom: 8 },
   lines: { minWidth: '100%' },
   line: { flexDirection: 'row', paddingRight: 14 },
   unnumbered: { paddingLeft: 14 },

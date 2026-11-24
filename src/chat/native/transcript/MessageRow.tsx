@@ -13,7 +13,7 @@ import { cardStackMargin } from './cardSpacing';
 import { quietStyle, useChatLook, useInSummaryTurn, useNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { WorkCardStack } from '../cards/WorkCards';
 import { Chevron, DisclosureBody, DisclosureHeading, LaneMarker, useFoldPlace } from './Disclosure';
-import { FileChangeStack } from './FileChanges';
+import { FileChangeStack, FilesFold } from './FileChanges';
 import { FOLDED_CALLS_INSET, ImageRow, ReadImageStrip, WithLoadingPictures } from './Images';
 import { arr, obj, str } from './json';
 import { MessageLongPressContext } from './markdown/blockLongPress';
@@ -455,10 +455,15 @@ function MessageFiles({ message }: { message: ProjectedMessage }) {
   }
   if (!simple) return stack;
   return (
-    <View style={styles.message}>
-      <DisclosureHeading label={str(message, 'simpleFileLabel')} open={open} onToggle={toggle} />
-      {open ? stack : null}
-    </View>
+    <FilesFold
+      foldKey={`files:${message.id}`}
+      stackId={message.id}
+      files={message.files}
+      card={message.fileCard}
+      label={str(message, 'simpleFileLabel')}
+      open={open}
+      onToggle={toggle}
+    />
   );
 }
 

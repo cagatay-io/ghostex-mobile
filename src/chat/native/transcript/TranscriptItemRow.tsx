@@ -237,23 +237,21 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
         <WorkSummary item={item} open={open} onToggle={toggle} look={look} />
       )}
       {shown && foldsCards(folded) ? <FoldedCards split={folded} columnGap={partGap} /> : null}
-      {/* The turn's files fold shows only while its card is open, collapsed, right under the card
-          (gx-chat-core `turn_files_fold`, where the user's decision is; desktop `completed_work_row.rs`).
-          A closed card leaves the files to its "N files" pill. */}
-      {shown ? (
-        <CompletedFilesFold
-          itemId={item.id}
-          files={item.files}
-          card={item.filesCard}
-          label={simple ? item.simpleFilesLabel : item.filesLabel}
-          deferred={item.deferred}
-          notice={notice}
-        />
-      ) : null}
+      {/* The turn's files fold sits as the first row of the opened log so it shares the exact
+          indent and spacing of the tool and thought rows below it (`FileChanges.tsx`,
+          CDXC:SessionChat 2026-11-24). A closed card leaves the files to its "N files" pill. */}
       {/* On an opened Quiet View line's rail the log has no rail of its own: that line's rail is it. */}
       {flat ? (
         <FoldPlaceProvider value={IN_WORK_FOLD}>
           <View style={styles.flatLog}>
+            <CompletedFilesFold
+              itemId={item.id}
+              files={item.files}
+              card={item.filesCard}
+              label={simple ? item.simpleFilesLabel : item.filesLabel}
+              deferred={item.deferred}
+              notice={notice}
+            />
             {notice}
             {log}
           </View>
@@ -261,6 +259,14 @@ function CompletedWorkRow({ item }: { item: CompletedWorkItem }) {
       ) : open ? (
         <FoldPlaceProvider value={IN_WORK_FOLD}>
           <DisclosureBody onCollapse={toggle} label="Collapse completed work" rail="work">
+            <CompletedFilesFold
+              itemId={item.id}
+              files={item.files}
+              card={item.filesCard}
+              label={simple ? item.simpleFilesLabel : item.filesLabel}
+              deferred={item.deferred}
+              notice={notice}
+            />
             {notice}
             {log}
           </DisclosureBody>
