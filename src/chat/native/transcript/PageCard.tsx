@@ -26,7 +26,12 @@ import { str, type JsonRecord } from './json';
 import { answeredColor } from './PageAnswersCard';
 import { askColor } from '../cards/askCard';
 import { CardMoreMenu, pageRows, shareLinkRow, snoozeRow, starRow } from '../cards/CardMoreMenu';
-import { askedPageThumbnail, usePageThumbnailStore } from './pageThumbnails';
+import {
+  askedPageThumbnail,
+  pageThumbnailKey,
+  usePageThumbnailStore,
+  type PageThumbnailTheme,
+} from './pageThumbnails';
 import { QuestionFlashFrame } from './OpenQuestions';
 import {
   SINGLE_LINE_CARD,
@@ -56,6 +61,14 @@ const VISUAL = {
   thumbnailWidth: 800,
   thumbnailHeight: 500,
 };
+/**
+ * Phone preview max height: keeps the original compact `148pt` card height (`page-card.json` /
+ * desktop `62c7130a0`) while shrinking smoothly at the thumbnail's 1.6 aspect ratio on narrow
+ * split panes with no blank bottom gap.
+ */
+const PHONE_PREVIEW_MAX_HEIGHT = VISUAL.previewHeight;
+/** Subtle bottom fade height for the cropped preview edge. */
+const PHONE_FADE_HEIGHT = 28;
 
 /** The card, outlined for a moment when the Previous question pill or a Q-tag link lands on it. */
 export function PageCard({
@@ -127,23 +140,35 @@ function PageCardBody({
   // (gx-chat-core `questions/later.rs`, desktop `page_card.rs`).
   const later = !answered && flags.laterQuestions.has(pageId);
   const waiting = later || (!answered && flags.unansweredQuestions.has(pageId));
-  const entry = usePageThumbnailStore((state) => (pageId.length > 0 ? state.pages[pageId] : undefined));
+  const thumbnailTheme: PageThumbnailTheme = theme.light ? 'light' : 'dark';
+  const entry = usePageThumbnailStore((state) =>
+    pageId.length > 0 ? state.pages[pageThumbnailKey(pageId, answered, thumbnailTheme)] : undefined,
+  );
+  // While a post-answer refresh is loading, keep the unanswered same-theme picture up so the card
+  // does not flash back to its placeholder.
+  const unansweredEntry = usePageThumbnailStore((state) =>
+    answered && pageId.length > 0 ? state.pages[pageThumbnailKey(pageId, false, thumbnailTheme)] : undefined,
+  );
 
-  // Asked once per page and answered state (an answered page is pictured again), not per mount.
+  // Asked once per `(pageId, answered, theme)` (an answered page is pictured again, and switching
+  // dark/light fetches the matching themed picture), not per mount.
   useEffect(() => {
-    if (!collapsed && pageId.length > 0 && askedPageThumbnail(pageId, answered)) {
-      dispatch({ type: 'loadPageThumbnail', pageId });
+    if (!collapsed && pageId.length > 0 && askedPageThumbnail(pageId, answered, thumbnailTheme)) {
+      dispatch({ type: 'loadPageThumbnail', pageId, theme: thumbnailTheme });
     }
-  }, [answered, collapsed, dispatch, pageId]);
+  }, [answered, collapsed, dispatch, pageId, thumbnailTheme]);
   // While the picture is on its way, ask again when the core says to; a card that left the list
   // asks nothing until it is drawn again.
   const retryInMs = entry !== undefined && !entry.settled ? entry.retryInMs : null;
   const revision = entry?.revision ?? 0;
   useEffect(() => {
     if (collapsed || pageId.length === 0 || retryInMs === null) return undefined;
-    const timer = setTimeout(() => dispatch({ type: 'loadPageThumbnail', pageId }), retryInMs);
+    const timer = setTimeout(
+      () => dispatch({ type: 'loadPageThumbnail', pageId, theme: thumbnailTheme }),
+      retryInMs,
+    );
     return () => clearTimeout(timer);
-  }, [collapsed, dispatch, pageId, retryInMs, revision]);
+  }, [collapsed, dispatch, pageId, retryInMs, revision, thumbnailTheme]);
 
   // Answered, with the reader's answers card right under it, which names the page and opens it
   // again (Q2995, desktop `answers_right_below`).
@@ -184,7 +209,14 @@ function PageCardBody({
       </View>
     );
   }
-  const picture = entry?.png ?? null;
+  const activeThumbnail = entry?.png ? entry : unansweredEntry;
+  const picture = activeThumbnail?.png ?? null;
+  const transparent = activeThumbnail?.transparent === true;
+  // Mirrors desktop `page_card.rs`: card shell/footer uses `cardRow` while the preview canvas uses
+  // `background` so transparent 2x themed thumbnails composite directly onto the native dark/light
+  // chat surface (no muddy grey box), and opaque fallbacks fill the same box edge-to-edge.
+  const cardSurface = theme.cardRow;
+  const previewSurface = transparent ? theme.background : cardSurface;
   const detail = file.length > 0 ? `Live page · ${file}` : 'Live page';
   const good = answeredColor(theme.light);
   const barContent = (
@@ -207,7 +239,7 @@ function PageCardBody({
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: theme.input, borderColor: pressed ? theme.muted : theme.border },
+        { backgroundColor: cardSurface, borderColor: pressed ? theme.muted : theme.border },
       ]}
       onPress={open}
       accessibilityRole="link"
@@ -236,14 +268,22 @@ function PageCardBody({
           {barContent}
         </View>
       )}
-      <View style={[styles.preview, { backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.preview,
+          picture !== null ? styles.previewPicture : styles.previewPlaceholder,
+          { backgroundColor: picture !== null ? previewSurface : theme.background },
+        ]}
+      >
         {picture !== null ? (
-          <Image
-            source={{ uri: `data:image/png;base64,${picture}` }}
-            style={styles.picture}
-            resizeMode="stretch"
-            accessibilityIgnoresInvertColors
-          />
+          <View style={styles.pictureFrame}>
+            <Image
+              source={{ uri: `data:image/png;base64,${picture}` }}
+              style={styles.picture}
+              resizeMode="stretch"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
         ) : (
           <View style={styles.placeholder}>
             <Glyph name="file-code" size={22} color={theme.muted} />
@@ -252,7 +292,9 @@ function PageCardBody({
             </Text>
           </View>
         )}
-        <VerticalFade id="page-card-fade" color={theme.input} from={0} to={1} style={styles.fade} />
+        {picture !== null ? (
+          <VerticalFade id="page-card-fade" color={cardSurface} from={0} to={1} style={styles.fade} />
+        ) : null}
       </View>
       <View style={styles.footer}>
         <View style={styles.text}>
@@ -368,18 +410,20 @@ const styles = StyleSheet.create({
   },
   compactTitle: { flex: 1, minWidth: 0 },
   barLabel: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 11.5 },
-  preview: { height: VISUAL.previewHeight, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  // As wide as the card, cut at the bottom: the top of the page is what it opens on.
-  picture: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+  preview: { width: '100%', overflow: 'hidden' },
+  previewPicture: { maxHeight: PHONE_PREVIEW_MAX_HEIGHT },
+  previewPlaceholder: { height: VISUAL.previewHeight, alignItems: 'center', justifyContent: 'center' },
+  // Full width at the stored 1.6 aspect ratio, clipped cleanly at the bottom: the top of the page
+  // is what it opens on, with no blank gap on narrow panes.
+  pictureFrame: {
     width: '100%',
     aspectRatio: VISUAL.thumbnailWidth / VISUAL.thumbnailHeight,
+    flexShrink: 0,
   },
+  picture: { width: '100%', height: '100%' },
   placeholder: { alignItems: 'center', gap: 6, maxWidth: '80%' },
   placeholderLabel: { fontSize: 11.5 },
-  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: VISUAL.fadeHeight },
+  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: PHONE_FADE_HEIGHT },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

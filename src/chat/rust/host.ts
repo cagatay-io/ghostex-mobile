@@ -65,7 +65,7 @@ import { AttachmentCarrier } from './carryAttachments';
 import { SessionChatStream, sessionChatRpc, type RpcAnswer } from './transport';
 import { markSessionOpen } from '../../terminal/openTiming';
 import { dictationInserted } from '../native/composer/dictationTarget';
-import { receivePageThumbnail } from '../native/transcript/pageThumbnails';
+import { receivePageThumbnail, type PageThumbnailTheme } from '../native/transcript/pageThumbnails';
 import { forgetRecording, requestEnded, wordsAsked, wordsAwaited } from '../../voice/dictation';
 import { readAloudSetAuto, readAloudSpeak, readAloudStopSpeaking, registerReadAloudChat } from '../../voice/readAloud';
 import { chatStatusLineOnFor, subscribeChatStatusLine } from '../statusLineSwitch';
@@ -270,6 +270,12 @@ export class RustChatHost {
   private readonly openTraceKey: string;
   private retainedTranscriptLoaded = false;
   private liveReadArrived = false;
+  /** Backfills `theme` / `transparent` when running against an older bundled `gx-chat-wasm` core. */
+  private readonly pageThumbnailRequestedTheme = new Map<string, PageThumbnailTheme>();
+  private readonly pageThumbnailRpcMeta = new Map<
+    string,
+    { theme: PageThumbnailTheme | null; transparent: boolean }
+  >();
 
   constructor(private readonly target: RustChatTarget) {
     this.carrier = new AttachmentCarrier(target, (name, args) => this.queryAsync(name, args));
@@ -491,6 +497,8 @@ export class RustChatHost {
     this.core = null;
     this.queryCache.clear();
     this.queryInflight.clear();
+    this.pageThumbnailRequestedTheme.clear();
+    this.pageThumbnailRpcMeta.clear();
     // Last: what this core still answers is applied by nobody now (`drive`), so its recordings
     // can be asked for again.
     this.endDictationRequests();
@@ -540,7 +548,12 @@ export class RustChatHost {
     if (action.type === 'insertDictation') this.dictate(action);
     else if (action.type === 'dictationAnchor')
       this.dictationAnchor = action.clear === true ? null : this.composer.dictationPoint();
-    else this.enqueue({ type: 'action', action });
+    else {
+      if (action.type === 'loadPageThumbnail' && (action.theme === 'dark' || action.theme === 'light')) {
+        this.pageThumbnailRequestedTheme.set(action.pageId.toLowerCase(), action.theme);
+      }
+      this.enqueue({ type: 'action', action });
+    }
   }
 
   /** A size or position only the screen knows (toolbar overflow, status rows, open rows). */
@@ -1078,9 +1091,21 @@ export class RustChatHost {
         this.composer.insertAttachments(fields.paths);
         return;
       // A page card's picture; the card reads it from its own store (`pageThumbnails.ts`).
-      case 'pageThumbnail':
-        receivePageThumbnail(fields);
+      case 'pageThumbnail': {
+        const pageId = typeof fields.pageId === 'string' ? fields.pageId.toLowerCase() : '';
+        const meta = pageId.length > 0 ? this.pageThumbnailRpcMeta.get(pageId) : undefined;
+        if (meta !== undefined) this.pageThumbnailRpcMeta.delete(pageId);
+        if (meta !== undefined && (fields.theme === undefined || fields.transparent === undefined)) {
+          receivePageThumbnail({
+            ...fields,
+            ...(fields.theme === undefined && meta.theme !== null ? { theme: meta.theme } : {}),
+            ...(fields.transparent === undefined ? { transparent: meta.transparent } : {}),
+          });
+        } else {
+          receivePageThumbnail(fields);
+        }
         return;
+      }
       case 'chatImage': {
         const path = typeof fields.path === 'string' ? fields.path : '';
         const image = fields.image as { base64Data?: unknown; mediaType?: unknown } | undefined;
@@ -1325,12 +1350,41 @@ export class RustChatHost {
       );
       return;
     }
+    let thumbnailPageId = '';
+    let thumbnailRequestedTheme: PageThumbnailTheme | null = null;
+    if (method === 'readVisualPageThumbnail') {
+      thumbnailPageId = typeof fields.pageId === 'string' ? fields.pageId.toLowerCase() : '';
+      if (fields.theme === 'dark' || fields.theme === 'light') {
+        thumbnailRequestedTheme = fields.theme;
+      } else if (thumbnailPageId.length > 0) {
+        const remembered = this.pageThumbnailRequestedTheme.get(thumbnailPageId);
+        if (remembered !== undefined) {
+          fields.theme = remembered;
+          thumbnailRequestedTheme = remembered;
+        }
+      }
+    }
     const liveRead = method === 'readSessionChat' && fields.beforeOffset === undefined && fields.subagent === undefined;
     const pending = sessionChatRpc(this.target.machine, method, fields);
     // An exec long poll starts from this read's fingerprint instead of reading it all again.
     if (liveRead) this.poll.seed(pending);
     void pending.then((answer) => {
       if (liveRead && answer.error === null) this.liveReadArrived = true;
+      if (
+        method === 'readVisualPageThumbnail' &&
+        thumbnailPageId.length > 0 &&
+        answer.error === null &&
+        typeof answer.result === 'object' &&
+        answer.result !== null
+      ) {
+        const result = answer.result as Record<string, unknown>;
+        const resolvedTheme: PageThumbnailTheme | null =
+          result.theme === 'dark' || result.theme === 'light' ? result.theme : thumbnailRequestedTheme;
+        this.pageThumbnailRpcMeta.set(thumbnailPageId, {
+          theme: resolvedTheme,
+          transparent: result.transparent === true,
+        });
+      }
       if (method === 'setSessionChatDraft') this.settleDraftSave(requestId, answer);
       this.settle(requestId, answer);
     });

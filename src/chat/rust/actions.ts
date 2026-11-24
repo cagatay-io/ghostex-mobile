@@ -177,7 +177,7 @@ export type ActionFields = {
   /** Read an image's bytes for a thumbnail or the viewer; answered as a `chatImage` request. */
   loadImage: { path: string };
   /** A published page's picture for its card; answered as a `pageThumbnail` host action. */
-  loadPageThumbnail: { pageId: string };
+  loadPageThumbnail: { pageId: string; theme?: 'dark' | 'light'; fresh?: boolean };
   /** A "GBot added" card: read its state once (`load`), or Undo the add (core `gbot_cards.rs`). */
   /** A "GBot added" or "Routine set" card (gx-chat-core `gbot_cards.rs`, `routine_cards.rs`). */
   gbotCard: {
