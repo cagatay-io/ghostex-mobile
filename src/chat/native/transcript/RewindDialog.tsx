@@ -25,6 +25,8 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
   const completed = isTrue(state, 'completed');
   const preview = str(state, 'preview');
   const error = str(state, 'error');
+  // Empty for the chats whose sheet has no description (gx-chat-core `rewind_projection`), so no line and no gap.
+  const description = str(state, 'description');
   const destructive = theme.light ? '#e7000b' : '#ff6467';
   const cancel = () => chat.dispatch({ type: 'rewindCancel' });
   const button = (label: string, onPress: () => void, disabled: boolean, primary: boolean) => (
@@ -78,7 +80,7 @@ export function RewindDialog({ chat }: { chat: RustChat }) {
                 </Text>
               </View>
             ) : null}
-            <Text style={[styles.small, { color: theme.muted }]}>{str(state, 'description')}</Text>
+            {description.length > 0 ? <Text style={[styles.small, { color: theme.muted }]}>{description}</Text> : null}
             {error.length > 0 ? <Text style={[styles.small, { color: destructive }]}>{error}</Text> : null}
           </ScrollView>
           <View style={styles.buttons}>
