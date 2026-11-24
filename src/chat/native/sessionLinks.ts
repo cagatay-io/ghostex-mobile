@@ -275,7 +275,22 @@ export type SessionLinksChatPill = {
 };
 
 /**
- * The Links pill, or null with nothing to show (gx-core `SessionLinks::chat_pill`, whose
+ * Whether a session shows automatic suggested-link pills (sidebar badge and chat bar pill).
+ *
+ * CDXC:SessionLinks 2026-11-24 DECISION:
+ * Coordinators, Chief of Staff and coordinator threads hide automatic suggested-link pills in both
+ * the sidebar row and the chat bar above the composer; linked items still show, and manual linking
+ * stays available from the menu.
+ */
+export function showSuggestedSessionLinks(
+  session: { isCoordinator?: boolean; isChief?: boolean; coordinatorSessionId?: string } | null | undefined,
+): boolean {
+  if (session == null) return true;
+  return !session.isCoordinator && !session.isChief && (session.coordinatorSessionId ?? '').length === 0;
+}
+
+/**
+ * The Links pill, or null with nothing to show (gx-core `SessionLinks::chat_pill_for`, whose
  * CDXC:SessionLinks 2026-10-28 DECISION holds the user's words: "move the links to always be in the
  * bar above the composer ... between Tasks and Threads ... The look of the pill needs to look like the
  * one we have in the sidebar"). The badge's text and colour; `muted` colours a suggestions-only pill.
@@ -284,11 +299,12 @@ export function sessionLinksChatPill(
   links: GhostexSessionLinks | undefined,
   muted: string,
   light = false,
+  showSuggested = true,
 ): SessionLinksChatPill | null {
   if (links === undefined) return null;
   const { items, suggested } = links;
   if (items.length === 0) {
-    if (suggested.length === 0) return null;
+    if (!showSuggested || suggested.length === 0) return null;
     return {
       label: `${suggested.length} suggested`,
       more: 0,

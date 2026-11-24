@@ -47,7 +47,12 @@ import { WherePill, WhereSheet } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
 
 /** The session's links and the Links pill's tap, from the screen that knows the session (`TerminalScreen`). */
-export type PillsStripLinks = { links: GhostexSessionLinks | undefined; onOpen: () => void };
+export type PillsStripLinks = {
+  links: GhostexSessionLinks | undefined;
+  /** Whether a suggestions-only session shows the "N suggested" pill (false for coordinators, Chief and coordinator threads). */
+  showSuggested?: boolean;
+  onOpen: () => void;
+};
 
 /** The strip's band: a pill's 25 with 5 above and below; its hairline under it (desktop `STRIP_HEIGHT`). */
 const BAND = 25 + 5 * 2;
@@ -116,7 +121,7 @@ export function pillsStripShown(
     (document.viewChips?.length ?? 0) > 0 ||
     questionWaiting(document) ||
     (document.workingCard?.pills ?? []).some((id) => !omitPills.includes(id)) ||
-    (links !== null && sessionLinksChatPill(links.links, muted) !== null) ||
+    (links !== null && sessionLinksChatPill(links.links, muted, false, links.showSuggested ?? true) !== null) ||
     // The Session details ring lives in the strip, so a chat with the panel always has one.
     sessionDetailsRingOf(document) !== null
   );
@@ -232,7 +237,7 @@ export function PillsStrip({
     });
     return () => run.stop();
   }, [shown, reduceMotion, open]);
-  const linksPill = links ? sessionLinksChatPill(links.links, P.cardMuted, P.light) : null;
+  const linksPill = links ? sessionLinksChatPill(links.links, P.cardMuted, P.light, links.showSuggested ?? true) : null;
   const card = document.workingCard;
   const pills = (card?.pills ?? [])
     .filter((id) => !omitPills.includes(id))

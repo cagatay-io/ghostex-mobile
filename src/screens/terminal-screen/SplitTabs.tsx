@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { NativeChatScreenProps } from '../../chat/native/NativeChatScreen';
+import { showSuggestedSessionLinks } from '../../chat/native/sessionLinks';
 import type { TabSwipe } from '../../chat/native/TabSwipe';
 import TerminalStateOverlay from '../../components/terminal/TerminalStateOverlay';
 import TerminalTabsBar from '../../components/terminal/TerminalTabsBar';
@@ -237,7 +238,7 @@ export function SplitPaneChat({
       openSessionNoteRequestId={noteRequests}
       onQueueCountChange={focused ? onQueueCountChange : undefined}
       tabSwipe={sideKeys.length > 1 ? tabSwipe : null}
-      links={{ links: session?.links, onOpen: onOpenLinks }}
+      links={{ links: session?.links, showSuggested: showSuggestedSessionLinks(session), onOpen: onOpenLinks }}
       style={styles.chat}
     />
   );

@@ -104,6 +104,7 @@ import SessionChatSurface from '../demo/SessionChatSurface';
 import DemoTerminalView from '../demo/DemoTerminalView';
 import { isDemoMachineId } from '../demo/identity';
 import SessionLinksSheet from '../chat/native/SessionLinksSheet';
+import { showSuggestedSessionLinks } from '../chat/native/sessionLinks';
 import type { TabSwipe } from '../chat/native/TabSwipe';
 import WarmChats from '../chat/native/WarmChats';
 import { useSessionLinksRefresh } from '../chat/native/useSessionLinksRefresh';
@@ -1393,9 +1394,14 @@ export default function TerminalScreen({ navigation, route }: Props) {
   }, [chatModeActive, toggleChatView]);
   const openLinksSheet = useCallback((): void => setLinksSheetVisible(true), []);
   const activeSessionLinks = activeSession?.links;
+  const activeSessionShowSuggestedLinks = showSuggestedSessionLinks(activeSession);
   const activeChatLinks = useMemo(
-    () => ({ links: activeSessionLinks, onOpen: openLinksSheet }),
-    [activeSessionLinks, openLinksSheet],
+    () => ({
+      links: activeSessionLinks,
+      showSuggested: activeSessionShowSuggestedLinks,
+      onOpen: openLinksSheet,
+    }),
+    [activeSessionLinks, activeSessionShowSuggestedLinks, openLinksSheet],
   );
   const activeChatStyle = useMemo(
     () => (chatFoldInset > 0 ? [styles.terminal, { marginBottom: chatFoldInset }] : styles.terminal),
@@ -1430,7 +1436,11 @@ export default function TerminalScreen({ navigation, route }: Props) {
               focusRequestId={composerFocusRequestId}
               openSearchRequestId={chatSearchRequestId}
               openSessionNoteRequestId={chatSessionNoteRequestId}
-              links={{ links: chatSession?.links, onOpen: () => setLinksSheetVisible(true) }}
+              links={{
+                links: chatSession?.links,
+                showSuggested: showSuggestedSessionLinks(chatSession),
+                onOpen: () => setLinksSheetVisible(true),
+              }}
               style={styles.terminal}
             />
           ),
