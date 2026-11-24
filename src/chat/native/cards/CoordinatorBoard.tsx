@@ -1192,36 +1192,6 @@ const useStyles = themedStyles((P) => ({
     fontSize: PROSE_SIZE,
     fontVariant: ['tabular-nums'],
   },
-  ring: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  disc: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  pause: {
-    width: 12,
-    height: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  pauseBar: {
-    width: 3,
-    height: 12,
-    borderRadius: 1.5,
-  },
   /** A line of work's card: two lines, always (desktop `board_card`). */
   card: {
     position: 'relative',

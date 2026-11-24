@@ -599,13 +599,6 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pendingRing: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: P.mutedInk(0.7),
-  },
   taskSubject: {
     flexShrink: 1,
     color: P.prose,

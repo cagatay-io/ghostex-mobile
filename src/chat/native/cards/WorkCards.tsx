@@ -2577,8 +2577,4 @@ const useStyles = themedStyles((P) => ({
   movingText: { flex: 1, minWidth: 0 },
   movingRowTitle: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.prose },
   movingRowLine: { fontSize: PROSE_SIZE, lineHeight: PROSE_LINE, color: P.cardMuted },
-  ring: { borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  ringDot: { width: 4, height: 4, borderRadius: 2 },
-  pause: { flexDirection: 'row', justifyContent: 'center', gap: 2.5 },
-  pauseBar: { width: 3, borderRadius: 1, height: '100%' },
 }));
