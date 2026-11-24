@@ -31,6 +31,7 @@ import {
   subscribeOpenAskDetails,
 } from '../../../notifications/pendingAskDetails';
 import { attachSessionKey } from '../../../terminal/sessions';
+import { useMachinesStore } from '../../../machines/store';
 import { SidebarPalette } from '../../../theme/palette';
 import { Glyph, type GlyphName } from './icons';
 import {
@@ -1197,6 +1198,12 @@ function DockRow({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const body = useBodyColor();
+  const machineId = chat.machine?.id ?? '';
+  const computerName = useMachinesStore((state) => {
+    if (machineId.length === 0) return '';
+    const entry = state.machines.find((machine) => machine.id === machineId);
+    return entry?.name.trim() ?? '';
+  });
   const [menu, setMenu] = useState(false);
   const [dupesOpen, setDupesOpen] = useState(false);
   const kind = str(row, 'kind');
@@ -1530,15 +1537,20 @@ function DockRow({
                   {line}
                 </Text>
               ))}
+            {!isTrue(row, 'commandLines') && str(row, 'command').trim().length > 0 ? (
+              <View style={{ marginTop: description.length > 0 ? 8 : bodyLead }}>
+                <CommandStrip row={row} dispatch={chat.dispatch} computerName={computerName} />
+              </View>
+            ) : null}
           </View>
         </TextArea>
       ) : null}
-      {/* A Needs you to-do's command, closed rows only: opened, its description shows it as a
-          code block with its own copy (gx-chat-core `extras::needs_you`). */}
+      {/* A Needs you to-do's command strip on closed rows (opened rows render it directly inside
+          the sheet body above, so clicking "Run on <computer>" keeps the sheet open for live status). */}
       {isTrue(row, 'commandLines') ? (
         <ApprovalCommand row={row} />
       ) : !opened && str(row, 'command').trim().length > 0 ? (
-        <CommandChip command={str(row, 'command').trim()} />
+        <CommandStrip row={row} dispatch={chat.dispatch} computerName={computerName} compact />
       ) : null}
       {answerLine}
       {dupesOpen && duplicates.length > 0 ? (
@@ -1586,12 +1598,228 @@ function DockRow({
   );
 }
 
+function displayCommand(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('!')) {
+    const rest = trimmed.slice(1).trimStart();
+    if (rest.length > 0) return rest;
+  }
+  return trimmed;
+}
+
+/**
+ * Layout A ("Command strip with button") on phone: renders a quiet rounded bar with the command,
+ * Copy, and a neutral "Run on <computer>" button when allowlisted; tapping runs the command on the
+ * connected computer and turns the bar into live status (running, waiting for Touch ID / sign-in
+ * on that computer, Done automatically, or failed/stopped with Retry). Falls back to the quiet
+ * Copy-only chip for non-allowlisted commands.
+ */
+function CommandStrip({
+  row,
+  dispatch,
+  computerName,
+  compact = false,
+}: {
+  row: JsonRecord;
+  dispatch: Dispatch;
+  computerName: string;
+  compact?: boolean;
+}) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const body = useBodyColor();
+  const [copied, setCopied] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const rawCommand = str(row, 'command').trim();
+  if (rawCommand.length === 0) return null;
+
+  const runAction = obj(row.runCommand);
+  const stopAction = obj(row.stopCommand);
+  const run = obj(row.commandRun);
+  const runState = run === null ? '' : str(run, 'state');
+  const canRun = runAction !== null;
+
+  if (!canRun && runState.length === 0) {
+    return <CommandChip command={rawCommand} inline={!compact} />;
+  }
+
+  const cleanCmd = displayCommand(rawCommand);
+  const runCmd = run !== null && str(run, 'command').trim().length > 0 ? str(run, 'command').trim() : cleanCmd;
+  const hostName = computerName.trim();
+  const runLabel = hostName.length > 0 ? `Run on ${hostName}` : 'Run on computer';
+  const targetHost = hostName.length > 0 ? hostName : 'your computer';
+
+  const copyNow = () => {
+    void Clipboard.setStringAsync(cleanCmd);
+    setCopied(true);
+  };
+
+  if (runState.length === 0) {
+    const strip = (
+      <View style={[styles.cmdStrip, compact && styles.cmdStripCompact]}>
+        <Text
+          numberOfLines={compact ? 1 : undefined}
+          style={[styles.cmdStripCode, { color: body }]}
+        >
+          {cleanCmd}
+        </Text>
+        <View style={styles.cmdStripActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Copy command ${cleanCmd}`}
+            hitSlop={WORK_BUTTON_SLOP}
+            onPress={copyNow}
+            style={({ pressed }) => [styles.cmdQuietBtn, pressed && { backgroundColor: P.ink(0.08) }]}
+          >
+            <Glyph name={copied ? 'check' : 'copy'} size={12} color={P.cardMuted} />
+            <Text style={styles.cmdQuietBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${runLabel}: ${cleanCmd}`}
+            hitSlop={WORK_BUTTON_SLOP}
+            onPress={() => dispatch(runAction as never)}
+            style={({ pressed }) => [styles.cmdRunBtn, pressed && { backgroundColor: P.ink(0.14) }]}
+          >
+            <Glyph name="player-play" size={11} color={body} />
+            <Text style={[styles.cmdRunBtnText, { color: body }]}>{runLabel}</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+    return compact ? <View style={styles.commandStripLine}>{strip}</View> : strip;
+  }
+
+  const output = run === null ? '' : str(run, 'output');
+  const hintTitle = run === null ? '' : str(run, 'hintTitle');
+  const rawHint = run === null ? '' : str(run, 'hint');
+  const errorText = run === null ? '' : str(run, 'error');
+  const hasOutput = output.trim().length > 0;
+  const adaptedHint =
+    rawHint.length > 0 && hostName.length > 0 ? rawHint.replace(/on this computer/gi, `on ${hostName}`) : rawHint;
+
+  let dotColor = P.cardMuted;
+  let statusLabel = `Running ${runCmd}\u2026`;
+  let hint = `Started on ${targetHost}. Output stays tucked away unless you open it.`;
+  let showStop = false;
+  let showRetry = false;
+
+  if (runState === 'running') {
+    showStop = true;
+  } else if (runState === 'waiting') {
+    dotColor = '#e5a00d';
+    statusLabel = hintTitle.length > 0 ? hintTitle : 'Waiting for Touch ID or your password';
+    hint =
+      adaptedHint.length > 0
+        ? adaptedHint
+        : `Use Touch ID or enter your password on ${targetHost} to approve. Ghostex will finish automatically once you approve.`;
+    showStop = true;
+  } else if (runState === 'succeeded') {
+    dotColor = '#30a46c';
+    statusLabel = 'Done automatically';
+    hint = 'The command succeeded and your agent was told Done.';
+  } else if (runState === 'stopped') {
+    dotColor = P.cardMuted;
+    statusLabel = errorText.length > 0 ? errorText : 'Stopped before it finished.';
+    hint = '';
+    showRetry = canRun;
+  } else {
+    dotColor = '#e5484d';
+    statusLabel = errorText.length > 0 ? errorText : 'Command did not finish cleanly.';
+    hint = '';
+    showRetry = canRun;
+  }
+
+  const showHint = hint.length > 0 && (!compact || runState === 'waiting');
+  const outputLines = hasOutput ? output.trimEnd().split('\n').slice(-12).join('\n') : '';
+
+  const liveStrip = (
+    <View style={[styles.cmdLiveBox, compact && styles.cmdStripCompact]}>
+      <View style={styles.cmdLiveRow}>
+        <View style={styles.cmdLiveStatus}>
+          {runState === 'succeeded' ? (
+            <Glyph name="check" size={13} color={dotColor} />
+          ) : (
+            <View style={[styles.cmdStatusDot, { backgroundColor: dotColor }]} />
+          )}
+          <Text
+            numberOfLines={compact ? 1 : undefined}
+            style={[styles.cmdLiveTitle, { color: body }]}
+          >
+            {statusLabel}
+          </Text>
+        </View>
+        <View style={styles.cmdStripActions}>
+          {hasOutput ? (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={WORK_BUTTON_SLOP}
+              onPress={() => setOutputOpen((was) => !was)}
+              style={({ pressed }) => [styles.cmdQuietBtn, pressed && { backgroundColor: P.ink(0.08) }]}
+            >
+              <Text style={styles.cmdQuietBtnText}>
+                {outputOpen ? 'Hide output' : runState === 'succeeded' ? 'View output' : 'Show output'}
+              </Text>
+            </Pressable>
+          ) : null}
+          {showStop && stopAction !== null ? (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={WORK_BUTTON_SLOP}
+              onPress={() => dispatch(stopAction as never)}
+              style={({ pressed }) => [styles.cmdQuietBtn, pressed && { backgroundColor: P.ink(0.08) }]}
+            >
+              <Text style={styles.cmdQuietBtnText}>Stop</Text>
+            </Pressable>
+          ) : null}
+          {showRetry ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={WORK_BUTTON_SLOP}
+                onPress={copyNow}
+                style={({ pressed }) => [styles.cmdQuietBtn, pressed && { backgroundColor: P.ink(0.08) }]}
+              >
+                <Glyph name={copied ? 'check' : 'copy'} size={12} color={P.cardMuted} />
+                <Text style={styles.cmdQuietBtnText}>{copied ? 'Copied' : 'Copy'}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={WORK_BUTTON_SLOP}
+                onPress={() => dispatch(runAction as never)}
+                style={({ pressed }) => [styles.cmdRunBtn, pressed && { backgroundColor: P.ink(0.14) }]}
+              >
+                <Glyph name="refresh" size={11} color={body} />
+                <Text style={[styles.cmdRunBtnText, { color: body }]}>Retry</Text>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
+      </View>
+      {showHint ? <Text style={styles.cmdLiveHint}>{hint}</Text> : null}
+      {outputOpen && hasOutput ? (
+        <View style={styles.cmdOutputBox}>
+          <Text style={styles.cmdOutputText}>{outputLines}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  return compact ? <View style={styles.commandStripLine}>{liveStrip}</View> : liveStrip;
+}
+
 /**
  * A Needs you to-do's command under its title (`ghostex needs-you add --command`; desktop
  * `dock_command_chip`): the chat's monospace in a quiet chip, a tap copying it and saying Copied
  * for a moment. The row's long-press menu has Copy command too (`workMenuRows`).
  */
-function CommandChip({ command }: { command: string }) {
+function CommandChip({ command, inline = false }: { command: string; inline?: boolean }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const body = useBodyColor();
@@ -1601,25 +1829,24 @@ function CommandChip({ command }: { command: string }) {
     const timer = setTimeout(() => setCopied(false), 1500);
     return () => clearTimeout(timer);
   }, [copied]);
-  return (
-    <View style={styles.commandChipLine}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Copy command ${command}`}
-        hitSlop={WORK_BUTTON_SLOP}
-        onPress={() => {
-          void Clipboard.setStringAsync(command);
-          setCopied(true);
-        }}
-        style={({ pressed }) => [styles.commandChip, pressed && { backgroundColor: P.ink(0.1) }]}
-      >
-        <Glyph name={copied ? 'check' : 'copy'} size={13} color={P.cardMuted} />
-        <Text numberOfLines={1} style={[styles.commandChipText, { color: body }]}>
-          {copied ? 'Copied' : command}
-        </Text>
-      </Pressable>
-    </View>
+  const chip = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Copy command ${command}`}
+      hitSlop={WORK_BUTTON_SLOP}
+      onPress={() => {
+        void Clipboard.setStringAsync(command);
+        setCopied(true);
+      }}
+      style={({ pressed }) => [styles.commandChip, pressed && { backgroundColor: P.ink(0.1) }]}
+    >
+      <Glyph name={copied ? 'check' : 'copy'} size={13} color={P.cardMuted} />
+      <Text numberOfLines={1} style={[styles.commandChipText, { color: body }]}>
+        {copied ? 'Copied' : command}
+      </Text>
+    </Pressable>
   );
+  return inline ? chip : <View style={styles.commandChipLine}>{chip}</View>;
 }
 
 /**
@@ -2496,6 +2723,118 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.ink(0.05),
   },
   commandChipText: { flexShrink: 1, fontFamily: MONO_FONT, fontSize: CODE_SIZE },
+  commandStripLine: { paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6 },
+  cmdStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: P.ink(0.05),
+    borderWidth: 1,
+    borderColor: P.ink(0.09),
+  },
+  cmdStripCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  cmdStripCode: {
+    flex: 1,
+    minWidth: 120,
+    fontFamily: MONO_FONT,
+    fontSize: CODE_SIZE,
+  },
+  cmdStripActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: 5,
+  },
+  cmdQuietBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  cmdQuietBtnText: {
+    fontSize: CODE_SIZE,
+    fontWeight: '500',
+    color: P.cardMuted,
+  },
+  cmdRunBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 7,
+    backgroundColor: P.ink(0.08),
+    borderWidth: 1,
+    borderColor: P.ink(0.14),
+  },
+  cmdRunBtnText: {
+    fontSize: CODE_SIZE,
+    fontWeight: '500',
+  },
+  cmdLiveBox: {
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: P.ink(0.05),
+    borderWidth: 1,
+    borderColor: P.ink(0.09),
+  },
+  cmdLiveRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  cmdLiveStatus: {
+    flex: 1,
+    minWidth: 140,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  cmdStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  cmdLiveTitle: {
+    flex: 1,
+    fontSize: PROSE_SIZE - 1,
+    fontWeight: '500',
+  },
+  cmdLiveHint: {
+    fontSize: PROSE_SIZE - 2,
+    lineHeight: PROSE_LINE - 3,
+    color: P.cardMuted,
+  },
+  cmdOutputBox: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 7,
+    backgroundColor: P.ink(0.04),
+    borderWidth: 1,
+    borderColor: P.ink(0.08),
+  },
+  cmdOutputText: {
+    fontFamily: MONO_FONT,
+    fontSize: CODE_SIZE - 1,
+    lineHeight: 16,
+    color: P.cardMuted,
+  },
   approvalCommandLine: { paddingLeft: 8 + 14 + 10, paddingRight: 8, paddingBottom: 6, gap: 4 },
   approvalCommand: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: P.ink(0.05) },
   approvalCommandMeta: { fontSize: CODE_SIZE, color: P.cardMuted },

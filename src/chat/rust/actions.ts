@@ -41,6 +41,10 @@ export type ActionFields = {
   insertBoardReference: { reference: string; text: string; start?: number; end?: number };
   /** One of a board card's answers, sent to the coordinator ("B4: Yes"). */
   coordinatorBoardAnswer: { key: string; label: string; text: string };
+  /** Run an allowlisted Ghostex command attached to an open Needs you card on the connected computer. */
+  runNeedsYouCommand: { key: string; item: string; ask?: string };
+  /** Stop an in-flight Needs you command running on the connected computer. */
+  stopNeedsYouCommand: { key: string; item: string; ask?: string };
   /** "Don't show again" on the coordinator tips: gxserver drops their pill from every coordinator. Desktop: `coordinator_intro.rs`. */
   hideCoordinatorIntro: {};
   /** The Autopilot pill: Autopilot itself on a coordinator, this session elsewhere (gx-chat-core `extras/autopilot.rs`). */
