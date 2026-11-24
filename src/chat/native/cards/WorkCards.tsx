@@ -563,61 +563,6 @@ export function WorkDock({
                     </Pressable>
                   </View>
                 ) : null}
-                {done.length > 0 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Done, ${done.length}`}
-                    accessibilityState={{ expanded: doneOpen }}
-                    style={styles.dockSnoozed}
-                    onPress={() => setDoneOpen((was) => !was)}
-                  >
-                    <StatusMarker status="finished" size={13} />
-                    <View style={styles.dockSnoozedMain}>
-                      <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
-                        Done
-                      </Text>
-                      <CountBadge count={done.length} light={P.light} />
-                    </View>
-                    {doneOpen && doneArchiveAllCmd !== null ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Archive all, ${done.length}`}
-                        hitSlop={6}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          dispatch(doneArchiveAllCmd as never);
-                        }}
-                        style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
-                      >
-                        <Text style={styles.bundleButtonText}>Archive all</Text>
-                      </Pressable>
-                    ) : null}
-                    <View style={doneOpen ? styles.dockSnoozedChevronOpen : null}>
-                      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
-                    </View>
-                  </Pressable>
-                ) : null}
-                {doneOpen
-                  ? done.map((row) => {
-                      const rowKey = str(row, 'key');
-                      const dismissCmd = obj(row.dismiss);
-                      return (
-                        <View key={rowKey} style={styles.dockSnoozedRow}>
-                          <SwipeableInboxRow
-                            canDismiss={dismissCmd !== null}
-                            dismissLabel="Archive"
-                            canSnooze={false}
-                            onDismiss={() => {
-                              if (dismissCmd !== null) dispatch(dismissCmd as never);
-                            }}
-                            onSnooze={() => undefined}
-                          >
-                            <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
-                          </SwipeableInboxRow>
-                        </View>
-                      );
-                    })
-                  : null}
                 {snoozed.length > 0 ? (
                   <Pressable
                     accessibilityRole="button"
@@ -696,6 +641,61 @@ export function WorkDock({
                           ) : null}
                           {age.length > 0 ? <Text style={styles.foldTime}>{age}</Text> : null}
                         </Pressable>
+                      );
+                    })
+                  : null}
+                {done.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Done, ${done.length}`}
+                    accessibilityState={{ expanded: doneOpen }}
+                    style={styles.dockSnoozed}
+                    onPress={() => setDoneOpen((was) => !was)}
+                  >
+                    <StatusMarker status="finished" size={13} />
+                    <View style={styles.dockSnoozedMain}>
+                      <Text style={styles.dockSnoozedLabel} numberOfLines={1}>
+                        Done
+                      </Text>
+                      <CountBadge count={done.length} light={P.light} />
+                    </View>
+                    {doneOpen && doneArchiveAllCmd !== null ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Archive all, ${done.length}`}
+                        hitSlop={6}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          dispatch(doneArchiveAllCmd as never);
+                        }}
+                        style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
+                      >
+                        <Text style={styles.bundleButtonText}>Archive all</Text>
+                      </Pressable>
+                    ) : null}
+                    <View style={doneOpen ? styles.dockSnoozedChevronOpen : null}>
+                      <Glyph name="chevron-down" size={12} color={P.cardMuted} />
+                    </View>
+                  </Pressable>
+                ) : null}
+                {doneOpen
+                  ? done.map((row) => {
+                      const rowKey = str(row, 'key');
+                      const dismissCmd = obj(row.dismiss);
+                      return (
+                        <View key={rowKey} style={styles.dockSnoozedRow}>
+                          <SwipeableInboxRow
+                            canDismiss={dismissCmd !== null}
+                            dismissLabel="Archive"
+                            canSnooze={false}
+                            onDismiss={() => {
+                              if (dismissCmd !== null) dispatch(dismissCmd as never);
+                            }}
+                            onSnooze={() => undefined}
+                          >
+                            <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
+                          </SwipeableInboxRow>
+                        </View>
                       );
                     })
                   : null}
