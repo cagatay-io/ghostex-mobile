@@ -17,6 +17,7 @@
  * into "Choose an answer", which opens them one per line under it.
  */
 
+import { plural } from '../../../plural';
 import { useCallback, useState, type ReactNode } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -775,7 +776,7 @@ export function WorkAnswerLine({
             keep
             label={CHOOSE_ANSWER}
             icon={chooser === 'inline' && choosing ? 'chevron-up' : 'chevron-down'}
-            accessibilityLabel={`${CHOOSE_ANSWER}, ${answers.length} answers`}
+            accessibilityLabel={`${CHOOSE_ANSWER}, ${plural(answers.length, 'answer', 'answers')}`}
             disabled={busy}
             onPress={() => setChoosing((was) => !was)}
           />

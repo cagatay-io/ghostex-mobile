@@ -8,6 +8,7 @@
  * (`apps/desktop/src/app/native_chat/coordinator_board.rs`).
  */
 
+import { plural } from '../../../plural';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -420,7 +421,7 @@ function ClosedAnswers({
   const chooseSegment = (onPress: () => void) => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${CHOOSE_ANSWER}, ${answers.length} answers`}
+      accessibilityLabel={`${CHOOSE_ANSWER}, ${plural(answers.length, 'answer', 'answers')}`}
       hitSlop={{ top: 10, bottom: 10 }}
       onPress={onPress}
       style={[styles.answer, styles.answerKept]}

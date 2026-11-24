@@ -450,14 +450,15 @@ const CardRow = memo(function CardRow({
 /** The button under a long output Tool call lines cut short: "Show all 300 lines". */
 export function ShowAllLines({ count, onPress }: { count: number; onPress(): void }) {
   const { theme } = useTranscriptEnv();
+  const showAllLabel = count === 1 ? 'Show 1 line' : `Show all ${count} lines`;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Show all ${count} lines`}
+      accessibilityLabel={showAllLabel}
       style={({ pressed }) => [styles.showAll, { borderColor: theme.ink(0.14) }, pressed && { backgroundColor: theme.pressed }]}
     >
-      <Text style={[styles.showAllText, { color: theme.foreground }]}>{`Show all ${count} lines`}</Text>
+      <Text style={[styles.showAllText, { color: theme.foreground }]}>{showAllLabel}</Text>
     </Pressable>
   );
 }

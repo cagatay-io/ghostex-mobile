@@ -1,3 +1,4 @@
+import { pluralWord } from '../../plural';
 import { Fragment } from 'react';
 import { Platform } from 'react-native';
 
@@ -100,7 +101,7 @@ const BELL_ROWS: { value: BellBehavior; label: string }[] = [
 ];
 
 function formatRows(rows: number): string {
-  return `${rows.toLocaleString('en-US')} rows`;
+  return `${rows.toLocaleString('en-US')} ${pluralWord(rows, 'row', 'rows')}`;
 }
 
 export default function AdvancedPage() {

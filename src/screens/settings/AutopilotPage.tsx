@@ -7,6 +7,7 @@
  * CDXC:Autopilot 2026-11-07 DECISION: User (Q1600): the phone gets Autopilot too, "Yes: the pill, the settings and the log".
  */
 
+import { pluralWord } from '../../plural';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
@@ -458,7 +459,7 @@ function AutopilotBody({
             <Caption>
               {question === 'wait'
                 ? 'Questions wait for you.'
-                : `After ${question} minutes without your answer, it picks each question's recommended choice. A question with none goes to the supervisor.`}
+                : `After ${question} ${pluralWord(Number(question), 'minute', 'minutes')} without your answer, it picks each question's recommended choice. A question with none goes to the supervisor.`}
             </Caption>
           </SettingsSection>
           <SettingsSection name="settings:autopilot:permission">

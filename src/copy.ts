@@ -8,6 +8,8 @@
  * User decision: Ghostex-owned user-facing copy in the desktop, web, and mobile apps uses no em dashes; use punctuation that preserves the sentence's natural reading instead.
  */
 
+import { plural } from './plural';
+
 /** The first screen, shown while no computer is saved: the app's name over the connect steps. */
 export const WelcomeCopy = {
   headline: 'Ghostex',
@@ -253,7 +255,9 @@ export const SessionCopy = {
   mergedWorktrees: (count: number) => (count === 1 ? '1 merged worktree' : `${count} merged worktrees`),
   cleanUpAll: 'Clean up all',
   cleanUpAllHint: (count: number) =>
-    `Remove the worktrees of these ${count} threads and put them to sleep. A worktree with uncommitted changes is kept.`,
+    count === 1
+      ? 'Remove the worktree of this thread and put it to sleep. A worktree with uncommitted changes is kept.'
+      : `Remove the worktrees of these ${count} threads and put them to sleep. A worktree with uncommitted changes is kept.`,
   keepWorktrees: 'Keep',
   keepWorktreesHint: "Keep these threads and their worktrees. Ghostex won't ask again for these PRs.",
   cleanedUpWorktrees: (count: number) =>
@@ -342,7 +346,10 @@ export const TriageCopy = {
   openQuestion: 'Open Question',
   hint: {
     multiSelect: 'You can pick several options. Choose them in the session.',
-    steps: (steps: number) => `${steps} questions in a row. Answer them in the session.`,
+    steps: (steps: number) =>
+      steps === 1
+        ? '1 question. Answer it in the session.'
+        : `${steps} questions in a row. Answer them in the session.`,
     text: 'Needs a written answer.',
   },
   lastOutput: 'Last output',
@@ -531,7 +538,7 @@ export const LogsCopy = {
   exporting: 'Exporting…',
   exportFailed: "Couldn't export",
   subtitleNewest: (shown: number, total: number) =>
-    `The newest ${shown} of ${total} events on this phone. Copy, Export and Send take them all.`,
+    `The newest ${shown} of ${plural(total, 'event', 'events')} on this phone. Copy, Export and Send take them all.`,
 } as const;
 
 /** Logs › Send to developer (src/components/common/SendLogsReview.tsx, src/feedback/logReport.ts). */
@@ -887,7 +894,8 @@ export const MachineNoticeCopy = {
   reconnecting: (name: string) => `Waiting for Ghostex on ${name}`,
   busy: (name: string) => `Ghostex is busy on ${name}`,
   /** Unified, more than one computer not connected. */
-  several: (count: number) => `${count} computers aren't connected`,
+  several: (count: number) =>
+    count === 1 ? "1 computer isn't connected" : `${count} computers aren't connected`,
   /** After the title while the list is the copy read before the failure. */
   staleShort: (ago: string) => `list from ${ago}`,
   justNow: 'a moment ago',
@@ -2230,7 +2238,7 @@ export const NotificationsCopy = {
   tooOld: (machine: string) =>
     `${machine} runs a Ghostex that can’t share its notifications with the phone. Update Ghostex on that computer.`,
   bell: 'Notifications',
-  bellNeedsYou: (count: number) => `Notifications, ${count} need you`,
+  bellNeedsYou: (count: number) => `Notifications, ${plural(count, 'needs you', 'need you')}`,
   /** The bell while one of the waits it counts comes from a computer that cannot be reached now. */
   bellLastKnown: (count: number) => `Notifications, last known count ${count}`,
   rowUnread: 'Unread.',
@@ -2426,7 +2434,7 @@ wait. Several computers share one compact card. The computer's notice carries th
 export const SshPairingCopy = {
   theComputer: 'the computer',
   approveTitle: (computer: string) => `Approve this phone on ${computer}`,
-  approveTitleMany: (count: number) => `Approve this phone on ${count} computers`,
+  approveTitleMany: (count: number) => `Approve this phone on ${plural(count, 'computer', 'computers')}`,
   pendingSteps: (computer: string) =>
     `This phone isn't approved on ${computer} yet. Ghostex on ${computer} shows “Is this your phone?” with these words. If they match, choose Approve there.`,
   pendingStepsEasyConnect: (computer: string) =>
@@ -2529,7 +2537,8 @@ export const AutomationsCopy = {
   resumeLabel: (name: string) => `Resume ${name}`,
   unread: 'Unread',
   unreadCount: (count: number) => `${count} unread`,
-  viewUnreadFor: (count: number, name: string) => `View ${count} unread runs for ${name}`,
+  viewUnreadFor: (count: number, name: string) =>
+    `View ${plural(count, 'unread run', 'unread runs')} for ${name}`,
   unreadRunsFilter: (name: string) => `Unread · ${name}`,
   showAllRuns: 'Show all',
   emptyFilteredUnreadTitle: 'All caught up',

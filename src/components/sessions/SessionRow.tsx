@@ -24,6 +24,7 @@
  * CDXC:SessionSleep 2026-10-27 DECISION: The user approved the phone Sessions screen drawn like the desktop sidebar (design A, docs/2026-10-21/phone-sessions-screen/sessions-like-sidebar.html), whose note says the phone follows the computer's Advanced > Dim sleeping sessions. With that setting off (the default) the 2026-09-24 rule above holds; with it on, a sleeping row fades to 50% as on the desktop (`dim_sleeping` in apps/desktop/src/app/native_sidebar/sessions.rs). The summary carries the setting (`dimSleepingSessions`).
  */
 
+import { plural } from '../../plural';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 
@@ -732,7 +733,7 @@ export default function SessionRow({
                   accessible
                   accessibilityLabel={
                     linksBadge.suggested
-                      ? `${linksBadge.count} suggested links`
+                      ? plural(linksBadge.count, 'suggested link', 'suggested links')
                       : linksBadge.more > 0
                         ? `Links: ${linksBadge.label} and ${linksBadge.more} more`
                         : `Link: ${linksBadge.label}`

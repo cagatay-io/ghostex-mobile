@@ -45,6 +45,7 @@
  * dashed box.
  */
 
+import { plural } from '../../plural';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -326,7 +327,10 @@ export default function SessionLinksSheet({
   // apps/desktop/src/app/native_sidebar/links_list.rs): one still loading waits under Loading.
   const openCount = links.items.filter((link) => !link.finished && !link.loading).length;
   const failingCount = links.items.filter((link) => link.checks === 'failing').length;
-  const summary = [`${openCount} open`, failingCount > 0 ? `${failingCount} failing checks` : '']
+  const summary = [
+    `${openCount} open`,
+    failingCount > 0 ? plural(failingCount, 'failing check', 'failing checks') : '',
+  ]
     .filter((part) => part.length > 0)
     .join(' · ');
 

@@ -7,6 +7,7 @@
  * never an address, which is a secret.
  */
 
+import { plural } from '../plural';
 import { chatMachineLink } from '../chat/rust/machine-link';
 import {
   getEasyConnectAddresses,
@@ -141,7 +142,7 @@ export async function saveEasyConnectAddresses(
     encodeSavedAddresses({ fetchedAt: Date.now(), addresses, ...(pairedKey === null ? {} : { pairedKey }) }),
   );
   console.info(
-    `[easy-connect] ${machineId} saved ${addresses.length} address(es): ${addresses
+    `[easy-connect] ${machineId} saved ${plural(addresses.length, 'address', 'addresses')}: ${addresses
       .map((entry) => `${entry.relay} (${entry.kind})`)
       .join(', ')}`,
   );

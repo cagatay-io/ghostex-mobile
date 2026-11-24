@@ -6,6 +6,7 @@
  * Duo the list starts with the sessions that wait for the user (`triage/`).
  */
 
+import { plural } from '../plural';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ProjectPickerSheet } from '../chat/native/composer/ProjectPickerSheet';
 import { CountBadge } from '../components/common/CountBadge';
@@ -2645,7 +2646,7 @@ export default function SessionsScreen({ navigation }: Props) {
             return {
               key: project.projectId,
               label: title,
-              detail: `${project.path ?? ''} · ${project.sessionCount ?? 0} session(s)`,
+              detail: `${project.path ?? ''} · ${plural(project.sessionCount ?? 0, 'session', 'sessions')}`,
               onPress: () => void restoreRecentProject(overlay.machine, project.projectId, title),
             };
           })}

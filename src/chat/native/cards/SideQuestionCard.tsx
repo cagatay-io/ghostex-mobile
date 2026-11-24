@@ -4,6 +4,7 @@
  * The keys the desktop shows beside those buttons are desktop-only.
  */
 
+import { plural } from '../../../plural';
 import * as Clipboard from 'expo-clipboard';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -118,7 +119,7 @@ export function SideAnswer({
         >
           <FoldChevron open={expanded} size={14} color={theme.primary} half />
           <Text style={styles.toggleLabel}>
-            {expanded ? 'Show less' : `Show all · ${lines - CAP_LINES} more lines`}
+            {expanded ? 'Show less' : `Show all · ${plural(lines - CAP_LINES, 'more line', 'more lines')}`}
           </Text>
         </Pressable>
       ) : null}

@@ -165,7 +165,11 @@ function ExchangeRow({
             hitSlop={6}
           >
             <Text style={styles.disclosureLabel}>
-              {expanded ? 'Hide options' : `Show all ${options.length} options`}
+              {expanded
+                ? 'Hide options'
+                : options.length === 1
+                  ? 'Show 1 option'
+                  : `Show all ${options.length} options`}
             </Text>
             <FoldChevron open={expanded} size={12} color={P.muted} />
           </Pressable>

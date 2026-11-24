@@ -19,6 +19,7 @@
  * Collab isn't installed on the one picked.
  */
 
+import { plural } from '../../plural';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
@@ -125,7 +126,7 @@ function ago(atMs: number): string {
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes} min ago`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)} h ago`;
-  return `${Math.floor(minutes / 1440)} days ago`;
+  return `${plural(Math.floor(minutes / 1440), 'day', 'days')} ago`;
 }
 
 function ends(at: number | null): string {
@@ -408,7 +409,7 @@ function LogRow({ entry }: { entry: LogEntry }) {
           : 'Removed and blocked';
   const title =
     entry.event === 'message'
-      ? `${entry.guest}: ${entry.text && entry.text.length > 0 ? entry.text : `${entry.images ?? 0} picture(s)`}`
+      ? `${entry.guest}: ${entry.text && entry.text.length > 0 ? entry.text : plural(entry.images ?? 0, 'picture', 'pictures')}`
       : `${entry.guest} ${entry.event === 'removed' ? 'was removed' : entry.event}`;
   return (
     <View style={styles.row}>

@@ -7,6 +7,7 @@
  * launchAgent) run in their original relative order.
  */
 
+import { plural } from '../../plural';
 import { unifiedNewSessionTarget, type ActiveProject } from '../../contract/unified/choices';
 import { snoozeWakeAt } from '../../contract/unified/snooze';
 import { useCallback, useRef, useState } from 'react';
@@ -613,7 +614,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close sessions below?',
-          body: `This stops ${sessions.length} session(s) below ${sessionTitle(ctx.item.session)} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(machine))}`,
+          body: `This stops ${plural(sessions.length, 'session', 'sessions')} below ${sessionTitle(ctx.item.session)} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(machine))}`,
           confirmLabel: 'Close',
           run: () => void runBulkSessionActions(machine, sessions.map(closeSessionActionFrom('phone.closeBelow'))),
         });
@@ -708,7 +709,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close inactive sessions?',
-          body: `This stops ${inactive.length} inactive session(s) in ${header.title} on the connected machine.${coordinatorsClosingLine(inactive, machineSessions(machine))}`,
+          body: `This stops ${plural(inactive.length, 'inactive session', 'inactive sessions')} in ${header.title} on the connected machine.${coordinatorsClosingLine(inactive, machineSessions(machine))}`,
           confirmLabel: 'Close',
           run: () => void runBulkSessionActions(machine, inactive.map(closeSessionActionFrom('phone.closeInactive'))),
         });
@@ -1173,7 +1174,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close all sessions?',
-          body: `This stops ${sessions.length} session(s) in ${ctx.header.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
+          body: `This stops ${plural(sessions.length, 'session', 'sessions')} in ${ctx.header.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
           confirmLabel: 'Close',
           run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionActionFrom('phone.closeAll'))),
         }),
@@ -1256,7 +1257,7 @@ export function useSessionsScreenMenus({
         setOverlay({
           kind: 'confirmAction',
           title: 'Close group?',
-          body: `This stops ${sessions.length} session(s) in ${ctx.item.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
+          body: `This stops ${plural(sessions.length, 'session', 'sessions')} in ${ctx.item.title} on the connected machine.${coordinatorsClosingLine(sessions, machineSessions(ctx.machine))}`,
           confirmLabel: 'Close Group',
           run: () => void runBulkSessionActions(ctx.machine, sessions.map(closeSessionActionFrom('phone.closeGroup'))),
         }),
@@ -1307,7 +1308,7 @@ export function useSessionsScreenMenus({
           setOverlay({
             kind: 'confirmAction',
             title: 'Close parked sessions?',
-            body: `This stops ${parked.length} parked session(s) on the connected machine.`,
+            body: `This stops ${plural(parked.length, 'parked session', 'parked sessions')} on the connected machine.`,
             confirmLabel: 'Close',
             run: () => void runBulkSessionActions(ctx.machine, parked.map(closeSessionActionFrom('phone.closeParked'))),
           }),
