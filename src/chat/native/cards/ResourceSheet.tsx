@@ -96,13 +96,15 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
           <Text style={styles.note}>Reading it from the chat…</Text>
         ) : modal.missing.length > 0 ? (
           <Text style={styles.note}>{modal.missing}</Text>
-        ) : modal.kind === 'chart' ? (
-          <VisualBlock source={modal.source} />
         ) : (
           <TranscriptEnvProvider value={env}>
-            <QuestionFormsProvider value={forms}>
-              <QuestionFormCard id={modal.id} source="" />
-            </QuestionFormsProvider>
+            {modal.kind === 'chart' ? (
+              <VisualBlock source={modal.source} />
+            ) : (
+              <QuestionFormsProvider value={forms}>
+                <QuestionFormCard id={modal.id} source="" />
+              </QuestionFormsProvider>
+            )}
           </TranscriptEnvProvider>
         )}
       </ScrollView>

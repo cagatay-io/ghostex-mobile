@@ -518,6 +518,11 @@ export function chatIsLightNow(): boolean {
   );
 }
 
+/** The current chat theme, read outside React hooks (for safe fallbacks outside a transcript provider). */
+export function currentTranscriptTheme(): TranscriptTheme {
+  return transcriptThemeFor(themeColourSettings(useSettingsStore.getState().settings), chatIsLightNow());
+}
+
 /** The chat theme for the current settings: Chat theme (Follow app, System, Light, Dark) over the app's colours. */
 export function useTranscriptTheme(): TranscriptTheme {
   const settings = useSettingsStore(useShallow(({ settings }) => chatThemeSettings(settings)));

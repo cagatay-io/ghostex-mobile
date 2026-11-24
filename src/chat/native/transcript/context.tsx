@@ -19,7 +19,7 @@ import { workCardIndex, type WorkCardIndex } from '../cards/WorkCards';
 import { openChatImageViewer } from '../cards/overlayStore';
 import { dictationInserted, DictationTargets } from '../composer/dictationTarget';
 import { DisclosureStore, RowDetailDemand } from './state';
-import type { TranscriptTheme } from './theme';
+import { currentTranscriptTheme, type TranscriptTheme } from './theme';
 
 /** A picture as the document projects it (`transport`, `path`, `url`, `label`, `alt`). */
 export type ChatImageSource = JsonRecord;
@@ -210,16 +210,45 @@ export function useHomeMachineId(): string | null {
   return useContext(UiContext)?.homeMachineId ?? null;
 }
 
-/** The chat screen's shared drawing state. Throws outside `NativeChatScreen`. */
 /** The chat's `issueLinkBase`, or null outside a chat screen (a sheet drawn on its own). */
 export function useIssueLinkBase(): string | null {
   return useContext(UiContext)?.issueLinkBase ?? null;
 }
 
+const noopDispatch: RustChat['dispatch'] = () => undefined;
+
+let warnedMissingNativeChatUi = false;
+let fallbackNativeChatUi: NativeChatUi | null = null;
+
+function getFallbackNativeChatUi(): NativeChatUi {
+  if (fallbackNativeChatUi === null) {
+    fallbackNativeChatUi = {
+      disclosures: new DisclosureStore(),
+      demand: new RowDetailDemand(noopDispatch),
+      dictationTargets: new DictationTargets(),
+      requestImage: () => undefined,
+      renderVisual: () => null,
+      renderVisualAsync: async () => null,
+      openPicture: (_image, fallback, index) => {
+        if (fallback.length > 0) openChatImageViewer(fallback, index);
+      },
+      toolAppLogo: () => null,
+      issueLinkBase: null,
+      homeMachineId: null,
+    };
+  }
+  return fallbackNativeChatUi;
+}
+
+/** The chat screen's shared drawing state, or a safe no-op fallback outside `NativeChatUiProvider`. */
 export function useNativeChatUi(): NativeChatUi {
   const value = useContext(UiContext);
-  if (value === null) throw new Error('useNativeChatUi outside NativeChatUiProvider');
-  return value;
+  if (value !== null) return value;
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && !warnedMissingNativeChatUi) {
+    warnedMissingNativeChatUi = true;
+    console.warn('useNativeChatUi called outside NativeChatUiProvider; using fallback UI state');
+  }
+  return getFallbackNativeChatUi();
 }
 
 /**
@@ -290,10 +319,36 @@ export function useForkFromMessage(): ((messageId: string) => void) | null {
 const EnvContext = createContext<TranscriptEnv | null>(null);
 export const TranscriptEnvProvider = EnvContext.Provider;
 
+let warnedMissingTranscriptEnv = false;
+const fallbackTranscriptEnvs = new WeakMap<TranscriptTheme, TranscriptEnv>();
+
+function getFallbackTranscriptEnv(): TranscriptEnv {
+  const theme = currentTranscriptTheme();
+  let env = fallbackTranscriptEnvs.get(theme);
+  if (env === undefined) {
+    env = {
+      dispatch: noopDispatch,
+      theme,
+      simple: false,
+      workOpen: false,
+      filePreviews: false,
+      mutedThinking: false,
+      main: false,
+    };
+    fallbackTranscriptEnvs.set(theme, env);
+  }
+  return env;
+}
+
+/** The transcript's drawing env, or a safe fallback (current theme, no-op dispatch) outside a transcript. */
 export function useTranscriptEnv(): TranscriptEnv {
   const value = useContext(EnvContext);
-  if (value === null) throw new Error('useTranscriptEnv outside a transcript');
-  return value;
+  if (value !== null) return value;
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && !warnedMissingTranscriptEnv) {
+    warnedMissingTranscriptEnv = true;
+    console.warn('useTranscriptEnv called outside a transcript; using fallback env');
+  }
+  return getFallbackTranscriptEnv();
 }
 
 /** The document fields rows read, gathered once per document so rows compare cheaply. */
