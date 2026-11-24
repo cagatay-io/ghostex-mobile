@@ -69,6 +69,11 @@ final class TerminalSessionEntry {
     /// "closed" event when the byte pump drains).
     var isClosed = false
 
+    /// Set when the module's `disconnect` took the entry down with its machine's connection,
+    /// as opposed to a close or a newer open of its key: an open still starting on it then
+    /// fails, because its tab is still waiting for it.
+    var removedByDisconnect = false
+
     init(
         sessionKey: String,
         machineId: String,
@@ -167,6 +172,15 @@ final class GhostexTerminalRegistry {
 
     func remove(_ sessionKey: String) -> TerminalSessionEntry? {
         entries.removeValue(forKey: sessionKey)
+    }
+
+    /// Removes `entry` only while it is the one registered under its key, so an open that
+    /// lost its key to a newer open cannot take that one with it. True when it was removed.
+    @discardableResult
+    func remove(_ entry: TerminalSessionEntry) -> Bool {
+        guard entries[entry.sessionKey] === entry else { return false }
+        entries.removeValue(forKey: entry.sessionKey)
+        return true
     }
 
     func sessionKeys() -> [String] {
