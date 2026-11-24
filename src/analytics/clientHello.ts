@@ -20,6 +20,7 @@ import { clientHelloCommand, type ClientHelloPlatform } from '../commands/ghoste
 import { isDemoMachine } from '../demo/identity';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { runningAppVersion } from '../updates/overTheAir';
+import { isMobileAnalyticsAllowed } from './privacy';
 import { sendMobileClientEvent } from './recordEvent';
 
 /** The daemon dedupes to one attach per client kind per hour; match it. */
@@ -96,6 +97,8 @@ export function reportClientHello(machine: MachineConnectionTarget): void {
   if (wasNull) {
     for (const listener of firstHelloListeners) listener(machine.id);
   }
+
+  if (!isMobileAnalyticsAllowed(machine.id)) return;
 
   const now = Date.now();
   const nextAllowedAt = nextHelloAtByMachineId.get(machine.id);

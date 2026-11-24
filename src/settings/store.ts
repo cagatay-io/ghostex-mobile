@@ -98,6 +98,11 @@ export type GhostexSettings = ThemeColourSettings & {
   /** This phone carries settings sync between the computers it connects to (src/settingsSync/). */
   settingsSyncThroughPhone: boolean;
   /**
+   * Anonymous usage analytics preference, synced with the connected computer's `analyticsEnabled`
+   * setting and enforced locally on mobile screen/hello/onboarding pings (`src/analytics/privacy.ts`).
+   */
+  analyticsEnabled: boolean;
+  /**
    * The automatic Live Activity: off ends a
    * running one and starts no other. iOS only.
    */
@@ -365,6 +370,7 @@ export function defaultSettings(): GhostexSettings {
     keyboardButtonVisible: false,
     doneNotificationSound: true,
     settingsSyncThroughPhone: true,
+    analyticsEnabled: true,
     liveActivityEnabled: true,
     liveActivitySessionNames: true,
     liveActivitySessionNamesDefaultedOn: true,
@@ -756,6 +762,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
     keyboardButtonVisible: bool('keyboardButtonVisible', defaults.keyboardButtonVisible),
     doneNotificationSound: bool('doneNotificationSound', defaults.doneNotificationSound),
     settingsSyncThroughPhone: bool('settingsSyncThroughPhone', defaults.settingsSyncThroughPhone),
+    analyticsEnabled: bool('analyticsEnabled', defaults.analyticsEnabled),
     liveActivityEnabled: bool('liveActivityEnabled', defaults.liveActivityEnabled),
     // A `false` saved without the marker is the old default (off), not a choice: it becomes on. The next save writes
     // the marker, so from then on an off is the user's own and stays.

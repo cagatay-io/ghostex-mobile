@@ -30,6 +30,7 @@ export type SettingsPageId =
   | 'autopilot'
   | 'collab'
   | 'advanced'
+  | 'privacy'
   | 'demo'
   | 'readAloudVoice'
   | 'dictateLanguage'
@@ -66,6 +67,10 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, { title: string; de
   autopilot: { title: 'Autopilot', description: 'Keep sessions going while you are away, and what it did.' },
   collab: { title: 'Collab', description: 'An extension: share a chat through a link that opens it in a browser.' },
   advanced: { title: 'Advanced', description: 'Older settings most people never change.' },
+  privacy: {
+    title: 'Privacy & Analytics',
+    description: 'Anonymous usage analytics and what Ghostex sends.',
+  },
   demo: { title: DemoCopy.settingsTitle, description: DemoCopy.settingsDescription },
   licences: { title: LicencesCopy.pageTitle, description: LicencesCopy.pageDescription },
   // Opened from Settings › Chat's Read aloud rows, not listed on the Settings home.
@@ -96,5 +101,6 @@ export const SETTINGS_PAGE_ORDER: readonly SettingsPageId[] = [
   'autopilot',
   'collab',
   'advanced',
+  'privacy',
   'licences',
 ];

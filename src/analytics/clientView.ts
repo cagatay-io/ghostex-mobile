@@ -29,6 +29,7 @@ import {
   type MobileView,
 } from './mobileViews';
 import { flushOnboardingSteps, initOnboardingTelemetry } from './onboarding';
+import { isMobileAnalyticsAllowed, syncMachineAnalyticsPreference } from './privacy';
 import { lookupMachineTarget, sendMobileClientEvent } from './recordEvent';
 
 const VIEW_INTERVAL_MS = 60 * 60 * 1000;
@@ -50,6 +51,7 @@ function reportSurface(
   const resolvedMachineId =
     targetMachineId !== null && !isCloudBoxMachineId(targetMachineId) ? targetMachineId : lastHelloMachineId();
   if (resolvedMachineId === null || isDemoMachineId(resolvedMachineId)) return;
+  if (!isMobileAnalyticsAllowed(resolvedMachineId)) return;
 
   const target = lookupMachineTarget(resolvedMachineId);
   if (target === null) return;
@@ -116,6 +118,7 @@ export function initMobileAnalytics(): void {
   });
 
   onChatLinkHandshake((machine) => {
+    syncMachineAnalyticsPreference(machine);
     reportClientHello(machine);
   });
 

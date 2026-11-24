@@ -13,6 +13,7 @@ import KeyboardPage from './KeyboardPage';
 import NotificationsPage from './NotificationsPage';
 import LiveActivityPage from './LiveActivityPage';
 import LicencesPage from './LicencesPage';
+import PrivacyAnalyticsPage from './PrivacyAnalyticsPage';
 import { SETTINGS_PAGES, type SettingsPageId } from './pages';
 import ReadAloudVoicePage from './ReadAloudVoicePage';
 import { SettingsColumnsFrame } from './SettingsColumns';
@@ -92,6 +93,8 @@ function SettingsPageBody({ page }: { page: SettingsPageId }) {
       return <CollabPage />;
     case 'advanced':
       return <AdvancedPage />;
+    case 'privacy':
+      return <PrivacyAnalyticsPage />;
     case 'demo':
       return <DemoSettingsPage />;
     case 'readAloudVoice':

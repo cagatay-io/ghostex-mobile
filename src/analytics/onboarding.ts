@@ -27,6 +27,7 @@ import { isDemoMachine } from '../demo/identity';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { useMachinesStore, type MachineRecord } from '../machines/store';
 import { lastHelloMachineId, onFirstHelloMachine } from './clientHello';
+import { isMobileAnalyticsAllowed } from './privacy';
 import { lookupMachineTarget, sendMobileClientEvent, type ClientEventBody } from './recordEvent';
 
 /** Closed allowlist mirroring `ONBOARDING_STEPS` in `server/src/telemetry/taxonomy.rs`. */
@@ -225,11 +226,13 @@ function resolveFlushMachine(preferred?: MachineConnectionTarget | null): Machin
  * Never throws, never blocks pairing, and silently no-ops on older servers.
  */
 export async function flushOnboardingSteps(preferredMachine?: MachineConnectionTarget | null): Promise<void> {
+  if (!isMobileAnalyticsAllowed(preferredMachine?.id)) return;
   const current = await ensureLoaded();
   if (current.preExisting || current.pending.length === 0) return;
 
   const machine = resolveFlushMachine(preferredMachine);
   if (machine === null) return;
+  if (!isMobileAnalyticsAllowed(machine.id)) return;
   if (unsupportedMachineIds.has(machine.id)) return;
 
   const nextAllowedAt = nextRetryAtByMachineId.get(machine.id);
@@ -297,6 +300,7 @@ export function recordOnboardingStep(
   targetMachine?: MachineConnectionTarget | null,
 ): void {
   if (!isOnboardingStep(step)) return;
+  if (!isMobileAnalyticsAllowed(targetMachine?.id)) return;
   if (targetMachine !== undefined && targetMachine !== null && !isRealAnalyticsMachine(targetMachine)) return;
 
   void ensureLoaded()
@@ -307,6 +311,20 @@ export function recordOnboardingStep(
       current.pending.push(step);
       persistState(current);
       return flushOnboardingSteps(targetMachine);
+    })
+    .catch(() => undefined);
+}
+
+/**
+ * Drop any buffered pre-pairing onboarding steps when the user turns analytics off so nothing
+ * queued earlier flushes later. Never throws.
+ */
+export function clearPendingOnboardingSteps(): void {
+  void ensureLoaded()
+    .then((current) => {
+      if (current.pending.length === 0) return;
+      current.pending = [];
+      persistState(current);
     })
     .catch(() => undefined);
 }

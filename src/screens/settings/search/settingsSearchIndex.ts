@@ -16,6 +16,7 @@ import { CrashReportsSettingsCopy } from '../../../copy/crashReports';
 import { CRASH_REPORTS_IN_SETTINGS } from '../../../feedback/crashReports';
 import { LIVE_ACTIVITY_PUSH_SUPPORTED } from '../../../notifications/liveActivityPushStore';
 import { NOTIFICATIONS_SUPPORTED } from '../../../notifications/notificationCentre';
+import { ANALYTICS_PURPOSE_COPY, ANALYTICS_TOGGLE_TITLE } from '../../../copy/privacy';
 import { SETTINGS_PAGES, type SettingsPageId } from '../pages';
 import { DESKTOP_SETTINGS_WORDS } from './desktopSettingsWords.generated';
 import { anyMatches, SearchPattern, searchTrim } from './fuzzyMatch';
@@ -1046,6 +1047,32 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     title: 'Keep-alive interval',
     description: 'Applies the next time a machine connects.',
   },
+
+  // Privacy & Analytics
+  {
+    page: 'privacy',
+    section: 'settings:privacy:analytics',
+    group: 'Usage analytics',
+    title: ANALYTICS_TOGGLE_TITLE,
+    description: `${ANALYTICS_PURPOSE_COPY}. Synced with your connected computer's analyticsEnabled setting.`,
+    keywords: ['analytics', 'telemetry', 'privacy', 'anonymous', 'opt out', 'do not track', 'tracking', 'analyticsEnabled'],
+  },
+  {
+    page: 'privacy',
+    section: 'settings:privacy:preview',
+    group: "Inspect what's sent",
+    title: "View what's sent",
+    description: 'Inspect the live JSON payload from your computer, or read a plain-English summary.',
+    keywords: ['telemetry', 'preview', 'payload', 'json', 'never sent', 'analytics'],
+  },
+  {
+    page: 'privacy',
+    section: 'settings:privacy:preview',
+    group: "Inspect what's sent",
+    title: 'Read ANALYTICS.md on GitHub',
+    description: 'Full event reference and open-source audit links.',
+    keywords: ['analytics.md', 'github', 'open source', 'mit', 'privacy'],
+  },
 ];
 
 /** A page opened from another page's row, shown in a result's breadcrumb after that page. */
@@ -1139,6 +1166,7 @@ function rank(
 /** Former page names and search aliases so renamed pages (e.g. Interface -> Themes) still appear as page cards. */
 const PAGE_SEARCH_ALIASES: Partial<Record<SettingsPageId, readonly string[]>> = {
   theme: ['Interface', 'Appearance'],
+  privacy: ['Analytics', 'Telemetry', 'Anonymous', 'Do Not Track'],
 };
 
 /**
