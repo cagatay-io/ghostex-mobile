@@ -859,9 +859,9 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     paddingHorizontal: 14,
     height: 34,
     borderRadius: 8,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  retryText: { color: appearance.accentForeground, fontSize: 13, fontWeight: '600' },
+  retryText: { color: appearance.foreground, fontSize: 13, fontWeight: '600' },
 });

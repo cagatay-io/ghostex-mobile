@@ -191,15 +191,15 @@ const createStyles = (appearance: Appearance) =>
       height: 40,
       paddingHorizontal: 16,
       borderRadius: GhostexRadii.card,
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
       alignItems: 'center',
       justifyContent: 'center',
     },
     primaryButtonPressed: {
-      opacity: 0.85,
+      backgroundColor: appearance.primaryFillPressed,
     },
     primaryLabel: {
-      color: appearance.accentForeground,
+      color: appearance.foreground,
       fontSize: 13.5,
       fontWeight: '600',
     },

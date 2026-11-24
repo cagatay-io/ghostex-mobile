@@ -50,7 +50,7 @@ export default function PairingFailureView({ text, onScanAgain, onPaste }: Pairi
           variant="primary"
           large
           label={PairingCopy.scanAgain}
-          icon={<CameraGlyph size={18} color={appearance.accentForeground} />}
+          icon={<CameraGlyph size={18} color={appearance.foreground} />}
           onPress={onScanAgain}
         />
         <SetupButton

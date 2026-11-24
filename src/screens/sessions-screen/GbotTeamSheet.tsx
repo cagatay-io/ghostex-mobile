@@ -108,7 +108,7 @@ export default function GbotTeamSheet({ target, start, onChanged, onClose }: Gbo
   const [scope, setScope] = useState('team');
   const [pick, setPick] = useState('');
   const [notes, setNotes] = useState(false);
-  const spinner = <ActivityIndicator color={appearance.accentForeground} />;
+  const spinner = <ActivityIndicator color={appearance.foreground} />;
 
   const run = (work: () => Promise<void>): void => {
     if (busy) return;

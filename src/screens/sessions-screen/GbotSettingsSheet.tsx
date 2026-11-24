@@ -203,7 +203,7 @@ export default function GbotSettingsSheet(props: GbotSettingsSheetProps): ReactE
           busy={busy}
           onCancel={props.onCancel}
           onPress={save}
-          spinner={<ActivityIndicator color={appearance.accentForeground} />}
+          spinner={<ActivityIndicator color={appearance.foreground} />}
         />
       }
     >

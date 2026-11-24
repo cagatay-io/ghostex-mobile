@@ -564,13 +564,13 @@ function createStyles(appearance: Appearance) {
       borderRadius: GhostexRadii.row,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: GhostexPalette.ACCENT,
+      backgroundColor: appearance.primaryFill,
     },
     primaryButtonDisabled: {
       opacity: 0.45,
     },
     primaryButtonLabel: {
-      color: GhostexPalette.ACCENT_FOREGROUND,
+      color: appearance.foreground,
       fontSize: 14,
       fontWeight: '600',
     },

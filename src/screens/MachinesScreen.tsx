@@ -150,7 +150,7 @@ export default function MachinesScreen({ navigation }: Props) {
             subtitle={MachinesCopy.add.easyConnect.subtitle}
             button={{
               label: MachinesCopy.add.easyConnect.button,
-              icon: <CameraGlyph size={14} color={appearance.accentForeground} />,
+              icon: <CameraGlyph size={14} color={appearance.foreground} />,
               onPress: () => navigation.navigate('ScanCode'),
             }}
           />

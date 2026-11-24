@@ -52,7 +52,7 @@ export default function WelcomeScreen({ navigation }: Props) {
           variant="primary"
           large
           label={ConnectStartCopy.scanButton}
-          icon={<CameraGlyph size={18} color={appearance.accentForeground} />}
+          icon={<CameraGlyph size={18} color={appearance.foreground} />}
           onPress={() => navigation.navigate('ScanCode')}
         />
         <SetupButton

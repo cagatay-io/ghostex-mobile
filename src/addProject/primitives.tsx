@@ -221,7 +221,7 @@ export function InlineActionButton({
       ]}
     >
       {loading === true ? (
-        <ActivityIndicator size="small" color={primary === true ? appearance.accentForeground : appearance.accent} />
+        <ActivityIndicator size="small" color={primary === true ? appearance.foreground : appearance.accent} />
       ) : (
         <>
           {icon === undefined ? null : icon}
@@ -282,7 +282,7 @@ export function PrimaryActionButton({
       style={[styles.primaryButton, isDisabled && styles.primaryButtonDisabled]}
     >
       {loading === true ? (
-        <ActivityIndicator size="small" color={appearance.accentForeground} />
+        <ActivityIndicator size="small" color={appearance.foreground} />
       ) : (
         <Text style={styles.primaryButtonLabel}>{label}</Text>
       )}
@@ -520,10 +520,10 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     minHeight: 30,
   },
   inlineButtonPrimary: {
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
   },
   inlineButtonPrimaryPressed: {
-    opacity: 0.85,
+    backgroundColor: appearance.primaryFillPressed,
   },
   inlineButtonSecondary: {
     backgroundColor: appearance.neutralFill,
@@ -542,7 +542,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     fontWeight: '600',
   },
   inlineButtonLabelPrimary: {
-    color: appearance.accentForeground,
+    color: appearance.foreground,
   },
   inlineButtonLabelSecondary: {
     color: appearance.foreground,
@@ -567,7 +567,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
   primaryButton: {
     height: 48,
     borderRadius: GhostexRadii.card,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -575,7 +575,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     opacity: 0.45,
   },
   primaryButtonLabel: {
-    color: appearance.accentForeground,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '700',
   },

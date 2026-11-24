@@ -116,7 +116,10 @@ export default function ConfirmDialog({
             ) : (
               <Pressable
                 accessibilityRole="button"
-                style={[styles.confirmButton, destructive ? styles.confirmButtonDestructive : null]}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  destructive ? styles.confirmButtonDestructive : pressed ? styles.confirmButtonPressed : null,
+                ]}
                 onPress={onConfirm}
               >
                 <Text style={[styles.confirmLabel, destructive ? styles.confirmLabelDestructive : null]}>
@@ -229,19 +232,22 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: GhostexRadii.card,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmButtonPressed: {
+    backgroundColor: appearance.primaryFillPressed,
   },
   confirmButtonDestructive: {
     backgroundColor: appearance.danger,
   },
   confirmLabel: {
-    color: appearance.accentForeground,
+    color: appearance.foreground,
     fontSize: 13,
     fontWeight: '600',
   },
   confirmLabelDestructive: {
-    color: appearance.accentForeground,
+    color: '#ffffff',
   },
 });

@@ -498,7 +498,7 @@ export default function DocViewerScreen({ navigation, route }: Props) {
               onPress={copyPath}
               style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}
             >
-              <CopyGlyph size={16} color={appearance.accentForeground} />
+              <CopyGlyph size={16} color={appearance.foreground} />
               <Text style={styles.copyText}>{DocsCopy.copyFullPath}</Text>
             </Pressable>
             {shareFile !== null ? (
@@ -623,9 +623,9 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 18,
     borderRadius: 10,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
   },
-  copyText: { color: appearance.accentForeground, fontSize: 14, fontWeight: '600' },
+  copyText: { color: appearance.foreground, fontSize: 14, fontWeight: '600' },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -664,9 +664,9 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     paddingHorizontal: 18,
     height: 40,
     borderRadius: 10,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  retryText: { color: appearance.accentForeground, fontSize: 14, fontWeight: '600' },
+  retryText: { color: appearance.foreground, fontSize: 14, fontWeight: '600' },
 });

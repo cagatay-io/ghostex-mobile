@@ -143,14 +143,7 @@ export default function ConnectionsSheet({
                 variant={entry.status === 'failed' && !entry.tailscaleOff ? 'primary' : 'secondary'}
                 busy={entry.retrying}
                 label={entry.busy ? ConnectionsCopy.resetConnection : ConnectionsCopy.retry}
-                icon={
-                  <RefreshGlyph
-                    size={13}
-                    color={
-                      entry.status === 'failed' && !entry.tailscaleOff ? appearance.accentForeground : appearance.foreground
-                    }
-                  />
-                }
+                icon={<RefreshGlyph size={13} color={appearance.foreground} />}
                 onPress={() => onRetry(entry.machine.id)}
               />
               {entry.status === 'failed' && !entry.tailscaleOff ? (

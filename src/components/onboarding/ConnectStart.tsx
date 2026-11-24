@@ -92,7 +92,7 @@ export function ConnectActions({ onScan, onPaste, onTailscale, onSshDetails, ext
         variant="primary"
         large
         label={ConnectStartCopy.scanButton}
-        icon={<CameraGlyph size={18} color={appearance.accentForeground} />}
+        icon={<CameraGlyph size={18} color={appearance.foreground} />}
         onPress={onScan}
       />
       <View style={styles.links}>

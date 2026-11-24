@@ -376,12 +376,12 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
   primaryButton: {
     flex: 1,
     borderRadius: 8,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
     alignItems: 'center',
     paddingVertical: 10,
   },
   primaryLabel: {
-    color: appearance.accentForeground,
+    color: appearance.foreground,
     fontSize: 14,
     fontWeight: '600',
   },

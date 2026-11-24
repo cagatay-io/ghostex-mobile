@@ -57,7 +57,7 @@ export function SetupButton({
 }: SetupButtonProps) {
   const appearance = useAppearance();
   const buttonStyles = useMemo(() => createButtonStyles(appearance), [appearance]);
-  const labelColor = variant === 'primary' ? appearance.accentForeground : appearance.foreground;
+  const labelColor = appearance.foreground;
   return (
     <Pressable
       accessibilityRole="button"
@@ -70,7 +70,11 @@ export function SetupButton({
         variant === 'secondary' ? buttonStyles.secondary : null,
         large ? buttonStyles.large : null,
         small ? buttonStyles.small : null,
-        pressed ? (variant === 'secondary' ? buttonStyles.secondaryPressed : buttonStyles.pressed) : null,
+        pressed
+          ? variant === 'secondary'
+            ? buttonStyles.secondaryPressed
+            : buttonStyles.primaryPressed
+          : null,
         disabled ? buttonStyles.disabled : null,
         style,
       ]}
@@ -109,8 +113,11 @@ const createButtonStyles = (appearance: Appearance) => StyleSheet.create({
     gap: 8,
   },
   primary: {
-    backgroundColor: appearance.accent,
-    borderColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
+    borderColor: 'transparent',
+  },
+  primaryPressed: {
+    backgroundColor: appearance.primaryFillPressed,
   },
   secondary: {
     backgroundColor: appearance.neutralFill,

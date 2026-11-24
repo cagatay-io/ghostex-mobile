@@ -68,9 +68,9 @@ export function VoiceTextBox() {
           style={({ pressed }) => [styles.send, !canSend && styles.sendDisabled, pressed && styles.sendPressed]}
         >
           {sending ? (
-            <ActivityIndicator size="small" color={appearance.accentForeground} />
+            <ActivityIndicator size="small" color={appearance.foreground} />
           ) : (
-            <Glyph name="arrow-up" size={20} color={appearance.accentForeground} strokeWidth={2.4} />
+            <Glyph name="arrow-up" size={20} color={appearance.foreground} strokeWidth={2.4} />
           )}
         </Pressable>
       </View>
@@ -107,8 +107,8 @@ const createStyles = (appearance: Appearance) =>
       borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
     },
     sendDisabled: { opacity: 0.4 },
-    sendPressed: { opacity: 0.7 },
+    sendPressed: { backgroundColor: appearance.primaryFillPressed },
   });

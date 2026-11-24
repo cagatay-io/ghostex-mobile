@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore, type GhostexSettings } from '../settings/store';
 import {
   ATTENTION_ROW_WASH, BLOCKED_CARD_WASH, VOICE_MEMORY_WASH, colorOver, destructiveButtonFills,
-  GhostexPalette, mixHexColors, neutralButtonFills,
+  GhostexPalette, mixHexColors, neutralButtonFills, primaryButtonFills,
 } from './palette';
 import {
   appearanceIsLight,
@@ -36,6 +36,9 @@ export type Appearance = SidebarAppearance & {
   /** Secondary text buttons: the neutral fill at rest and pressed (`neutralButtonFills`, no border). */
   neutralFill: string;
   neutralFillPressed: string;
+  /** Primary text buttons: one step brighter than `neutralFill`, with `foreground` text (`primaryButtonFills`). */
+  primaryFill: string;
+  primaryFillPressed: string;
   /** Selected radios, switches and slider fills, and accent text: the sky accent, a deep blue-grey on a light page. */
   accent: string;
   accentForeground: string;
@@ -84,6 +87,7 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     sidebar.cardActive;
   const border = resolveRoleCss(activeRoles.border, light, roleBase) ?? sidebar.border;
   const fills = neutralButtonFills(light);
+  const primaryFills = primaryButtonFills(light);
   const customDanger = resolveRoleOverBase(activeRoles.danger, light, roleBase);
   const dangerBase = customDanger ?? GhostexPalette.DANGER;
   const dangerFills = destructiveButtonFills(dangerBase, light);
@@ -92,7 +96,14 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     card,
     cardActive,
     ...[sidebar.background, card].flatMap((base) =>
-      [fills.rest, fills.pressed, dangerFills.rest, dangerFills.pressed].map((fill) => colorOver(fill, base)),
+      [
+        fills.rest,
+        fills.pressed,
+        primaryFills.rest,
+        primaryFills.pressed,
+        dangerFills.rest,
+        dangerFills.pressed,
+      ].map((fill) => colorOver(fill, base)),
     ),
     colorOver(BLOCKED_CARD_WASH, sidebar.background),
     colorOver(ATTENTION_ROW_WASH, sidebar.background),
@@ -130,6 +141,8 @@ export function resolveAppearance(settings: ThemeColourSettings, light: boolean)
     light,
     neutralFill: fills.rest,
     neutralFillPressed: fills.pressed,
+    primaryFill: primaryFills.rest,
+    primaryFillPressed: primaryFills.pressed,
     accent,
     accentForeground,
     danger,

@@ -458,10 +458,10 @@ function createStyles(appearance: Appearance) {
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: GhostexRadii.row,
-      backgroundColor: GhostexPalette.ACCENT,
+      backgroundColor: appearance.primaryFill,
     },
     primaryButtonLabel: {
-      color: GhostexPalette.ACCENT_FOREGROUND,
+      color: appearance.foreground,
       fontSize: 14,
       fontWeight: '700',
     },

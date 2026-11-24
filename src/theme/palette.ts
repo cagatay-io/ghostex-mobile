@@ -13,6 +13,16 @@ export function neutralButtonFills(light: boolean): ButtonFills {
     : { rest: 'rgba(255,255,255,0.10)', pressed: 'rgba(255,255,255,0.18)' };
 }
 
+/**
+ * The neutral filled primary button: one step brighter/stronger than `neutralButtonFills`, with normal foreground text.
+ * Matches desktop `primary_button_fills_for` in apps/desktop/src/app/window/native_modal_kit/palette.rs.
+ */
+export function primaryButtonFills(light: boolean): ButtonFills {
+  return light
+    ? { rest: 'rgba(0,0,0,0.16)', pressed: 'rgba(0,0,0,0.26)' }
+    : { rest: 'rgba(255,255,255,0.20)', pressed: 'rgba(255,255,255,0.32)' };
+}
+
 /** The filled destructive button (Remove, Delete): a tint of the destructive colour under its label. */
 export function destructiveButtonFills(destructive: string, light: boolean): ButtonFills {
   return light
@@ -48,6 +58,9 @@ export const GhostexPalette = {
   /** Secondary text buttons: the neutral fill at rest and pressed (`neutralButtonFills`). */
   NEUTRAL_FILL: neutralButtonFills(false).rest,
   NEUTRAL_FILL_PRESSED: neutralButtonFills(false).pressed,
+  /** Primary text buttons: one step brighter than `NEUTRAL_FILL` (`primaryButtonFills`). */
+  PRIMARY_FILL: primaryButtonFills(false).rest,
+  PRIMARY_FILL_PRESSED: primaryButtonFills(false).pressed,
   /** Destructive text buttons: a tint of DANGER at rest and pressed (`destructiveButtonFills`). */
   DANGER_FILL: destructiveButtonFills('#E85C5C', false).rest,
   DANGER_FILL_PRESSED: destructiveButtonFills('#E85C5C', false).pressed,

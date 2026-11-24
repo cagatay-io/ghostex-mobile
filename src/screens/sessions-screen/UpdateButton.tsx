@@ -45,7 +45,7 @@ function UpdatePill() {
       style={({ pressed }) => [styles.pill, pressed ? styles.pressed : null]}
       onPress={() => takeUpdateAction(action)}
     >
-      <UpdateActionGlyph action={action} size={15} color={appearance.accentForeground} />
+      <UpdateActionGlyph action={action} size={15} color={appearance.foreground} />
       <Text style={styles.label} numberOfLines={1}>
         {downloading ? `${action.downloadPercent}%` : UpdateButtonCopy.label}
       </Text>
@@ -72,13 +72,13 @@ const createStyles = (appearance: Appearance) =>
       paddingHorizontal: 10,
       marginHorizontal: 4,
       borderRadius: 15,
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
     },
     pressed: {
-      opacity: 0.8,
+      backgroundColor: appearance.primaryFillPressed,
     },
     label: {
-      color: appearance.accentForeground,
+      color: appearance.foreground,
       fontSize: 13,
       fontWeight: '600',
       fontVariant: ['tabular-nums'],

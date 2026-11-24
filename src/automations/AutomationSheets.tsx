@@ -237,9 +237,9 @@ export function AutomationDetailsBottomSheet({
             style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed, busy && styles.disabled]}
           >
             {busy ? (
-              <ActivityIndicator size="small" color={appearance.accentForeground} />
+              <ActivityIndicator size="small" color={appearance.foreground} />
             ) : (
-              <Glyph name="player-play" size={14} color={appearance.accentForeground} />
+              <Glyph name="player-play" size={14} color={appearance.foreground} />
             )}
             <Text style={styles.primaryLabel}>{AutomationsCopy.runNow}</Text>
           </Pressable>
@@ -415,7 +415,7 @@ export function AutomationDetailsBottomSheet({
               onPress={() => onOpenSession(run, automationName)}
               style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed, busy && styles.disabled]}
             >
-              <Glyph name="external-link" size={14} color={appearance.accentForeground} />
+              <Glyph name="external-link" size={14} color={appearance.foreground} />
               <Text style={styles.primaryLabel}>{AutomationsCopy.openSession}</Text>
             </Pressable>
           ) : null}
@@ -546,13 +546,13 @@ const createStyles = (appearance: Appearance) =>
       paddingHorizontal: 14,
       height: 36,
       borderRadius: GhostexRadii.control,
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
     },
     primaryPressed: {
-      opacity: 0.82,
+      backgroundColor: appearance.primaryFillPressed,
     },
     primaryLabel: {
-      color: appearance.accentForeground,
+      color: appearance.foreground,
       fontSize: 13.5,
       fontWeight: '600',
     },

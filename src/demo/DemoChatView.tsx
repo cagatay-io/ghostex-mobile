@@ -167,11 +167,11 @@ const createStyles = (appearance: Appearance) =>
       backgroundColor: appearance.card,
     },
     send: {
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 10,
     },
-    sendPressed: { opacity: 0.8 },
-    sendLabel: { color: appearance.accentForeground, fontSize: 15, fontWeight: '600' },
+    sendPressed: { backgroundColor: appearance.primaryFillPressed },
+    sendLabel: { color: appearance.foreground, fontSize: 15, fontWeight: '600' },
   });

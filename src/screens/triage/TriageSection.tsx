@@ -580,8 +580,15 @@ function CardButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: primary ? colors.accent : pressed ? fills.pressed : fills.rest },
-        primary && pressed ? styles.primaryPressed : null,
+        {
+          backgroundColor: primary
+            ? pressed
+              ? colors.primaryFillPressed
+              : colors.primaryFill
+            : pressed
+              ? fills.pressed
+              : fills.rest,
+        },
         disabled ? styles.disabled : null,
       ]}
     >
@@ -590,7 +597,7 @@ function CardButton({
         style={[
           styles.buttonLabel,
           {
-            color: primary ? colors.accentForeground : appearance.foreground,
+            color: appearance.foreground,
           },
         ]}
       >

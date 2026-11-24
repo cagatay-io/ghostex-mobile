@@ -162,9 +162,9 @@ export default function TerminalTextEditor({ sessionKey, onClose, onSent }: Term
         onPress={send}
       >
         {text.length === 0 ? (
-          <SendIcon size={18} color={appearance.accentForeground} />
+          <SendIcon size={18} color={appearance.foreground} />
         ) : (
-          <ArrowIcon direction="up" size={18} color={appearance.accentForeground} />
+          <ArrowIcon direction="up" size={18} color={appearance.foreground} />
         )}
       </Pressable>
       {onClose !== undefined ? (
@@ -211,10 +211,10 @@ const createStyles = (appearance: Appearance) =>
       borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
     },
     sendPressed: {
-      opacity: 0.8,
+      backgroundColor: appearance.primaryFillPressed,
     },
     // The 44 pt target's extra height lies over the bar's padding, so the bar keeps its height; its face centres on Send.
     close: {

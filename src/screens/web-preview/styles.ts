@@ -83,7 +83,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     minWidth: 92,
     paddingHorizontal: 18,
     borderRadius: GhostexRadii.card,
-    backgroundColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -91,7 +91,7 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     opacity: 0.45,
   },
   openButtonLabel: {
-    color: appearance.accentForeground,
+    color: appearance.foreground,
     fontSize: 15,
     fontWeight: '700',
   },

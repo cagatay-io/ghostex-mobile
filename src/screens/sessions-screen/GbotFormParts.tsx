@@ -378,7 +378,7 @@ const createStyles = (appearance: Appearance) =>
     primaryButton: {
       flex: 1,
       borderRadius: 8,
-      backgroundColor: appearance.accent,
+      backgroundColor: appearance.primaryFill,
       alignItems: 'center',
       paddingVertical: 10,
     },
@@ -386,7 +386,7 @@ const createStyles = (appearance: Appearance) =>
       opacity: 0.4,
     },
     primaryLabel: {
-      color: appearance.accentForeground,
+      color: appearance.foreground,
       fontSize: 14,
       fontWeight: '600',
     },

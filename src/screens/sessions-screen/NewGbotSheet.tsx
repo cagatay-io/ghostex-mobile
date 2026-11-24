@@ -90,7 +90,7 @@ export default function NewGbotSheet({ loadPresets, onCreate, onCancel }: NewGbo
           busy={busy}
           onCancel={onCancel}
           onPress={create}
-          spinner={<ActivityIndicator color={appearance.accentForeground} />}
+          spinner={<ActivityIndicator color={appearance.foreground} />}
         />
       }
     >
