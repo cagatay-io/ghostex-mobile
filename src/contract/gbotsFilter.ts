@@ -7,10 +7,10 @@
  * CDXC:GBots 2026-11-09 WHY: `gbotsProject` comes whether GBots are on or off (server/src/gbots/presentation.rs), so a
  * GBot's folder never turns into a plain project when they are switched off: nothing of a bot shows then. A separate
  * module from contract/gbots.ts so contract/grouping.ts can use it without an import cycle.
- * CDXC:Autopilot 2026-11-18 DECISION: User (Q88, "All three, over the air"): the phone leaves Autopilot's own project (its
- * supervisor's folder, `autopilotSupervisorProject`) out of its lists the way the desktop starts it hidden; the phone has no
- * per-project hiding, so it takes the same exits as a GBot's folder. The supervisor opens from Settings > Autopilot.
- * SEE-ALSO: packages/gx-core/src/sidebar_view/projects.rs (the desktop's same rule).
+ * CDXC:Autopilot 2026-11-24 DECISION: Autopilot's own project (its supervisor's folder, `autopilotSupervisorProject`)
+ * stays hidden from normal project lists and pickers; its supervisor sessions are lifted into Main Hub's Autopilot
+ * section while Main Hub is on (contract/grouping.ts), and stay reachable from Settings > Autopilot while Main Hub is off.
+ * SEE-ALSO: packages/gx-core/src/sidebar_view/chief.rs, assemble.rs (the desktop's same rule).
  */
 
 import type { GhostexMobileSummary, GhostexProject, GhostexRecentProject, GhostexSession } from './mobileSummary';
@@ -20,11 +20,21 @@ export function isGbotProject(project: Pick<GhostexProject, 'gbotsProject' | 'gb
   return project.gbotsProject === true || project.gbotsBot !== undefined;
 }
 
+/** Autopilot's supervisor system project (`autopilotSupervisorProject`), never one of the user's projects. */
+export function isAutopilotProject(project: Pick<GhostexProject, 'autopilotSupervisorProject'>): boolean {
+  return project.autopilotSupervisorProject === true;
+}
+
+/** The project ids of Autopilot's supervisor projects. */
+export function autopilotProjectIds(summary: Pick<GhostexMobileSummary, 'projects'>): Set<string> {
+  return new Set(summary.projects.filter(isAutopilotProject).map((project) => project.projectId));
+}
+
 /** A GBot's folder or Autopilot's own project: no list or picker of the user's projects shows either. */
 export function isHiddenProject(
   project: Pick<GhostexProject, 'gbotsProject' | 'gbotsBot' | 'autopilotSupervisorProject'>,
 ): boolean {
-  return isGbotProject(project) || project.autopilotSupervisorProject === true;
+  return isGbotProject(project) || isAutopilotProject(project);
 }
 
 /** The project ids of the computer's GBots' folders and of Autopilot's project (see `isHiddenProject`). */

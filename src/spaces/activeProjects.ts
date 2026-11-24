@@ -11,7 +11,8 @@
  * switch off on the computer.
  */
 
-import { withoutGbots } from '../contract/gbotsFilter';
+import { chiefOnIn } from '../contract/chief';
+import { isAutopilotProject, withoutGbots } from '../contract/gbotsFilter';
 import { showsBackgroundWork } from '../contract/grouping';
 import { hasQuestion, type GhostexMobileSummary, type GhostexSession } from '../contract/mobileSummary';
 import { isSidebarSpaceProject } from './otherSpace';
@@ -126,8 +127,23 @@ export function filterSummaryForActiveProjects(
   collectionOf: (projectId: string) => string | undefined,
   spaceNames?: readonly string[],
 ): GhostexMobileSummary {
+  const autopilotProjects = chiefOnIn(whole) ? whole.projects.filter(isAutopilotProject) : [];
+  const autopilotIds = new Set(autopilotProjects.map((project) => project.projectId));
+  const autopilotSessions =
+    autopilotIds.size > 0 ? whole.sessions.filter((session) => autopilotIds.has(session.projectId)) : [];
   const summary = withoutGbots(whole);
   const active = activeProjectIds(summary, context);
+  const homeProject = summary.projects.find((project) => project.isHome === true);
+  if (
+    homeProject !== undefined &&
+    autopilotSessions.some(
+      (session) =>
+        session.sessionId === context.focusedSessionId ||
+        sessionKeepsActive(activeRuleSession(session, whole.capabilities.awaitingAnswer), context.nowMs),
+    )
+  ) {
+    active.add(homeProject.projectId);
+  }
   const kept = summary.projects.filter((project) => active.has(project.projectId));
   // The list's own project order (the desktop's), then stably by Space.
   const base = [
@@ -151,16 +167,23 @@ export function filterSummaryForActiveProjects(
     .sort((left, right) => left.rank - right.rank || left.index - right.index)
     .map((entry) => entry.projectId);
   const keptIds = new Set(order);
+  const includeAutopilot = homeProject !== undefined && keptIds.has(homeProject.projectId) && autopilotProjects.length > 0;
   return {
     ...summary,
-    projects: order.flatMap((projectId) => {
-      const project = projectById.get(projectId);
-      return project === undefined ? [] : [project];
-    }),
+    projects: [
+      ...order.flatMap((projectId) => {
+        const project = projectById.get(projectId);
+        return project === undefined ? [] : [project];
+      }),
+      ...(includeAutopilot ? autopilotProjects : []),
+    ],
     projectCollections: [],
     workspaceGroups:
       summary.workspaceGroups == null ? summary.workspaceGroups : { ...summary.workspaceGroups, projectOrder: order },
-    sessions: summary.sessions.filter((session) => keptIds.has(session.projectId)),
+    sessions: [
+      ...summary.sessions.filter((session) => keptIds.has(session.projectId)),
+      ...(includeAutopilot ? autopilotSessions : []),
+    ],
   };
 }
 

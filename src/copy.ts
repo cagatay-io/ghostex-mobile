@@ -280,6 +280,7 @@ export const SessionCopy = {
    */
   browserKindLabel: 'Browser',
   pinnedKindLabel: 'Pinned',
+  autopilotKindLabel: 'Autopilot',
   draftsKindLabel: 'Drafts',
   parkedKindLabel: 'Parked',
   workingKindLabel: 'Working',

@@ -525,7 +525,7 @@ function AutopilotBody({
         <SettingsSection name="settings:autopilot:supervisor">
           <LinkRow
             title="Open supervisor"
-            description="Its chat, in the Autopilot project that stays hidden from your lists."
+            description="Its chat, under Autopilot in Main Hub."
             onPress={() => openDeepLink(sessionDeepLink({ machineId: machine.id, sessionId: supervisorSession }))}
           />
         </SettingsSection>

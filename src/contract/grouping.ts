@@ -15,7 +15,8 @@ import {
   type CoordinatorBadge,
   type RowNesting,
 } from './coordinatorTree';
-import { withoutGbots } from './gbotsFilter';
+import { chiefOnIn } from './chief';
+import { autopilotProjectIds, isAutopilotProject, withoutGbots } from './gbotsFilter';
 import { isNewSidebarSession, isSidebarDraftSectionSession } from './sessionDrafts';
 import {
   displayStatus,
@@ -369,11 +370,20 @@ export function groupCollapseKey(projectKey: string, groupId: string): string {
  * User: parked sessions need their own section on mobile, with a Park action.
  * Keep the project-level Parked disclosure accessible independently of ordinary row clipping and named groups.
  */
-export type SessionKindSection = 'browser' | 'pinned' | 'sessions' | 'drafts' | 'parked' | 'working' | 'snoozed';
+export type SessionKindSection =
+  | 'browser'
+  | 'pinned'
+  | 'autopilot'
+  | 'sessions'
+  | 'drafts'
+  | 'parked'
+  | 'working'
+  | 'snoozed';
 
 export const SESSION_KIND_LABELS: Readonly<Record<SessionKindSection, string>> = {
   browser: SessionCopy.browserKindLabel,
   pinned: SessionCopy.pinnedKindLabel,
+  autopilot: SessionCopy.autopilotKindLabel,
   sessions: SessionCopy.sessionsKindLabel,
   drafts: SessionCopy.draftsKindLabel,
   parked: SessionCopy.parkedKindLabel,
@@ -389,6 +399,8 @@ export type SectionRules = {
   groupWorking: boolean;
   /** Sessions Group working sessions leaves where they are (gx-core `held_out_of_working`), by session id. */
   held?: ReadonlySet<string>;
+  /** Project ids of Autopilot supervisor projects, whose rows sit under Autopilot in Main Hub. */
+  autopilotProjectIds?: ReadonlySet<string>;
 };
 
 const DEFAULT_SECTION_RULES: SectionRules = { parking: true, groupWorking: false };
@@ -431,6 +443,7 @@ export function sessionKindSection(
   if (session.kind === 'browser' || session.surface === 'browser') return 'browser';
   if (isSnoozedSession(session, nowMs)) return 'snoozed';
   if (rules.parking && session.isParked) return 'parked';
+  if (rules.autopilotProjectIds?.has(session.projectId) === true) return 'autopilot';
   if (isSidebarDraftSectionSession(session, nowMs)) return 'drafts';
   if (session.isPinned) return 'pinned';
   if (rules.groupWorking && rules.held?.has(session.sessionId) !== true && isGroupedWorking(session)) return 'working';
@@ -539,6 +552,8 @@ export function compareForSidebarOrder(
   pinnedOrder: 'manual' | 'recent' = 'manual',
   /** Enable session parking: off, a parked row is ordered as an ordinary one. */
   parking: boolean = true,
+  /** Autopilot supervisor project ids, ordered in their Autopilot section right after Pinned. */
+  autopilotIds?: ReadonlySet<string>,
 ): number {
   const kindDelta = sessionKindRank(left) - sessionKindRank(right);
   if (kindDelta !== 0) return kindDelta;
@@ -553,8 +568,21 @@ export function compareForSidebarOrder(
       left.sessionId.localeCompare(right.sessionId)
     );
   }
-  const leftDraft = sessionKindSection(left, nowMs) === 'drafts';
-  const rightDraft = sessionKindSection(right, nowMs) === 'drafts';
+  const leftAutopilot = autopilotIds?.has(left.projectId) === true;
+  const rightAutopilot = autopilotIds?.has(right.projectId) === true;
+  if (leftAutopilot || rightAutopilot) {
+    if (leftAutopilot && rightAutopilot) {
+      return (
+        parseTimestamp(right.lastInteractionAt) - parseTimestamp(left.lastInteractionAt) ||
+        left.sessionId.localeCompare(right.sessionId)
+      );
+    }
+    const other = leftAutopilot ? right : left;
+    const otherIsPinned = other.isPinned && !isSidebarDraftSectionSession(other, nowMs);
+    return leftAutopilot ? (otherIsPinned ? 1 : -1) : otherIsPinned ? -1 : 1;
+  }
+  const leftDraft = sessionKindSection(left, nowMs, { parking, groupWorking: false, autopilotProjectIds: autopilotIds }) === 'drafts';
+  const rightDraft = sessionKindSection(right, nowMs, { parking, groupWorking: false, autopilotProjectIds: autopilotIds }) === 'drafts';
   if (leftDraft !== rightDraft) {
     return leftDraft ? (right.isPinned ? 1 : -1) : left.isPinned ? -1 : 1;
   }
@@ -833,10 +861,12 @@ export function countSectionSessions(
  * unselected tab still says something needs the user (desktop machine-tabs.tsx).
  */
 export function machineSessionCounts(summary: GhostexMobileSummary | null): TileStatusCounts {
-  return countTileStatus(
-    summary === null ? [] : visibleSessions(summary.sessions),
-    summary?.capabilities ?? NO_SUMMARY_CAPABILITIES,
+  if (summary === null) return countTileStatus([], NO_SUMMARY_CAPABILITIES);
+  const hiddenAutopilot = chiefOnIn(summary) ? null : autopilotProjectIds(summary);
+  const sessions = visibleSessions(summary.sessions).filter(
+    (session) => hiddenAutopilot === null || !hiddenAutopilot.has(session.projectId),
   );
+  return countTileStatus(sessions, summary.capabilities);
 }
 
 export type DrawerBuildInput = {
@@ -1113,6 +1143,17 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     activeSessionId = null,
   } = input;
   // A GBot's folder and chats are drawn under Main Hub (contract/gbots.ts), never as a project (contract/gbotsFilter.ts).
+  // Autopilot's supervisor projects are never drawn as projects either; their sessions are lifted into Main Hub's
+  // Autopilot section while Main Hub is on.
+  const autopilotProjects = new Map<string, GhostexProject>();
+  for (const project of input.summary.projects) {
+    if (isAutopilotProject(project)) autopilotProjects.set(project.projectId, project);
+  }
+  const autopilotIds = new Set(autopilotProjects.keys());
+  const autopilotSessions =
+    autopilotIds.size > 0
+      ? visibleSessions(input.summary.sessions).filter((session) => autopilotIds.has(session.projectId))
+      : [];
   const summary = withoutGbots(input.summary);
   const isActive = (session: GhostexSession): boolean => session.sessionId === activeSessionId;
   const badges = coordinatorBadges(summary.sessions, summary.capabilities, nowMs);
@@ -1131,6 +1172,12 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     if (bucket === undefined) sessionsByProjectKey.set(key, [session]);
     else bucket.push(session);
   }
+  if (homeProject !== undefined && chiefOnIn(input.summary) && autopilotSessions.length > 0) {
+    const homeKey = `id:${homeProject.projectId}`;
+    const bucket = sessionsByProjectKey.get(homeKey);
+    if (bucket === undefined) sessionsByProjectKey.set(homeKey, [...autopilotSessions]);
+    else bucket.push(...autopilotSessions);
+  }
   // Active projects stay visible even with zero sessions.
   for (const project of summary.projects) {
     const key = `id:${project.projectId}`;
@@ -1142,7 +1189,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
   const movedThreads = foldCrossProjectThreads(summary, projectById, sessionsByProjectKey);
 
   // Desktop display layout: the wire order (server sortOrder) is the stable
-  // manual base; browser-first/pinned-first/draft-first/activity sorting is applied on top
+  // manual base; browser-first/pinned-first/autopilot/draft-first/activity sorting is applied on top
   // exactly like the gpui sidebar's default "lastActivity" mode.
   for (const [key, bucket] of sessionsByProjectKey) {
     sessionsByProjectKey.set(
@@ -1154,6 +1201,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
           nowMs,
           summary.pinnedSessionOrder ?? 'manual',
           summary.enableSessionParking !== false,
+          autopilotIds,
         ),
       ),
     );
@@ -1204,10 +1252,16 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       parking: summary.enableSessionParking !== false,
       groupWorking: summary.groupWorkingSessions === true,
       held: summary.groupWorkingSessions === true ? heldOutOfWorking(allProjectSessions, isActive) : undefined,
+      autopilotProjectIds: autopilotIds,
     };
     const inNamedGroup = (session: GhostexSession): boolean => {
       const section = sessionKindSection(session, nowMs, rules);
-      return !SECTIONS_APART.includes(section) && section !== 'working' && groupedSessionIds.has(session.sessionId);
+      return (
+        !SECTIONS_APART.includes(section) &&
+        section !== 'working' &&
+        section !== 'autopilot' &&
+        groupedSessionIds.has(session.sessionId)
+      );
     };
     /*
      * Coordinator trees (coordinatorTree.ts, gx-core nest_threads): each
@@ -1317,6 +1371,25 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
           nesting: nesting.get(coordinatorRowKey(session)),
           coordinatorBadge: crewBadgeOf(session, badges, nesting.get(coordinatorRowKey(session))),
           worktree: worktree.label,
+        };
+      }
+      // An Autopilot supervisor lifted into Main Hub still opens and acts in its own project.
+      const autopilotProject = autopilotProjects.get(session.projectId);
+      if (autopilotProject !== undefined) {
+        return {
+          type: 'SESSION',
+          key: `session:${projectKey}:${session.sessionId}`,
+          machineId,
+          projectKey,
+          projectId: autopilotProject.projectId,
+          groupId: session.groupId,
+          projectTitle: projectDisplayName(autopilotProject),
+          projectPath: autopilotProject.path ?? session.projectPath,
+          session,
+          capabilities: summary.capabilities,
+          collectionColor,
+          nesting: nesting.get(coordinatorRowKey(session)),
+          coordinatorBadge: crewBadgeOf(session, badges, nesting.get(coordinatorRowKey(session))),
         };
       }
       return sessionItemOf(session, groupId);

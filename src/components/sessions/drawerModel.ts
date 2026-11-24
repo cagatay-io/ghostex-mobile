@@ -500,7 +500,9 @@ function withoutSpacesFiledElsewhere(
   }
   const leaves = (projectId: string, parentProjectId: string) =>
     filed.has(parentProjectId.length > 0 ? parentProjectId : projectId);
-  const projects = theirs.projects.filter((project) => !leaves(project.projectId, project.worktreeParentProjectId));
+  const projects = theirs.projects.filter(
+    (project) => project.autopilotSupervisorProject === true || !leaves(project.projectId, project.worktreeParentProjectId),
+  );
   const kept = new Set(projects.map((project) => project.projectId));
   const known = new Set(theirs.projects.map((project) => project.projectId));
   const sessions = theirs.sessions.filter((session) => !known.has(session.projectId) || kept.has(session.projectId));

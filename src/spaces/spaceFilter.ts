@@ -8,7 +8,8 @@
  */
 
 import type { GhostexMobileSummary, GhostexSidebarSpace, GhostexSidebarSpaces } from '../contract/mobileSummary';
-import { withoutGbots } from '../contract/gbotsFilter';
+import { chiefOnIn } from '../contract/chief';
+import { isAutopilotProject, withoutGbots } from '../contract/gbotsFilter';
 import { countTileStatus, type TileStatusCounts } from '../contract/grouping';
 import { ACTIVE_SPACE_ID, filterSummaryForActiveProjects, type ActiveProjectsContext } from './activeProjects';
 import { isSidebarSpaceProject, isUnassignedSidebarSpaceProject, OTHER_SIDEBAR_SPACE_ID } from './otherSpace';
@@ -94,9 +95,23 @@ export function filterSummaryForSpace(
     );
   }
   // A Space only shows and counts the user's projects: GBots follow Main Hub instead (contract/gbots.ts).
+  // Autopilot's supervisor sessions follow Main Hub while Main Hub is on, so carry them along whenever Main Hub stays.
+  const autopilotProjects = chiefOnIn(whole) ? whole.projects.filter(isAutopilotProject) : [];
+  const autopilotIds = new Set(autopilotProjects.map((project) => project.projectId));
+  const autopilotSessions =
+    autopilotIds.size > 0 ? whole.sessions.filter((session) => autopilotIds.has(session.projectId)) : [];
   const summary = withoutGbots(whole);
   const spaces = orderedSpaces(summary.sidebarSpaces);
-  if (spaces.length === 0) return summary;
+  if (spaces.length === 0) {
+    if (autopilotProjects.length > 0 && summary.projects.some((project) => project.isHome === true)) {
+      return {
+        ...summary,
+        projects: [...summary.projects, ...autopilotProjects],
+        sessions: [...summary.sessions, ...autopilotSessions],
+      };
+    }
+    return summary;
+  }
   const selectedSpace =
     selectedSpaceId === OTHER_SIDEBAR_SPACE_ID ? null : (summary.sidebarSpaces.spaces[selectedSpaceId] ?? null);
   const collectionByProjectId = collectionIdByProjectId(summary);
@@ -139,6 +154,13 @@ export function filterSummaryForSpace(
         ? keptProjectIds.has(session.projectId)
         : selectedSpace === null,
   );
+  if (homeKept && autopilotProjects.length > 0) {
+    return {
+      ...summary,
+      projects: [...projects, ...autopilotProjects],
+      sessions: [...sessions, ...autopilotSessions],
+    };
+  }
 
   if (projects.length === summary.projects.length && sessions.length === summary.sessions.length) {
     return summary;
