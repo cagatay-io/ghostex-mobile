@@ -15,8 +15,8 @@
  * Touch stands in for the desktop's hover and right click: the card's check is always shown (the desktop shows it on
  * hover): on an unread card it marks the card read, on a read card it clears it; an open approval has none, as on the
  * desktop. The card's ⋯, or a long press, opens its menu: Open Session, Mark as Read or Unread (the desktop's right
- * click) and Clear. A tap opens the session and marks the card read, as a click does; an account or security row is
- * only marked read, as a remote computer's is on the desktop; an ended session's card opens the "Session ended" sheet
+ * click) and Clear. A tap opens the session without marking the card read (rows become read when marked read manually
+ * or when the list closes); an ended session's card opens the "Session ended" sheet
  * (Restore) instead of a dead terminal. Every change goes to the computer that owns the row, so it is the same on every
  * device.
  *
@@ -655,11 +655,10 @@ export default function AttentionList({
     [report],
   );
 
-  /** A tap: the card is marked read on its computer, then its session (or Accounts for a pool row) opens. */
+  /** A tap: opens its session (or Accounts for a pool row) without marking the card read. */
   const open = useCallback(
     (row: PanelRow, questionSessions: Set<string> = questions) => {
       setMenu(null);
-      if (!row.read && feedRowCanBeDone(row)) change(row, 'markRead');
       if (feedRowOpensAccounts(row)) {
         openDeepLink(accountsDeepLink(row.machineId));
         return;
@@ -678,7 +677,7 @@ export default function AttentionList({
         question: questionSessions.has(sessionKey(row.machineId, sessionId)),
       });
     },
-    [questions, closed, change, onOpenSession],
+    [questions, closed, onOpenSession],
   );
 
   /** The card's check: an unread card is marked read, a read card is cleared from the list. */
