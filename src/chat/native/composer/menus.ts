@@ -461,7 +461,7 @@ export function moreActionsRows({
             {
               label: 'Cancel Switch to Native',
               iconPath: 'titlebar/clock.svg',
-              detail: 'Queued',
+              detail: 'When this reply ends',
               command: { type: 'host', action: 'cancelSwitchToNative' },
             },
           ];

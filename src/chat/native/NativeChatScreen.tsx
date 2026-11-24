@@ -406,6 +406,21 @@ export default function NativeChatScreen({
           const answer = await sessionChatRpc(machine, 'switchSessionCliToAcp', { projectId, sessionId });
           if (answer.error !== null) {
             show(answer.error.message, true, 'Could not switch to Native');
+          } else {
+            const payload = (answer.result ?? {}) as {
+              queued?: unknown;
+              switched?: unknown;
+              reason?: unknown;
+            };
+            if (payload.queued === true) {
+              show('Switches to Native when this reply ends.', false, 'Switch to Native');
+            } else if (payload.switched !== true) {
+              const reason =
+                typeof payload.reason === 'string' && payload.reason.trim().length > 0
+                  ? payload.reason.trim()
+                  : 'This chat could not switch to Native right now.';
+              show(reason, true, 'Could not switch to Native');
+            }
           }
         } finally {
           setSwitchToNativeBusy(false);

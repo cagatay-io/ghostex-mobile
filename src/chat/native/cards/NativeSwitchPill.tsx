@@ -25,9 +25,9 @@ export function NativeSwitchPill({
   const styles = useStyles();
   const P = useTranscriptTheme();
   const queued = offer.queued === true;
-  const label = queued ? 'Switching when done…' : 'Switch to Native';
+  const label = queued ? 'Switches to Native when this reply ends' : 'Switch to Native';
   const accessibilityLabel = queued
-    ? `Switching ${offer.agentName} to Native when reply finishes`
+    ? `Switches ${offer.agentName} to Native when this reply ends`
     : `Switch ${offer.agentName} to Native mode`;
   const dismissLabel = queued ? 'Cancel Switch to Native' : `Hide Switch to Native for ${offer.agentName}`;
 
