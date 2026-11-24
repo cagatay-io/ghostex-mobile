@@ -9,6 +9,10 @@
  * this phone's own settings, and the chat's Quiet View is this phone's own once Experience sets it (until then each
  * chat follows its computer, as before). The phone has no Maximize, its rows no git numbers, and the computer's hover
  * logos are this phone's agent icons; the rest matches the computer's tables.
+ * CDXC:Experience 2026-11-24 DECISION:
+ * Mirror desktop `packages/settings-catalog/src/experience.rs` (commit 7314415e6): Native Chat is the default for all
+ * new users and onboarding never pitches terminal-based chat. Supersedes the terminal-based chat wording of Q3286 while
+ * keeping the preset setting keys unchanged so existing users' saved preferences do not shift on update.
  * SEE-ALSO: src/screens/settings/ExperiencePage.tsx (the page), src/screens/sessions-screen/ExperienceCard.tsx (the
  * first-run card), src/chat/rust/boot.ts and host.ts (what the chat core is told).
  */
@@ -23,13 +27,12 @@ export const EXPERIENCE_PRESETS: readonly { value: ExperiencePreset; label: stri
   {
     value: 'regular',
     label: 'Regular',
-    description:
-      'Pick the model, the mode and the effort as you chat. The terminal is in the ••• menu; the chat box shows attach instead.',
+    description: 'Pick the model, mode and effort as you chat, with file attach ready in the chat box.',
   },
   {
     value: 'advanced',
     label: 'Advanced',
-    description: 'For people who use terminals more: the terminal button in the chat box and every detail on screen.',
+    description: 'Every chat box control and detail on screen, including the context ring and last-active times.',
   },
 ];
 

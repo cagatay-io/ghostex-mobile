@@ -38,21 +38,27 @@ export default function ChatPage() {
 
   return (
     <SettingsScreenLayout>
-      <SettingsSection name="settings:chat:default-agent-view">
-        <SectionHeader title="Default agent view" />
-        {PREFERRED_AGENT_INTERFACE_ROWS.map((row) => (
-          <ChoiceRow
-            key={row.value}
-            label={row.label}
-            selected={preferredAgentInterface === row.value}
-            onPress={() => setSetting('preferredAgentInterface', row.value)}
-          />
-        ))}
-        <Caption>
-          Agent sessions that support chat open in this view. Each tab can still be switched between chat and terminal
-          at any time, and a switched tab remembers its own choice.
-        </Caption>
-      </SettingsSection>
+      {/* CDXC:SessionChat 2026-11-24 DECISION:
+          Native Chat is the default for all new users and terminal-based chat is never offered to new installs or
+          users already on Chat. Keep this section visible only while an existing user's saved preference is still
+          `'terminal'` so their preference is preserved and they still have a clean way to switch back to Chat. */}
+      {preferredAgentInterface === 'terminal' ? (
+        <SettingsSection name="settings:chat:default-agent-view">
+          <SectionHeader title="Default agent view" />
+          {PREFERRED_AGENT_INTERFACE_ROWS.map((row) => (
+            <ChoiceRow
+              key={row.value}
+              label={row.label}
+              selected={preferredAgentInterface === row.value}
+              onPress={() => setSetting('preferredAgentInterface', row.value)}
+            />
+          ))}
+          <Caption>
+            Native Chat is now the default for new chats. Switch to Chat above at any time; your saved Terminal choice
+            stays active until you switch.
+          </Caption>
+        </SettingsSection>
+      ) : null}
       <SettingsSection name="settings:chat:messages">
         <SectionHeader title="Messages" />
         <SettingToggle settingKey="sessionChatFileEditPreviews" label="Show file edit previews" />

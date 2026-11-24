@@ -4,11 +4,13 @@
  * Regular. Settings › Experience changes it any time.
  *
  * CDXC:Experience 2026-11-15 DECISION:
- * Q3286 A: ask new users on first run with Regular preselected, on the phone right after pairing. Of the words under
- * each preset: Regular does show the mode picker, and hides the terminal button for attach; Advanced is for people who
- * use terminals more. Q3287: an install that saved settings before this card existed is never asked
- * (`experienceAsked`). The computer asks on its welcome's Workspace step (apps/desktop/src/app/window/onboarding/
- * workspace.rs).
+ * Q3286 A: ask new users on first run with Regular preselected, on the phone right after pairing. Q3287: an install
+ * that saved settings before this card existed is never asked (`experienceAsked`). The computer asks on its welcome's
+ * Workspace step (apps/desktop/src/app/window/onboarding/workspace.rs).
+ *
+ * CDXC:Experience 2026-11-24 DECISION:
+ * Preset descriptions focus on Native Chat (mirroring desktop `packages/settings-catalog/src/experience.rs`) instead
+ * of pitching terminal-based chat, while keeping underlying preset setting keys unchanged.
  */
 
 import { useState } from 'react';

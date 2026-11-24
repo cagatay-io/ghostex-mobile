@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
 import type { ChatDocument } from '../../rust/document';
 import type { RustChat } from '../../rust/useRustChat';
@@ -23,6 +23,30 @@ import { themedStyles } from '../transcript/theme';
 import { ChatButton } from './primitives';
 import { ChiefWelcome } from './ChiefWelcome';
 import { useChatShown } from '../chatShown';
+
+/**
+ * Starter prompts shown on a fresh Native Chat welcome so Day-0 users can fill the composer in one tap.
+ * Mirrors desktop `STARTER_PROMPTS` in `apps/desktop/src/app/native_chat/new_session_welcome.rs`.
+ */
+const STARTER_PROMPTS: readonly { id: string; label: string; prompt: string }[] = [
+  {
+    id: 'starter-overview',
+    label: 'Summarize this codebase',
+    prompt: 'Give me a quick architecture overview of this project and where the main entry points live.',
+  },
+  {
+    id: 'starter-changes',
+    label: 'Review recent changes',
+    prompt: 'Review the recent git changes in this repo and flag any bugs or edge cases.',
+  },
+  {
+    id: 'starter-bug',
+    label: 'Find and fix a bug',
+    prompt: 'Help me investigate and fix a bug in this codebase. First, tell me how tests are run here.',
+  },
+];
+
+const PROMPT_QUEUE_HINT = 'Keep typing while your agent works. Send to queue follow-up prompts.';
 
 export function EmptyTranscript({ chat, document }: { chat: RustChat; document: ChatDocument | null }) {
   const styles = useStyles();
@@ -52,17 +76,39 @@ export function EmptyTranscript({ chat, document }: { chat: RustChat; document: 
   }
   const welcome = document.newSessionWelcome;
   if (welcome !== null && welcome !== undefined) {
+    const showStarters = welcome.showTitle !== false;
     return (
       <View style={[styles.region, styles.welcome]}>
         <View style={styles.markCard}>
           <AgentMark icon={welcome.icon} size={28} />
         </View>
-        {welcome.showTitle !== false ? (
-          /* One line at every width, shrunk to fit a narrow phone (CDXC:SessionChat 2026-11-20 in gx-chat-core
-              `extras/welcome.rs`: "make the text there not wrap"). */
-          <Text style={styles.welcomeTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-            {(welcome.title || 'What should we work on?').replace(/\n/g, ' ')}
-          </Text>
+        {showStarters ? (
+          <>
+            {/* One line at every width, shrunk to fit a narrow phone (CDXC:SessionChat 2026-11-20 in gx-chat-core
+                `extras/welcome.rs`: "make the text there not wrap"). */}
+            <Text style={styles.welcomeTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+              {(welcome.title || 'What should we work on?').replace(/\n/g, ' ')}
+            </Text>
+            <View style={styles.starterBlock}>
+              <View style={styles.starterChips}>
+                {STARTER_PROMPTS.map((starter) => (
+                  <Pressable
+                    key={starter.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={starter.label}
+                    hitSlop={4}
+                    onPress={() => chat.composer?.replace(starter.prompt)}
+                    style={({ pressed }) => [styles.starterChip, pressed ? styles.starterChipPressed : null]}
+                  >
+                    <Text style={styles.starterChipText} numberOfLines={1}>
+                      {starter.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.queueHint}>{PROMPT_QUEUE_HINT}</Text>
+            </View>
+          </>
         ) : null}
       </View>
     );
@@ -161,7 +207,7 @@ const useStyles = themedStyles((P) => ({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingVertical: 24,
   },
   welcome: {
     gap: 14,
@@ -181,6 +227,46 @@ const useStyles = themedStyles((P) => ({
     fontSize: 22,
     lineHeight: 27.5,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  starterBlock: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  starterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  starterChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: P.ink(P.light ? 0.09 : 0.1),
+    backgroundColor: P.ink(P.light ? 0.04 : 0.05),
+  },
+  starterChipPressed: {
+    backgroundColor: P.ink(P.light ? 0.08 : 0.1),
+  },
+  starterChipText: {
+    color: P.foreground,
+    opacity: 0.9,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  queueHint: {
+    maxWidth: 320,
+    color: P.muted,
+    opacity: 0.85,
+    fontSize: 12.5,
+    lineHeight: 17.5,
     textAlign: 'center',
   },
   empty: {
