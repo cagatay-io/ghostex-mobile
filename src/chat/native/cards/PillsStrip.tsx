@@ -57,8 +57,8 @@ const PILL_GAP = 6;
 /** The band's tint over the box's fill (desktop `STRIP_TINT`). */
 const STRIP_TINT = 0.035;
 /** `packages/gx-chat-core/visual/composer-animation.json`: the chat box's own ease. */
-const EASE_MS = 280;
-const EASE = Easing.bezier(0.32, 0.72, 0, 1);
+const EASE_MS = 240;
+const EASE = Easing.bezier(0.22, 0.61, 0.36, 1);
 
 /** `over` laid over `base` at `alpha`, both `#rrggbb`; `base` as it is for any other colour. */
 export function mixHex(base: string, over: string, alpha: number): string {

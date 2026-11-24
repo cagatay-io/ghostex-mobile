@@ -158,8 +158,8 @@ const INPUT_MAX_HEIGHT = 168;
 /** The fewest the field shrinks to when the room is short: two lines, which scroll inside it. */
 const INPUT_MIN_HEIGHT = 44;
 const CARD_BORDER = 1;
-/** The collapsed card before its first collapse is measured: the row (field or Send) inside `cardCollapsed`. */
-const COLLAPSED_CARD_ESTIMATE = 6 + Math.max(COLLAPSED_INPUT_HEIGHT, SEND_WIDTH) + 6 + CARD_BORDER * 2;
+/** The collapsed inner body before its first collapse is measured: inside `styles.card`'s border. */
+const COLLAPSED_CARD_ESTIMATE = 6 + Math.max(COLLAPSED_INPUT_HEIGHT, CONTROL_WIDTH, SEND_WIDTH) + 6;
 
 /** How often a composer focus may re-read the agent's screen for the readiness light. */
 const TAIL_READ_INTERVAL_MS = 15_000;
@@ -265,7 +265,8 @@ export function NativeComposer({
     setFrame((now) => (now[part] === next ? now : { ...now, [part]: next }));
   }, []);
   const requestedCollapsed = document?.composerCollapsed === true;
-  const motion = useComposerMotion(requestedCollapsed, CARD_BORDER, COLLAPSED_CARD_ESTIMATE);
+  // `styles.cardInner` sits inside `styles.card`'s border, so the animated container has no border.
+  const motion = useComposerMotion(requestedCollapsed, 0, COLLAPSED_CARD_ESTIMATE);
   const field = useRef<ComposerInputHandle>(null);
   const [text, setText] = useState(model?.text ?? '');
   const [caret, setCaret] = useState(0);
@@ -1161,6 +1162,21 @@ export function NativeComposer({
                   </Animated.View>
                 ) : null}
               </Pressable>
+              {/* Non-interactive mirror of the collapsed `...` + Send slot that cross-fades cleanly
+                  during collapse/expand transitions so those controls never pop. */}
+              {!collapsed && motion.showCompactOverlay ? (
+                <Animated.View pointerEvents="none" style={[styles.compactOverlay, motion.compactControlsStyle]}>
+                  <ToolbarButton glyph="dots" label="More actions" onPress={openMore} disabled={document === null} />
+                  <SendControl
+                    document={document}
+                    hasDraft={hasDraft}
+                    ready={model.ready}
+                    submit={input.submit}
+                    dispatch={dispatch}
+                    onHold={openSendMenu}
+                  />
+                </Animated.View>
+              ) : null}
             </Animated.View>
           </View>
           {statusLine && document !== null && !compact ? <StatusLine document={document} dispatch={dispatch} /> : null}
@@ -1287,6 +1303,15 @@ const useStyles = themedStyles((P) => ({
   cardCollapsed: { paddingTop: 6, paddingBottom: 6 },
   collapsedRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   editorWithChipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  compactOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 14,
+    height: CONTROL_WIDTH,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   grow: { flex: 1, minWidth: 0 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: FOOTER_GAP },
   /*
