@@ -49,9 +49,9 @@ export const GhostexPalette = {
   CARD_ACTIVE: '#262626',
   /** Inputs: one step above the page so the field edge reads. */
   INPUT_BACKGROUND: '#141414',
-  /** Accent (BUTTON): active-row stroke, focused dot, primary buttons. */
+  /** Accent: active-row stroke, focused dot, selection highlights (never buttons). */
   ACCENT: '#7DD3FC',
-  /** Text color on accent-filled primary buttons. */
+  /** Contrasting ink over ACCENT highlights. */
   ACCENT_FOREGROUND: '#181818',
   /** Destructive labels. */
   DANGER: '#E85C5C',

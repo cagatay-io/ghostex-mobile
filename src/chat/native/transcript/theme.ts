@@ -24,7 +24,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 
 import { useSettingsStore, type GhostexSettings } from '../../../settings/store';
-import { colorOver, colorWithOpacity, destructiveButtonFills, mixHexColors, neutralButtonFills } from '../../../theme/palette';
+import { colorOver, colorWithOpacity, destructiveButtonFills, mixHexColors, neutralButtonFills, primaryButtonFills } from '../../../theme/palette';
 import {
   contentIsLight,
   isLightBackground,
@@ -104,6 +104,8 @@ export type TranscriptTheme = {
    */
   neutralFill: string;
   neutralFillPressed: string;
+  primaryFill: string;
+  primaryFillPressed: string;
   destructiveFill: string;
   destructiveFillPressed: string;
   /** A selected choice's fill and border (`control_primary` at 10% / 30%). */
@@ -207,6 +209,8 @@ const DARK: ChatRoles = {
   pressedFill: 'rgba(252,252,252,0.06)',
   neutralFill: neutralButtonFills(false).rest,
   neutralFillPressed: neutralButtonFills(false).pressed,
+  primaryFill: primaryButtonFills(false).rest,
+  primaryFillPressed: primaryButtonFills(false).pressed,
   destructiveFill: destructiveButtonFills('#ef9999', false).rest,
   destructiveFillPressed: destructiveButtonFills('#ef9999', false).pressed,
   selectedFill: 'rgba(229,229,229,0.10)',
@@ -279,6 +283,8 @@ const LIGHT: ChatRoles = {
   pressedFill: '#f5f5f5',
   neutralFill: neutralButtonFills(true).rest,
   neutralFillPressed: neutralButtonFills(true).pressed,
+  primaryFill: primaryButtonFills(true).rest,
+  primaryFillPressed: primaryButtonFills(true).pressed,
   destructiveFill: destructiveButtonFills('#c53030', true).rest,
   destructiveFillPressed: destructiveButtonFills('#c53030', true).pressed,
   selectedFill: 'rgba(24,24,27,0.10)',

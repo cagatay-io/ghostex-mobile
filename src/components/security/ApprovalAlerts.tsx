@@ -92,8 +92,8 @@ function createStyles(appearance: Appearance) {
     button: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: appearance.neutralFill },
     buttonPressed: { backgroundColor: appearance.neutralFillPressed },
     buttonLabel: { fontSize: 14, fontWeight: '600', color: appearance.foreground },
-    primary: { backgroundColor: appearance.foreground },
-    primaryPressed: { opacity: 0.8 },
-    primaryLabel: { color: appearance.card },
+    primary: { backgroundColor: appearance.primaryFill },
+    primaryPressed: { backgroundColor: appearance.primaryFillPressed },
+    primaryLabel: { color: appearance.foreground },
   });
 }

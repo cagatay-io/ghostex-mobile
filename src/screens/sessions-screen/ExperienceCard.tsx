@@ -24,12 +24,14 @@ import {
   type ExperiencePreset,
 } from '../../settings/experience';
 import { useSettingsStore } from '../../settings/store';
-import type { SidebarAppearance } from '../../theme/sidebarAppearance';
+import { primaryButtonFills } from '../../theme/palette';
+import { isLightBackground, type SidebarAppearance } from '../../theme/sidebarAppearance';
 
 export default function ExperienceCard({ appearance }: { appearance: SidebarAppearance }) {
   const shown = useSettingsStore((state) => state.hydrated && !state.settings.experienceAsked);
   const [pick, setPick] = useState<ExperiencePreset>(FIRST_RUN_PRESET);
   if (!shown) return null;
+  const primaryFills = primaryButtonFills(isLightBackground(appearance.background));
   const keep = (preset: ExperiencePreset) =>
     useSettingsStore.getState().patchSettings({ ...experiencePatch(preset), experienceAsked: true });
   return (
@@ -73,9 +75,12 @@ export default function ExperienceCard({ appearance }: { appearance: SidebarAppe
       <Pressable
         accessibilityRole="button"
         onPress={() => keep(pick)}
-        style={[styles.continue, { backgroundColor: appearance.foreground }]}
+        style={({ pressed }) => [
+          styles.continue,
+          { backgroundColor: pressed ? primaryFills.pressed : primaryFills.rest },
+        ]}
       >
-        <Text style={[styles.continueText, { color: appearance.card }]}>Continue</Text>
+        <Text style={[styles.continueText, { color: appearance.foreground }]}>Continue</Text>
       </Pressable>
     </View>
   );

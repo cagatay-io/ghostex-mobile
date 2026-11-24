@@ -15,7 +15,7 @@ import { chatMachineLink } from '../chat/rust/machine-link';
 import { useInventoryStore } from '../inventory/store';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import type { RootStackParamList } from '../navigation/types';
-import { GhostexPalette } from '../theme/palette';
+import { useAppearance } from '../theme/useAppearance';
 import { startVoice, useVoiceStore, voiceActive, VOICE_SUPPORTED } from './conversation';
 import { voiceAgentOnIn } from './featureSwitch';
 
@@ -104,6 +104,7 @@ type Props = {
 };
 
 export function VoiceButton({ machine, style, color, size = 22, activeFill = true, label, labelStyle }: Props) {
+  const appearance = useAppearance();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const capable = useVoiceCapability(machine);
   const phase = useVoiceStore((state) => state.phase);
@@ -115,7 +116,7 @@ export function VoiceButton({ machine, style, color, size = 22, activeFill = tru
       accessibilityRole="button"
       accessibilityLabel={active ? 'Voice mode on: open the voice agent' : 'Talk to the voice agent'}
       hitSlop={8}
-      style={[style, active && activeFill ? { backgroundColor: GhostexPalette.ACCENT } : null]}
+      style={[style, active && activeFill ? { backgroundColor: appearance.primaryFill } : null]}
       onPress={() => {
         if (!active && machine !== null) {
           const name = machine.name && machine.name.length > 0 ? machine.name : machine.username;
@@ -126,10 +127,10 @@ export function VoiceButton({ machine, style, color, size = 22, activeFill = tru
     >
       <HeadsetGlyph
         size={size}
-        color={active ? (activeFill ? GhostexPalette.ACCENT_FOREGROUND : GhostexPalette.ACCENT) : color}
+        color={active ? (activeFill ? appearance.foreground : appearance.accent) : color}
       />
       {label !== undefined ? (
-        <Text style={[labelStyle, active && !activeFill ? { color: GhostexPalette.ACCENT } : null]}>{label}</Text>
+        <Text style={[labelStyle, active && !activeFill ? { color: appearance.accent } : null]}>{label}</Text>
       ) : null}
     </Pressable>
   );

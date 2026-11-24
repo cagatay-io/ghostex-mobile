@@ -288,7 +288,7 @@ export function CopyComputerThemeSheet({ visible, onClose, onCopied }: CopyCompu
           style={({ pressed }) => [
             styles.primaryBtn,
             selectedPreview === null && styles.primaryBtnDisabled,
-            pressed && selectedPreview !== null && { opacity: 0.86 },
+            pressed && selectedPreview !== null && styles.primaryBtnPressed,
           ]}
         >
           <Text style={styles.primaryBtnText}>Copy to phone</Text>
@@ -478,18 +478,21 @@ const createStyles = (appearance: Appearance) =>
       fontWeight: '500',
     },
     primaryBtn: {
-      backgroundColor: appearance.foreground,
+      backgroundColor: appearance.primaryFill,
       borderRadius: 10,
       minHeight: 44,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 16,
     },
+    primaryBtnPressed: {
+      backgroundColor: appearance.primaryFillPressed,
+    },
     primaryBtnDisabled: {
       opacity: 0.4,
     },
     primaryBtnText: {
-      color: appearance.background,
+      color: appearance.foreground,
       fontSize: 14,
       fontWeight: '600',
     },

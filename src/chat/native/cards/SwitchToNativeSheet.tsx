@@ -86,7 +86,7 @@ export function SwitchToNativeSheet({
               styles.btn,
               styles.btnPrimary,
               busy ? styles.btnDisabled : null,
-              pressed ? styles.btnPressed : null,
+              pressed ? styles.btnPrimaryPressed : null,
             ]}
           >
             <Text style={styles.btnPrimaryLabel}>{busy ? 'Switching…' : 'Switch to Native'}</Text>
@@ -164,11 +164,12 @@ const createStyles = (appearance: Appearance) =>
     },
     btnNeutral: {
       backgroundColor: appearance.neutralFill,
-      borderWidth: 1,
-      borderColor: appearance.border,
     },
     btnPrimary: {
-      backgroundColor: appearance.foreground,
+      backgroundColor: appearance.primaryFill,
+    },
+    btnPrimaryPressed: {
+      backgroundColor: appearance.primaryFillPressed,
     },
     btnNeutralLabel: {
       fontSize: 14,
@@ -178,10 +179,10 @@ const createStyles = (appearance: Appearance) =>
     btnPrimaryLabel: {
       fontSize: 14,
       fontWeight: '600',
-      color: appearance.background,
+      color: appearance.foreground,
     },
     btnPressed: {
-      opacity: 0.8,
+      backgroundColor: appearance.neutralFillPressed,
     },
     btnDisabled: {
       opacity: 0.5,

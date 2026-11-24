@@ -13,7 +13,7 @@ import { useRef, useState } from 'react';
 import { type GestureResponderEvent, type LayoutChangeEvent, StyleSheet, View, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { GhostexPalette } from '../theme/palette';
+import { useAppearance } from '../theme/useAppearance';
 import { cancelVoiceTalking, setVoiceTalking, useVoiceStore, voiceHoldMode } from './conversation';
 
 /** How far past the button's edge the finger may wander before it counts as slid off. */
@@ -34,6 +34,7 @@ export function WaveformGlyph({ size, color }: { size: number; color: string }) 
 
 /** `onSlide` tells the screen whether the finger is off the button, for "Release to cancel". */
 export function VoiceHoldButton({ style, onSlide }: { style: ViewStyle; onSlide: (off: boolean) => void }) {
+  const appearance = useAppearance();
   const voice = useVoiceStore();
   const mode = voiceHoldMode(voice);
   const ready = mode === 'talk' || mode === 'unmute';
@@ -117,8 +118,11 @@ export function VoiceHoldButton({ style, onSlide }: { style: ViewStyle; onSlide:
       onResponderTerminate={release}
       style={[
         style,
-        ready ? styles.ready : styles.unavailable,
-        held && (off ? styles.slidOff : styles.held),
+        ready ? { backgroundColor: appearance.primaryFill } : styles.unavailable,
+        held &&
+          (off
+            ? [styles.slidOff, { backgroundColor: appearance.dangerFill, borderColor: appearance.danger }]
+            : [styles.held, { backgroundColor: appearance.primaryFillPressed, borderColor: appearance.border }]),
       ]}
     >
       <View pointerEvents="none">
@@ -126,10 +130,10 @@ export function VoiceHoldButton({ style, onSlide }: { style: ViewStyle; onSlide:
           size={34}
           color={
             held && off
-              ? GhostexPalette.DANGER
+              ? appearance.danger
               : ready || held
-                ? GhostexPalette.ACCENT_FOREGROUND
-                : GhostexPalette.MUTED
+                ? appearance.foreground
+                : appearance.muted
           }
         />
       </View>
@@ -138,18 +142,13 @@ export function VoiceHoldButton({ style, onSlide }: { style: ViewStyle; onSlide:
 }
 
 const styles = StyleSheet.create({
-  ready: { backgroundColor: GhostexPalette.ACCENT },
   unavailable: { opacity: 0.35 },
   held: {
-    backgroundColor: '#BAE6FD',
     transform: [{ scale: 0.96 }],
-    borderWidth: 3,
-    borderColor: 'rgba(125, 211, 252, 0.45)',
+    borderWidth: 2,
   },
   slidOff: {
-    backgroundColor: '#3a2a2a',
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: 'rgba(232, 92, 92, 0.6)',
   },
 });

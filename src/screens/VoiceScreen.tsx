@@ -704,7 +704,7 @@ export default function VoiceScreen({ navigation }: Props) {
               >
                 <MicrophoneGlyph
                   size={30}
-                  color={voice.muted ? appearance.accentForeground : appearance.foreground}
+                  color={appearance.foreground}
                   crossed={voice.muted}
                 />
                 <Text style={[styles.controlLabel, voice.muted && styles.controlLabelOn]}>
@@ -721,10 +721,10 @@ export default function VoiceScreen({ navigation }: Props) {
                 <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M 3 14 c 5 -5 13 -5 18 0 l -2 3 l -4 -1.5 v -2.5 c -2 -0.6 -4 -0.6 -6 0 v 2.5 l -4 1.5 z"
-                    fill={appearance.accentForeground}
+                    fill="#ffffff"
                   />
                 </Svg>
-                <Text style={[styles.controlLabel, styles.controlLabelOn]}>Hang up</Text>
+                <Text style={[styles.controlLabel, styles.hangUpLabel]}>Hang up</Text>
               </Pressable>
             </View>
           ) : (
@@ -745,7 +745,7 @@ export default function VoiceScreen({ navigation }: Props) {
                     )
                   }
                 >
-                  <HeadsetGlyph size={30} color={appearance.accentForeground} />
+                  <HeadsetGlyph size={30} color={appearance.foreground} />
                   <Text style={[styles.controlLabel, styles.controlLabelOn]}>Talk again</Text>
                 </Pressable>
               ) : null}
@@ -876,18 +876,19 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     flex: 1,
     minHeight: 96,
     borderRadius: GhostexRadii.section,
-    backgroundColor: appearance.cardActive,
+    backgroundColor: appearance.neutralFill,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 10,
   },
   wide: { minHeight: 72 },
-  controlOn: { backgroundColor: appearance.accent },
+  controlOn: { backgroundColor: appearance.primaryFill },
   controlPressed: { opacity: 0.75 },
   controlDisabled: { opacity: 0.35 },
   controlLabel: { color: appearance.foreground, fontSize: 17, fontWeight: '600', textAlign: 'center' },
-  controlLabelOn: { color: appearance.accentForeground },
+  controlLabelOn: { color: appearance.foreground },
   hangUp: { backgroundColor: appearance.danger },
+  hangUpLabel: { color: '#ffffff' },
   hangUpPressed: { transform: [{ scale: 0.98 }] },
 });

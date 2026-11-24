@@ -585,10 +585,10 @@ const useStyles = themedStyles((P) => ({
   },
   pressed: { backgroundColor: P.neutralFillPressed },
   disabled: { opacity: 0.5 },
-  primary: { backgroundColor: P.foreground },
-  primaryPressed: { opacity: 0.8 },
+  primary: { backgroundColor: P.primaryFill },
+  primaryPressed: { backgroundColor: P.primaryFillPressed },
   buttonText: { color: P.foreground, fontSize: 14, fontWeight: '600' as const },
-  primaryText: { color: P.background },
+  primaryText: { color: P.foreground },
   mentionPopup: {
     borderRadius: 12,
     borderWidth: 1,

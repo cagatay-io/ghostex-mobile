@@ -499,13 +499,13 @@ function createStyles(appearance: Appearance) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 10,
-      backgroundColor: 'rgba(255,255,255,0.08)',
+      backgroundColor: appearance.neutralFill,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.3)',
+      borderColor: appearance.border,
     },
     chipSelected: {
-      backgroundColor: GhostexPalette.ACCENT,
-      borderColor: 'transparent',
+      backgroundColor: appearance.primaryFill,
+      borderColor: appearance.foreground,
     },
     chipLabel: {
       fontSize: 11,
@@ -513,7 +513,7 @@ function createStyles(appearance: Appearance) {
       color: appearance.foreground,
     },
     chipLabelSelected: {
-      color: GhostexPalette.ACCENT_FOREGROUND,
+      color: appearance.foreground,
     },
     chipAdd: {
       backgroundColor: 'transparent',

@@ -234,15 +234,15 @@ function createStyles(appearance: Appearance, opaque: boolean) {
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 7,
-      backgroundColor: appearance.foreground,
+      backgroundColor: appearance.primaryFill,
     },
     primaryPressed: {
-      opacity: 0.82,
+      backgroundColor: appearance.primaryFillPressed,
     },
     primaryLabel: {
       fontSize: 12.5,
       fontWeight: '600',
-      color: appearance.card,
+      color: appearance.foreground,
     },
     buttonPressed: {
       opacity: 0.72,

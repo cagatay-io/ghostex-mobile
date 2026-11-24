@@ -296,8 +296,8 @@ const createSheetStyles = (appearance: Appearance) => StyleSheet.create({
     backgroundColor: appearance.neutralFillPressed,
   },
   chipSelected: {
-    backgroundColor: appearance.accent,
-    borderColor: appearance.accent,
+    backgroundColor: appearance.primaryFill,
+    borderColor: appearance.foreground,
   },
   chipLabel: {
     color: appearance.muted,
@@ -305,6 +305,6 @@ const createSheetStyles = (appearance: Appearance) => StyleSheet.create({
     fontWeight: '600',
   },
   chipLabelSelected: {
-    color: appearance.accentForeground,
+    color: appearance.foreground,
   },
 });

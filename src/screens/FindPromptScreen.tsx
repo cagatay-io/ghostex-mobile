@@ -338,13 +338,13 @@ function buildStyles(appearance: Appearance) {
     primary: {
       ...button,
       flex: 1.4,
-      backgroundColor: appearance.foreground,
+      backgroundColor: appearance.primaryFill,
     },
     primaryPressed: {
-      opacity: 0.75,
+      backgroundColor: appearance.primaryFillPressed,
     },
     primaryLabel: {
-      color: appearance.background,
+      color: appearance.foreground,
       fontSize: 14,
       fontWeight: '700',
     },
