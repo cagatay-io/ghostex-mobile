@@ -55,7 +55,11 @@ export type QuietSegment = { text: string; color?: string };
 
 /** The mark for calls that are all answered: the cross when one of `messages`' calls failed, else the check. */
 export function finishedMark(messages: readonly ProjectedMessage[]): QuietMark {
-  const failed = messages.some((message) => arr(message.tools).some((tool) => obj(tool)?.failed === true));
+  const failed = messages.some(
+    (message) =>
+      arr(message.tools).some((tool) => obj(tool)?.failed === true) ||
+      arr(message.files).some((file) => obj(file)?.failed === true),
+  );
   return failed ? 'failed' : 'done';
 }
 
