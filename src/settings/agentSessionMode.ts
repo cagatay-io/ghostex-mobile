@@ -19,13 +19,14 @@ import { machineNameById } from '../machines/store';
 const CALL_TIMEOUT_MS = 12_000;
 
 export type AgentSessionMode = 'agent-cli' | 'non-cli';
-export type NativeModeFamily = 'claude' | 'codex' | 'antigravity' | 'opencode';
+export type NativeModeFamily = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'grok';
 
 export const NATIVE_MODE_AGENTS: readonly { family: NativeModeFamily; label: string }[] = [
   { family: 'claude', label: 'Claude Code' },
   { family: 'codex', label: 'Codex' },
   { family: 'antigravity', label: 'Antigravity' },
   { family: 'opencode', label: 'OpenCode' },
+  { family: 'grok', label: 'Grok Build' },
 ];
 
 export const SESSION_MODE_OPTIONS: readonly { value: AgentSessionMode; label: string }[] = [
@@ -51,6 +52,9 @@ export function canonicalNativeModeFamily(raw: string): NativeModeFamily | null 
     case 'opencode':
     case 'opencode-cli':
       return 'opencode';
+    case 'grok':
+    case 'grok-build':
+      return 'grok';
     default:
       return null;
   }
