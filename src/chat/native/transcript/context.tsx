@@ -537,7 +537,8 @@ export function transcriptFlags(document: ChatDocument | null): TranscriptFlags 
     starredPages: new Set(arr(document.starredPages).filter((id): id is string => typeof id === 'string')),
     canceledQuestions: new Set(
       (document.openQuestions?.sections ?? []).flatMap((section) =>
-        section.rows.filter((row) => row.status === 'canceled').map((row) => row.id),
+        // A seen-only page cleared from the Inbox lists as `seen`; its card reads Seen (`PageCard`).
+        section.rows.filter((row) => row.status === 'canceled' || row.status === 'seen').map((row) => row.id),
       ),
     ),
     savedPrompts: obj(document.savedPrompts) === null ? {} : document.savedPrompts,

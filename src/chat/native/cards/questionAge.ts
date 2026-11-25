@@ -53,9 +53,11 @@ export function removeAction(
   return { label: 'Remove without answering', glyph: 'x', action: { type: 'questionRemove', id } };
 }
 
-/** The word a row carries before its age: "For later" or "Canceled" (desktop `status_label`). */
+/** The word a row carries before its age: "For later", "Seen" (a page that only waited to be seen,
+ * done with: gx-chat-core `SEEN_STATUS`) or "Canceled" (desktop `status_label`). */
 export function statusLabel(status: string | undefined): string | null {
   if (status === 'later') return 'For later';
+  if (status === 'seen') return 'Seen';
   if (status === 'canceled') return 'Canceled';
   return null;
 }

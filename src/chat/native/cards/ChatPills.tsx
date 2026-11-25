@@ -372,7 +372,8 @@ function QuestionsSection({
       {folded ? null : (
         <>
           {section.rows.map((row) => {
-            const answered = row.status === 'answered';
+            // A page marked Seen wears the answered rows' green (gx-chat-core `SEEN_STATUS`).
+            const answered = row.status === 'answered' || row.status === 'seen';
             const withdrawn = row.status === 'withdrawn' || row.status === 'canceled';
             const age = rowAge(row, now);
             const label = statusLabel(row.status);

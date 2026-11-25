@@ -1285,11 +1285,11 @@ export type QuestionListRow = {
   /** Epoch milliseconds it was asked at, when the transcript says. */
   atMs?: number | null;
   /**
-   * Where it stands: `waiting`, `later` (put off For later, still unanswered), `answered`,
-   * `withdrawn`, `canceled` (removed by the reader without an answer), or `other` for a page or
-   * chart that asks nothing.
+   * Where it stands: `waiting`, `later` (put off For later, still unanswered), `answered`, `seen`
+   * (a page that only waited to be seen, done with), `withdrawn`, `canceled` (removed by the reader
+   * without an answer), or `other` for a page or chart that asks nothing.
    */
-  status?: 'waiting' | 'later' | 'answered' | 'withdrawn' | 'canceled' | 'other';
+  status?: 'waiting' | 'later' | 'answered' | 'seen' | 'withdrawn' | 'canceled' | 'other';
   /** The thread that posted this page, on a row of a coordinator's Thread pages group. */
   thread?: string;
   /** A page the reader starred: the row shows a yellow star (Resources' Starred filter lists it). */
