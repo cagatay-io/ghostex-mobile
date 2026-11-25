@@ -4,12 +4,14 @@
  * scrolled to the newest. The core owns what is listed, the search, the filters, the paging and
  * where a jump lands (`gx-chat-core` `composer/sent_history.rs`, where the user's decision lives).
  *
- * A tap on a card jumps to its message in the transcript. Holding a card shows its actions, the
- * phone's long-press rule for message actions (user decision 2026-10-12), each with its name: Copy,
- * then the desktop ⋯ menu's rows in its order (CDXC:SessionChat 2026-11-26 in
+ * A tap on a card closes the sheet and puts its message in the chat box, after a blank line when
+ * the box has words already (CDXC:SessionChat 2026-11-26 DECISION in `native_chat/sent_history.rs`:
+ * Q5024 A, Q5025 C). Holding a card shows its actions, the phone's long-press rule for message
+ * actions (user decision 2026-10-12), each with its name: Copy and Jump to message (the desktop
+ * card's buttons), then the desktop ⋯ menu's rows in its order (CDXC:SessionChat 2026-11-26 in
  * `native_chat/sent_history.rs`): Copy reference and Reference in chat (a numbered message), Put
  * back in the chat box (the pencil, since the back arrow is Rewind's), then Rewind to here and Fork
- * from here, the same actions a message's own menu runs (`MessageActions.tsx`). A tap is the jump.
+ * from here, the same actions a message's own menu runs (`MessageActions.tsx`).
  *
  * CDXC:SessionChat 2026-11-26 WHY: the user found History slow to open (the core's decision on it is
  * in `composer/sent_history.rs`). The cards are an inverted list, so only the newest ones on screen
@@ -115,7 +117,7 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
             onPress={() => {
               setHeld(null);
               close();
-              dispatch({ type: 'sentHistoryJump', messageId: item.id, timestamp: item.timestamp });
+              dispatch({ type: 'appendToDraft', text: item.draft, draft: chat.state?.composer.text ?? '' });
             }}
             onLongPress={() => setHeld(held === item.id ? null : item.id)}
           >
@@ -127,6 +129,15 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
                   const id = item.id;
                   void Clipboard.setStringAsync(item.copyText).then(() => setCopied(id));
                 }}
+              />
+              <ChatButton
+                label="Jump to message"
+                icon="arrow-up-right"
+                onPress={() =>
+                  run(item, () =>
+                    dispatch({ type: 'sentHistoryJump', messageId: item.id, timestamp: item.timestamp }),
+                  )
+                }
               />
               {item.referenceLink ? (
                 <ChatButton
@@ -149,7 +160,7 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
               <ChatButton
                 label="Put back in the chat box"
                 icon="pencil"
-                onPress={() => run(item, () => dispatch({ type: 'appendToDraft', text: item.draft }))}
+                onPress={() => run(item, () => dispatch({ type: 'appendToDraft', text: item.draft, draft: chat.state?.composer.text ?? '' }))}
               />
               {canRewind ? (
                 <ChatButton
@@ -185,7 +196,7 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
           onEndReached={() => {
             if (history.hasMore && !history.loadingMore) dispatch({ type: 'sentHistoryMore' });
           }}
-          ListFooterComponent={<Text style={styles.hint}>Tap a card to jump to it; hold it for its actions.</Text>}
+          ListFooterComponent={<Text style={styles.hint}>Tap a card to put it in the chat box; hold it for its actions.</Text>}
         />
       </ChatImagesProvider>
     );
@@ -258,7 +269,7 @@ function SentCard({
     <View style={[styles.card, held && styles.cardHeld]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Jump to your message: ${item.preview}`}
+        accessibilityLabel={`Put in the chat box: ${item.preview}`}
         accessibilityHint="Hold for its actions"
         onPress={onPress}
         onLongPress={onLongPress}

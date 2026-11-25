@@ -113,6 +113,7 @@ const GLYPHS = {
     ],
   },
   'arrow-down-left': { paths: ['M17 7l-10 10', 'M16 17l-9 0l0 -9'] },
+  'arrow-up-right': { paths: ['M17 7l-10 10', 'M8 7l9 0l0 9'] },
   'chevron-left': { paths: ['M15 6l-6 6l6 6'] },
   'chevron-up': { paths: ['M6 15l6-6l6 6'] },
   'message-circle': {
