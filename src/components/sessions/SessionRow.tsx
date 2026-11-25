@@ -506,6 +506,9 @@ export default function SessionRow({
   const foldLead = machineFold?.role === 'lead' ? machineFold : null;
   const foldChild = machineFold?.role === 'child' ? machineFold : null;
   const inkStyle = inkStyles(ink);
+  // The merged tone of the links badge, the theme's own (`linkBadgeColor`; desktop
+  // `session_link_badge_color` picks its light value on a light sidebar too).
+  const mergeBadgeColor = linkBadgeColor(SidebarPalette.WORK_MERGED, ink.light);
   const iconId = resolveAgentArtId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   const iconSize = iconId === 'terminal' || iconId === 'browser' ? ds(15) : ds(13);
@@ -839,9 +842,9 @@ export default function SessionRow({
                   }}
                   style={({ pressed }) => [styles.mergeBadge, pressed ? styles.mergeBadgePressed : null]}
                 >
-                  <ChipGlyph glyph="merged" color={MERGE_BADGE_COLOR} size={ds(12)} />
+                  <ChipGlyph glyph="merged" color={mergeBadgeColor} size={ds(12)} />
                   {prNumber !== null ? (
-                    <Text style={[styles.linksBadgeText, { color: MERGE_BADGE_COLOR }]}>{`#${prNumber}`}</Text>
+                    <Text style={[styles.linksBadgeText, { color: mergeBadgeColor }]}>{`#${prNumber}`}</Text>
                   ) : null}
                 </Pressable>
               ) : null}
@@ -960,9 +963,6 @@ export default function SessionRow({
     </Animated.View>
   );
 }
-
-/** The merged tone of the links badge (`linkBadgeColor`), which the merge badge keeps. */
-const MERGE_BADGE_COLOR = linkBadgeColor(SidebarPalette.WORK_MERGED);
 
 const styles = StyleSheet.create({
   /** A linked badge: bare text in the crew count's size (`coordinatorBadgeCount`, desktop `session_links_badge_body`). */
