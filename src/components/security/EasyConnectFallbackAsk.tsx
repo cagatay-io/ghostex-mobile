@@ -10,7 +10,7 @@ import {
   dismissFallbackAsk,
   useEasyConnectFallbackAsk,
 } from '../../machines/easyConnectFallbackAsk';
-import { machineDisplayLabel, useMachinesStore } from '../../machines/store';
+import { machineDisplayLabel, sshRouteLabel, useMachinesStore } from '../../machines/store';
 import ConfirmDialog from '../common/ConfirmDialog';
 
 export default function EasyConnectFallbackAsk() {
@@ -26,7 +26,7 @@ export default function EasyConnectFallbackAsk() {
     <ConfirmDialog
       visible
       title={EasyConnectFallbackCopy.askTitle}
-      body={EasyConnectFallbackCopy.askBody(name)}
+      body={EasyConnectFallbackCopy.askBody(name, sshRouteLabel(machine))}
       confirmLabel={EasyConnectFallbackCopy.yes}
       cancelLabel={EasyConnectFallbackCopy.no}
       equalButtons

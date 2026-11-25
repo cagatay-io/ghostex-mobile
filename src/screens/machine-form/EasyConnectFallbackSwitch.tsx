@@ -19,7 +19,7 @@ import {
   useEasyConnectOn,
 } from '../../machines/easyConnectRoute';
 import { addEasyConnect, useSshPairings } from '../../machines/sshPairing';
-import type { MachineRecord } from '../../machines/store';
+import { sshRouteLabel, type MachineRecord } from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
 import { useFormStyles } from './styles';
 
@@ -53,15 +53,17 @@ export function EasyConnectFallbackSwitch({
   const hasRoute = machine.easyConnectPairedAt !== undefined;
   const asking = pairing?.easyConnect === true && (pairing.phase === 'asking' || pairing.phase === 'pending');
   const on = choice === 'yes';
+  // A plain SSH pairing has no Tailscale in it: the words name SSH (Tailscale only when it is the route).
+  const via = sshRouteLabel(machine);
   const detail =
     choice === undefined
-      ? EasyConnectFallbackCopy.undecided
+      ? EasyConnectFallbackCopy.undecided(via)
       : !on
-        ? EasyConnectFallbackCopy.off
+        ? EasyConnectFallbackCopy.off(via)
         : easyConnectOn === false
           ? EasyConnectFallbackCopy.computerOff(name)
           : hasRoute
-            ? EasyConnectFallbackCopy.on
+            ? EasyConnectFallbackCopy.on(via)
             : asking
               ? EasyConnectFallbackCopy.waiting(name)
               : EasyConnectFallbackCopy.notAdded(name);

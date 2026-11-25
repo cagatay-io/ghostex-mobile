@@ -64,7 +64,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     page: 'theme',
     section: 'settings:theme:copy-computer',
     title: 'Copy from a computer',
-    description: 'Pick a paired Mac or PC, preview its swatches, and copy its theme once to this phone.',
+    description: 'Pick a paired computer, preview its swatches, and copy its theme once to this phone.',
     keywords: ['interface', 'sync theme', 'copy theme', 'pc theme', 'mac theme'],
   },
   {

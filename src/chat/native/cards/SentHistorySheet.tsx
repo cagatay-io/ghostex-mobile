@@ -203,7 +203,7 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
               setQuery(text);
               dispatch({ type: 'sentHistoryFilter', text });
             }}
-            placeholder="Search your messages, or type M3"
+            placeholder={history.searchPlaceholder || 'Search your messages'}
             placeholderTextColor={P.muted}
             autoCorrect={false}
             autoCapitalize="none"

@@ -161,7 +161,7 @@ export function CopyComputerThemeSheet({ visible, onClose, onCopied }: CopyCompu
         {candidates.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No paired computers yet</Text>
-            <Text style={styles.emptyDetail}>Connect a Mac or PC first, then come back here to copy its theme.</Text>
+            <Text style={styles.emptyDetail}>Connect a computer first, then come back here to copy its theme.</Text>
           </View>
         ) : (
           <View style={styles.machineList}>

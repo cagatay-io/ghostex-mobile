@@ -1338,7 +1338,7 @@ export default function ThemePage() {
             <View style={settingsStyles.linkText}>
               <Text style={settingsStyles.linkTitle}>Copy from a computer…</Text>
               <Text style={settingsStyles.linkDescription}>
-                {copiedNote ?? 'Pick a paired Mac or PC and preview its look.'}
+                {copiedNote ?? 'Pick a paired computer and preview its look.'}
               </Text>
             </View>
             <Text style={settingsStyles.chevron}>›</Text>

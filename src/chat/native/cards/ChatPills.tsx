@@ -794,7 +794,11 @@ export function PillMenuSheet({
             ? 'Autopilot'
             : open === QUALITY_PILL
               ? 'Coordinator quality'
-              : (shown?.label ?? (open === 'board' ? 'Work' : ''))
+              : open === 'board'
+                ? // The panel's own name: the line under it carries the counts (the Work pill's
+                  // label repeats them, "Work · 9 pings · 1 in progress").
+                  boardTitle(document)
+                : (shown?.label ?? '')
       }
       subtitle={open === 'approvals' && shown !== undefined ? approvalsWaitingLine(document) : undefined}
       accessory={
@@ -1061,3 +1065,9 @@ const useStyles = themedStyles((P) => ({
   filterCount: { marginLeft: 'auto', color: P.cardMuted, fontSize: 13, fontVariant: ['tabular-nums'] },
   questionsMeta: { flexShrink: 0, maxWidth: 110, color: P.muted, fontSize: 13, fontVariant: ['tabular-nums'] },
 }));
+
+/** The Work sheet's title: "Work", or "Board" from an older gxserver (gx-chat-core `coordinator_board`). */
+function boardTitle(document: ChatDocument): string {
+  const title = obj(document.coordinatorBoard)?.title;
+  return typeof title === 'string' && title.length > 0 ? title : 'Work';
+}

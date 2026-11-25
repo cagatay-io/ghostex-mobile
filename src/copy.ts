@@ -484,14 +484,15 @@ export const RouteNameCopy = {
  */
 export const EasyConnectFallbackCopy = {
   askTitle: 'Fall back to Easy Connect?',
-  askBody: (computer: string) =>
-    `When Tailscale can't reach ${computer}, this phone can connect through Easy Connect instead. Easy Connect also runs on Tailscale's tailcat network. You can change this later on ${computer}'s page in Machines.`,
+  /** `via` is how this phone reaches the computer otherwise: "Tailscale", or "SSH" for a plain SSH pairing. */
+  askBody: (computer: string, via: string) =>
+    `When ${via} can't reach ${computer}, this phone can connect through Easy Connect instead. Easy Connect ${via === 'Tailscale' ? 'also ' : ''}runs on Tailscale's tailcat network. You can change this later on ${computer}'s page in Machines.`,
   yes: 'Fall back',
   no: "Don't fall back",
   label: 'Fall back to Easy Connect',
-  on: "When Tailscale can't reach it, this phone connects through Easy Connect.",
-  off: 'Off. This phone connects over Tailscale only.',
-  undecided: "Not chosen yet. On: when Tailscale can't reach it, this phone connects through Easy Connect.",
+  on: (via: string) => `When ${via} can't reach it, this phone connects through Easy Connect.`,
+  off: (via: string) => `Off. This phone connects over ${via} only.`,
+  undecided: (via: string) => `Not chosen yet. On: when ${via} can't reach it, this phone connects through Easy Connect.`,
   waiting: (computer: string) => `Asking ${computer} to add this phone to Easy Connect.`,
   notAdded: (computer: string) => `${computer} hasn't added this phone to Easy Connect yet.`,
   computerOff: (computer: string) =>

@@ -1345,6 +1345,8 @@ export type SentHistoryState = {
   hasMore: boolean;
   caption: string;
   emptyLabel: string;
+  /** The search field's hint, naming a message number the list holds (absent from older cores). */
+  searchPlaceholder?: string;
   /** Where the transcript scrolls, once per `revision`. */
   jump: { item: number; revision: number } | null;
 };
