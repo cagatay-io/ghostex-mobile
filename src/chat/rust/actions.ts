@@ -39,8 +39,9 @@ export type ActionFields = {
   coordinatorBoardMore: { group: string };
   /** A board card's reference put in the chat box at the caret, so the user can comment on it. */
   insertBoardReference: { reference: string; text: string; start?: number; end?: number };
-  /** One of a board card's answers, sent to the coordinator ("B4: Yes"). */
-  coordinatorBoardAnswer: { key: string; label: string; text: string };
+  /** One of a board card's answers, sent to the coordinator ("B4: Yes"). A pick-several ask's Send
+   * names its ticked answers in `picks` instead ("W5 Q12: macOS, Windows"). */
+  coordinatorBoardAnswer: { key: string; label: string; text: string; picks?: string[] };
   /** Run an allowlisted Ghostex command attached to an open Needs you card on the connected computer. */
   runNeedsYouCommand: { key: string; item: string; ask?: string };
   /** Stop an in-flight Needs you command running on the connected computer. */

@@ -2145,7 +2145,23 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
               </Pressable>
             );
           })}
-          {buttons.length > 0 ? (
+          {/* A pick-several ask's answers are its one Choices button, whose sheet ticks them and
+              sends them together (`WorkAnswerLine`, desktop `work_answer_buttons`). */}
+          {buttons.some((button) => isTrue(button, 'multiple')) ? (
+            <View style={styles.buttons}>
+              <WorkAnswerLine
+                answers={buttons}
+                reply={null}
+                replied=""
+                busy={busy}
+                divider={false}
+                room={0}
+                question={str(card, 'title')}
+                scope={null}
+                dispatch={dispatch as never}
+              />
+            </View>
+          ) : buttons.length > 0 ? (
             <View style={styles.buttons}>
               {buttons.map((button, index) => (
                 <ToneButton

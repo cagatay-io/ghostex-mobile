@@ -460,6 +460,85 @@ function AnswerChoices({
 }
 
 /**
+ * A pick-several ask's answers (`item ask --multiple`), one a row with a box each, the recommended
+ * ones starred, and Send at the foot with how many are ticked ("Send 2"). A row only ticks; nothing
+ * is sent until Send (desktop `pick_menu_rows`).
+ *
+ * CDXC:Coordinators 2026-11-25 DECISION:
+ * User, picking variant C "Checkboxes in the Choices menu" (question-style-page Q4933): "has to be
+ * inside choices". The card keeps its one Choices button ("Choices: 2" once some are ticked), and
+ * the boxes and Send live in its sheet. No summary of the picks shows above Send.
+ */
+function PickChoices({
+  answers,
+  ticked,
+  disabled,
+  onToggle,
+  onSend,
+}: {
+  answers: JsonRecord[];
+  ticked: string[];
+  disabled: boolean;
+  onToggle: (label: string) => void;
+  onSend: () => void;
+}) {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  const count = answers.filter((answer) => ticked.includes(str(answer, 'label'))).length;
+  const sendLabel = count > 0 ? `Send ${count}` : 'Send';
+  return (
+    <View>
+      {answers.map((answer, index) => {
+        const label = str(answer, 'label');
+        const on = ticked.includes(label);
+        const recommended = isTrue(answer, 'recommended');
+        return (
+          <Pressable
+            key={`pick:${index}`}
+            accessibilityRole="checkbox"
+            accessibilityLabel={`${label}${recommended ? ', Recommended' : ''}`}
+            accessibilityState={{ checked: on, disabled }}
+            disabled={disabled}
+            onPress={() => onToggle(label)}
+            style={({ pressed }) => [styles.choice, pressed && styles.menuRowPressed, disabled && styles.disabled]}
+          >
+            <View
+              style={[
+                styles.pickBox,
+                { borderColor: on ? P.foreground : P.ink(0.45) },
+                on && { backgroundColor: P.foreground },
+              ]}
+            >
+              {on ? <Glyph name="check" size={13} color={P.background} /> : null}
+            </View>
+            <Text style={styles.choiceText}>{label}</Text>
+            {recommended ? <Star /> : null}
+          </Pressable>
+        );
+      })}
+      <View style={[styles.pickFoot, { borderTopColor: P.ink(0.1) }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={sendLabel}
+          accessibilityState={{ disabled: disabled || count === 0 }}
+          disabled={disabled || count === 0}
+          hitSlop={WORK_BUTTON_SLOP}
+          onPress={onSend}
+          style={({ pressed }) => [
+            styles.pickSend,
+            { backgroundColor: P.foreground },
+            pressed && { opacity: 0.85 },
+            (disabled || count === 0) && styles.disabled,
+          ]}
+        >
+          <Text style={[styles.pickSendText, { color: P.background }]}>{sendLabel}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/**
  * An item's answers and its Reply on one line, never wrapped: when they do not all fit the line,
  * the answers fold into "Choose an answer" (desktop `answers_dropdown`), which opens them one a
  * row, each whole: a sheet on the dock, a list in place on the Work sheet (`chooser`), as iOS shows
@@ -537,6 +616,8 @@ export function WorkAnswerLine({
   const P = useTranscriptTheme();
   const { width, fontScale } = useWindowDimensions();
   const [choosing, setChoosing] = useState(initialChoosing);
+  // A pick-several ask's boxes ticked so far (`PickChoices`), sent together by its Send.
+  const [ticked, setTicked] = useState<string[]>([]);
   // The line's own width and each button's whole width, measured (`measured`), so the fold holds at
   // any width the window gets (split screen, a folded or unfolded foldable, a small phone) rather
   // than trusting the screen's width and a guess at the letters'.
@@ -674,6 +755,25 @@ export function WorkAnswerLine({
       />
     );
   };
+  // A pick-several ask (`item ask --multiple`) always folds into Choices, whose sheet holds a box per
+  // answer and Send; the button says how many are ticked, or were sent.
+  const multiple = answers.some((choice) => isTrue(choice, 'multiple'));
+  const sentPicks = answers.filter((choice) => isTrue(choice, 'picked')).length;
+  const pickCount = given ? sentPicks : answers.filter((choice) => ticked.includes(str(choice, 'label'))).length;
+  const chooseLabel = multiple && pickCount > 0 ? `${CHOOSE_ANSWER}: ${pickCount}` : CHOOSE_ANSWER;
+  const togglePick = (label: string) =>
+    setTicked((was) => (was.includes(label) ? was.filter((one) => one !== label) : [...was, label]));
+  const sendPicks = () => {
+    const first = answers.find((choice) => isTrue(choice, 'multiple') && obj(choice.command) !== null);
+    const command = first !== undefined ? obj(first.command) : null;
+    // In the order the sheet shows them, which is how the coordinator reads them.
+    const picks = answers.map((choice) => str(choice, 'label')).filter((label) => ticked.includes(label));
+    if (command === null || picks.length === 0 || busy || locked) return;
+    setChoosing(false);
+    before?.('answer');
+    dispatch({ ...command, picks } as never);
+    setTicked([]);
+  };
   const answerKey = (choice: JsonRecord) =>
     `answer:${str(choice, 'label')}:${isTrue(choice, 'picked')}:${isTrue(choice, 'recommended')}`;
   const replyKey = `reply:${replyLabel(replied)}`;
@@ -685,7 +785,7 @@ export function WorkAnswerLine({
   const replyAlone =
     reply !== null ? (measured[replyKey] ?? (iconOnly ? ICON_BUTTON : replyWidthOf(replied, fontScale))) : 0;
   const replyWidth = (reply !== null ? replyAlone + 6 + (divider ? 13 : 0) : 0) + contextWidth;
-  const chooseWidth = measured.choose ?? buttonWidth(CHOOSE_ANSWER, true, false, fontScale);
+  const chooseWidth = measured.choose ?? buttonWidth(chooseLabel, true, false, fontScale);
   const answersWidth = widths.reduce((sum, value) => sum + value, 0) + 6 * Math.max(0, widths.length - 1);
   // The item pills lead: the answers fold first, then the pills drop their ids, then they are one "+N".
   const fits = answersWidth + replyWidth + pillRoom[0] + logosWidth <= lineRoom;
@@ -699,7 +799,7 @@ export function WorkAnswerLine({
    * keeps its whole width, and any two or more answers that do not fit fold into Choose an answer;
    * Reply joins the list too when the line has no room for it beside the dropdown.
    */
-  const fold = !given && !fits && answers.length > 1;
+  const fold = multiple || (!given && !fits && answers.length > 1);
   const shown = fits || !given ? answers : answers.filter((choice) => isTrue(choice, 'picked'));
   const replyInList = fold && reply !== null && replied.length === 0 && chooseWidth + replyWidth > lineRoom;
   const replyFromList =
@@ -711,7 +811,15 @@ export function WorkAnswerLine({
           openWorkReply(reply, scope);
         }
       : undefined;
-  const list = (
+  const list = multiple ? (
+    <PickChoices
+      answers={answers.filter((choice) => isTrue(choice, 'multiple'))}
+      ticked={ticked}
+      disabled={busy || locked}
+      onToggle={togglePick}
+      onSend={sendPicks}
+    />
+  ) : (
     <AnswerChoices answers={answers} disabled={busy || locked} onPick={answer} onReply={replyFromList} />
   );
   const used = fold
@@ -737,7 +845,7 @@ export function WorkAnswerLine({
           </View>
         ) : null}
         <View style={styles.measureItem} onLayout={measure('choose')}>
-          <WorkButton keep label={CHOOSE_ANSWER} icon="chevron-down" onPress={() => undefined} />
+          <WorkButton keep label={chooseLabel} icon="chevron-down" onPress={() => undefined} />
         </View>
       </View>
       <View style={styles.line}>
@@ -754,10 +862,10 @@ export function WorkAnswerLine({
         {fold ? (
           <WorkButton
             keep
-            label={CHOOSE_ANSWER}
+            label={chooseLabel}
             icon={chooser === 'inline' && choosing ? 'chevron-up' : 'chevron-down'}
-            accessibilityLabel={`${CHOOSE_ANSWER}, ${plural(answers.length, 'answer', 'answers')}`}
-            disabled={busy}
+            accessibilityLabel={`${chooseLabel}, ${plural(answers.length, 'answer', 'answers')}`}
+            disabled={busy || (multiple && given)}
             onPress={() => setChoosing((was) => !was)}
           />
         ) : (
@@ -1067,6 +1175,18 @@ const useStyles = themedStyles((P) => ({
     paddingHorizontal: 16,
   },
   choiceText: { flexShrink: 1, color: P.foreground, fontSize: PROSE_SIZE + 1, lineHeight: 21 },
+  pickBox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  pickFoot: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    marginTop: 4,
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  pickSend: { minHeight: 34, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  pickSendText: { fontSize: PROSE_SIZE + 1, fontWeight: '600' },
   choiceQuestion: { paddingHorizontal: 16, paddingBottom: 8, fontSize: PROSE_SIZE, lineHeight: 20 },
   divider: { width: 1, height: 16, marginHorizontal: 3, backgroundColor: P.ink(0.1) },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 16 },
