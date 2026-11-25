@@ -5,9 +5,11 @@
  * where a jump lands (`gx-chat-core` `composer/sent_history.rs`, where the user's decision lives).
  *
  * A tap on a card jumps to its message in the transcript. Holding a card shows its actions, the
- * phone's long-press rule for message actions (user decision 2026-10-12): Copy, Put back in the
- * chat box, Copy reference and Reference in chat (a numbered message), and Fork from here and
- * Rewind to here, the same actions a message's own menu runs (`MessageActions.tsx`).
+ * phone's long-press rule for message actions (user decision 2026-10-12), each with its name: Copy,
+ * then the desktop ⋯ menu's rows in its order (CDXC:SessionChat 2026-11-26 in
+ * `native_chat/sent_history.rs`): Copy reference and Reference in chat (a numbered message), Put
+ * back in the chat box (the pencil, since the back arrow is Rewind's), then Rewind to here and Fork
+ * from here, the same actions a message's own menu runs (`MessageActions.tsx`). A tap is the jump.
  */
 
 import * as Clipboard from 'expo-clipboard';
@@ -156,11 +158,6 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
                     void Clipboard.setStringAsync(item.copyText).then(() => setCopied(id));
                   }}
                 />
-                <ChatButton
-                  label="Put back in the chat box"
-                  icon="arrow-back-up"
-                  onPress={() => run(item, () => dispatch({ type: 'appendToDraft', text: item.draft }))}
-                />
                 {item.referenceLink ? (
                   <ChatButton
                     label="Copy reference"
@@ -179,9 +176,11 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
                     }
                   />
                 ) : null}
-                {canFork ? (
-                  <ChatButton label="Fork from here" icon="git-branch" onPress={() => run(item, () => fork(item.id))} />
-                ) : null}
+                <ChatButton
+                  label="Put back in the chat box"
+                  icon="pencil"
+                  onPress={() => run(item, () => dispatch({ type: 'appendToDraft', text: item.draft }))}
+                />
                 {canRewind ? (
                   <ChatButton
                     label="Rewind to here"
@@ -190,6 +189,9 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
                       run(item, () => dispatch({ type: 'rewindOpen', messageId: item.id, prompt: item.copyText }))
                     }
                   />
+                ) : null}
+                {canFork ? (
+                  <ChatButton label="Fork from here" icon="git-branch" onPress={() => run(item, () => fork(item.id))} />
                 ) : null}
               </View>
             </SentCard>
