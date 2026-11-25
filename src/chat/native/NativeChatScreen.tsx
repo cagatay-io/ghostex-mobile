@@ -70,12 +70,12 @@ import { ChatPlacementProvider, type ChatPlacement } from './chatPlacement';
 import { PillMenuSheet } from './cards/ChatPills';
 import { SessionDetailsSheet } from './cards/SessionDetailsSheet';
 import { readExportedPage, shareExportedPage } from './cards/pageExport';
-import { ConnectionLostNotice, useConnectionLostNoticeShown } from './cards/ConnectionLostNotice';
+import { ConnectionLostNotice, SpinnerNotice, useConnectionLostNoticeShown } from './cards/ConnectionLostNotice';
 import type { BoardFocus } from './cards/CoordinatorBoard';
 import { num, obj, str } from './cards/json';
 import { remoteWorkerNotice, remoteWorkerOfAction } from './cards/remoteWorker';
 import { PILLS_IN_DOCK_BAR, PillsStrip, type PillsStripLinks } from './cards/PillsStrip';
-import { SwitchToNativeSheet } from './cards/SwitchToNativeSheet';
+import { SwitchToNativeSheet, SwitchToTerminalSheet } from './cards/SwitchToNativeSheet';
 import { SideChatBar } from './cards/SideChats';
 import { useTerminalStore } from '../../terminal/sessions';
 import { ScreenArtBackdrop } from '../../theme/ScreenArtBackdrop';
@@ -447,11 +447,83 @@ export default function NativeChatScreen({
     },
     [machine, projectId, sessionId, show, switchToNativeSource],
   );
+
+  /*
+   * CDXC:SessionChat 2026-11-25 DECISION:
+   * User (option A of the phone's Switch to Terminal-based page): the phone's Switch to Terminal-based (its More
+   * actions row and the chat box's Terminal View button on a Native chat) really switches, as the computer does,
+   * asking first in the Switch to Native sheet with the computer's words. After the confirm the chat stays on screen
+   * with its draft, "Switching to Terminal-based" sits above the chat box while the agent reopens and Send waits; it
+   * used to only show the terminal screen while the agent stayed Native.
+   * SEE-ALSO: apps/desktop/src/app/session_chat/drafts_and_attachments.rs (`ask_and_switch_non_cli_session_to_terminal`), server/src/acp/host_mode_switching.rs (`switchingHostMode`).
+   */
+  const [switchToTerminalAsked, setSwitchToTerminalAsked] = useState(false);
+  // This phone's own switch request is out.
+  const [ownTerminalSwitch, setOwnTerminalSwitch] = useState(false);
+  // gxserver's flag: any switch of this session, whoever asked (another device, the computer's bulk Turn on Native mode).
+  const serverSwitching = useInventoryStore(
+    (store) =>
+      store.inventoriesByMachineId[machine.id]?.summary?.sessions.find((entry) => entry.sessionId === sessionId)
+        ?.switchingHostMode === true,
+  );
+  // Once this phone's own switch has answered, the pushed list may still carry the raised flag for a moment: it is
+  // not read again until it has come down, or for `OWN_SWITCH_SETTLE_MS` at most.
+  const [ownSwitchSettling, setOwnSwitchSettling] = useState(false);
+  useEffect(() => {
+    if (!serverSwitching) setOwnSwitchSettling(false);
+  }, [serverSwitching]);
+  useEffect(() => {
+    if (!ownSwitchSettling) return undefined;
+    const timer = setTimeout(() => setOwnSwitchSettling(false), OWN_SWITCH_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [ownSwitchSettling]);
+  const switchingHostMode = ownTerminalSwitch || (serverSwitching && !ownSwitchSettling);
+  // Which way the switch goes, decided when it starts: one that starts on a Native chat goes to Terminal-based (the
+  // chat stops being Native before the flag comes down).
+  const nativeNow = document?.nonCliMode === true;
+  const [switchingTo, setSwitchingTo] = useState<'terminal' | 'native' | null>(null);
+  useEffect(() => {
+    if (!switchingHostMode) setSwitchingTo(null);
+    else setSwitchingTo((current) => current ?? (ownTerminalSwitch || nativeNow ? 'terminal' : 'native'));
+  }, [nativeNow, ownTerminalSwitch, switchingHostMode]);
+  const switchingToTerminal = switchingTo === 'terminal';
+
+  const openSwitchToTerminal = useCallback(
+    (fromSheet: boolean) => {
+      if (switchingHostMode) return;
+      if (fromSheet && Platform.OS === 'ios') setTimeout(() => setSwitchToTerminalAsked(true), HANDOFF_OPEN_DELAY_MS);
+      else setSwitchToTerminalAsked(true);
+    },
+    [switchingHostMode],
+  );
+
+  const confirmSwitchToTerminal = useCallback(() => {
+    setSwitchToTerminalAsked(false);
+    setOwnTerminalSwitch(true);
+    void (async () => {
+      try {
+        // `interrupt` as the computer sends it: a reply in progress stops, an idle agent has none to stop.
+        const answer = await sessionChatRpc(machine, 'switchSessionAcpToCli', {
+          projectId,
+          sessionId,
+          interrupt: true,
+          source: 'more_menu',
+          client: 'mobile',
+        });
+        if (answer.error !== null) show(answer.error.message, true, 'Could not switch to Terminal-based');
+        else show('Same chat. Switch to Native is in More actions.', false, 'Switched to Terminal-based');
+      } finally {
+        setOwnSwitchSettling(true);
+        setOwnTerminalSwitch(false);
+      }
+    })();
+  }, [machine, projectId, sessionId, show]);
   // More actions > Handoff / Export opens the chat's own dialog, the one the model menu's handoff opens.
   const exportCount = useRef(0);
   const hostAction = useCallback(
     (action: string, params: Record<string, unknown> = {}) => {
       if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
+      else if (action === 'switchToTerminalBased') openSwitchToTerminal(params.source === 'more_menu');
       else if (action === 'pickModel') setModelRequestId((current) => current + 1);
       else if (action === 'openAgentSettings') {
         openAgentClisScreen(machine.id);
@@ -532,6 +604,7 @@ export default function NativeChatScreen({
       onSwitchToTerminal,
       openHandoff,
       openSwitchToNative,
+      openSwitchToTerminal,
       cancelSwitchToNative,
       document?.nativeSwitch,
       projectId,
@@ -817,6 +890,9 @@ export default function NativeChatScreen({
               {/* The working card in its own row right above the cards and the composer. */}
               {document === null ? null : <WorkingCard document={document} hidden={dockShown || workedLineSpent} />}
               <NativeChatCards chat={chat} onHostAction={hostAction} />
+              {switchingToTerminal ? (
+                <SpinnerNotice title="Switching to Terminal-based" gapBelow={STACK_GAP - COMPOSER_TOP_PADDING} />
+              ) : null}
               {!composerShown ? null : (
                 <View
                   onLayout={(event) => {
@@ -838,6 +914,7 @@ export default function NativeChatScreen({
                     voiceCallGbotName={chatGbot?.name}
                     sleeping={sleeping}
                     voiceAgent={voiceAgent}
+                    holdSend={switchingToTerminal}
                     {...(composerRoom !== undefined ? { room: composerRoom } : {})}
                     {...(document !== null
                       ? {
@@ -904,6 +981,12 @@ export default function NativeChatScreen({
                 onCancel={() => setSwitchToNativeOffer(null)}
                 onConfirm={confirmSwitchToNative}
               />
+              <SwitchToTerminalSheet
+                visible={switchToTerminalAsked}
+                working={document?.working === true}
+                onCancel={() => setSwitchToTerminalAsked(false)}
+                onConfirm={confirmSwitchToTerminal}
+              />
               <HandoffSheet
                 request={handoff}
                 machine={machine}
@@ -968,6 +1051,9 @@ export default function NativeChatScreen({
 }
 
 const NO_HOST_ACTIONS: readonly string[] = [];
+
+/** Longest a raised `switchingHostMode` is ignored after this phone's own switch answered (the list's push lag). */
+const OWN_SWITCH_SETTLE_MS = 8_000;
 
 /** The More actions rows (once the top bar menu's) whose action presents a dialog or an alert over the chat. */
 // `sessionMenu`: the rows shared with the long-press menu, which open alerts and sheets of the screen

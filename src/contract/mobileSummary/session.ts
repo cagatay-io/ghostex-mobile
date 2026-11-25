@@ -145,6 +145,8 @@ export type GhostexSession = {
   isMainCoordinator: boolean;
   /** The computer's Chief: drawn as the Chief row under the Spaces tabs (contract/chief.ts). */
   isChief: boolean;
+  /** gxserver is switching it between Native and Terminal-based (`switchingHostMode`): its chat keeps its view and says so above the chat box. */
+  switchingHostMode?: boolean;
   /** A GBot's chat (`gbotsChat`), while GBots are on: drawn under its bot's row (contract/gbots.ts). */
   gbotsChat?: GhostexGbotsChat;
   /**

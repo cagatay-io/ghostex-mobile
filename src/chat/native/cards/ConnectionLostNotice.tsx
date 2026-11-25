@@ -52,7 +52,6 @@ export function ConnectionLostNotice({
   document: ChatDocument | null;
   gapBelow?: number;
 }) {
-  const theme = useTranscriptTheme();
   const lost = useConnectionLost(machine, active);
   const box = useCloudBoxesStore((state) => {
     const boxId = boxIdOfMachine(machine.id);
@@ -68,6 +67,15 @@ export function ConnectionLostNotice({
   if (!lost || (box !== null && wakesOnSend(box.state))) return null;
   const title = `Reconnecting to ${computer}…`;
   const bottomPad = explicitGapBelow ?? (document === null ? STACK_GAP : gapBelow(document));
+  return <SpinnerNotice title={title} gapBelow={bottomPad} />;
+}
+
+/**
+ * The one-line card with a spinner this notice draws, in its own row: also the chat's
+ * "Switching to Terminal-based" while the agent reopens (`NativeChatScreen.tsx`).
+ */
+export function SpinnerNotice({ title, gapBelow: bottomPad }: { title: string; gapBelow: number }) {
+  const theme = useTranscriptTheme();
   return (
     <View
       style={[styles.row, { paddingBottom: bottomPad }]}

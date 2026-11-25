@@ -445,7 +445,11 @@ export function moreActionsRows({
             label: document.nonCliMode === true ? 'Switch to Terminal-based' : 'Terminal View',
             iconPath: 'titlebar/terminal-2.svg',
             ...(issue === null ? {} : { description: issue }),
-            command: { type: 'composerHost', action: 'terminalView' },
+            // On a Native chat the row really switches, after the chat screen's sheet asks (`SwitchToTerminalSheet`).
+            command:
+              document.nonCliMode === true
+                ? { type: 'host', action: 'switchToTerminalBased', source: 'more_menu' }
+                : { type: 'composerHost', action: 'terminalView' },
           });
           if (issue !== null) {
             rows.push({ label: 'Copy Report', iconPath: 'titlebar/copy.svg', command: { type: 'copyReport' } });

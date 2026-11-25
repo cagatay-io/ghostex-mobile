@@ -156,6 +156,11 @@ export type NativeComposerProps = {
    * action starts a conversation or opens the running one, which keeps the button lit wherever it was started).
    */
   voiceAgent?: boolean;
+  /**
+   * The agent is reopening in another mode (`switchingHostMode`): Send waits, dimmed, and the draft stays until it
+   * is done.
+   */
+  holdSend?: boolean;
 };
 
 const DEFAULT_HOST_ACTIONS: readonly string[] = ['terminalView'];
@@ -219,6 +224,7 @@ export function NativeComposer({
   renderStrip,
   sleeping = false,
   voiceAgent = false,
+  holdSend = false,
 }: NativeComposerProps) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -604,6 +610,10 @@ export function NativeComposer({
           // Settings › Voice, on this chat's computer (NativeChatScreen opens it).
           if (chat.machine !== null) host('voiceSettings', { machineId: chat.machine.id });
           return;
+        case 'terminalView':
+          // On a Native chat the Terminal View button really switches, after the chat screen's sheet asks.
+          host(document?.nonCliMode === true ? 'switchToTerminalBased' : 'terminalView', { source: 'button' });
+          return;
         case 'stashPrompt':
           if (model !== null && model.text.trim().length > 0) {
             dispatch({
@@ -619,7 +629,7 @@ export function NativeComposer({
           host(action);
       }
     },
-    [dictation, dispatch, host, model, openAttach, serves],
+    [dictation, dispatch, document?.nonCliMode, host, model, openAttach, serves],
   );
 
   /** A menu row's command, routed the way desktop's `handle_action` routes it. */
@@ -633,7 +643,7 @@ export function NativeComposer({
           return false;
         }
         case 'submit':
-          input?.submit((str(command, 'mode') || 'send') as SubmitMode);
+          if (!holdSend) input?.submit((str(command, 'mode') || 'send') as SubmitMode);
           return false;
         case 'composerHost':
           // Attach swaps this sheet's rows for the Attach rows; closing it would close those too.
@@ -687,7 +697,7 @@ export function NativeComposer({
           return false;
       }
     },
-    [dispatch, host, input, model, openAttach, performComposerAction, serves],
+    [dispatch, holdSend, host, input, model, openAttach, performComposerAction, serves],
   );
 
   const launchPick = useCallback(
@@ -930,6 +940,7 @@ export function NativeComposer({
 
   const submitDraft = useCallback(
     (requested: SubmitMode, options?: { bypassCompactPrompt?: boolean }): boolean => {
+      if (holdSend) return false;
       if (chat.machine !== null) markDraftTouched(attachSessionKey(chat.machine.id, sessionId));
       const from = chat.machine;
       const hasPendingMove =
@@ -1025,6 +1036,7 @@ export function NativeComposer({
       document?.selectedOptions,
       document?.sessionAgentId,
       draftCoordinatorMode,
+      holdSend,
       input,
       onHostAction,
       pendingMoveInFlight,
@@ -1333,7 +1345,7 @@ export function NativeComposer({
                         <SendControl
                           document={document}
                           hasDraft={hasDraft || draftCoordinatorMode}
-                          ready={model.ready}
+                          ready={model.ready && !holdSend}
                           submit={submitDraft}
                           dispatch={dispatch}
                           onHold={openSendMenu}
@@ -1436,7 +1448,7 @@ export function NativeComposer({
                       <SendControl
                         document={document}
                         hasDraft={hasDraft || draftCoordinatorMode}
-                        ready={model.ready}
+                        ready={model.ready && !holdSend}
                         submit={submitDraft}
                         dispatch={dispatch}
                         onHold={openSendMenu}
@@ -1470,7 +1482,7 @@ export function NativeComposer({
                   <SendControl
                     document={document}
                     hasDraft={hasDraft || draftCoordinatorMode}
-                    ready={model.ready}
+                    ready={model.ready && !holdSend}
                     submit={submitDraft}
                     dispatch={dispatch}
                     onHold={openSendMenu}

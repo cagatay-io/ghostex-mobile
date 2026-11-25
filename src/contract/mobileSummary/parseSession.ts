@@ -273,6 +273,7 @@ export function parseSession(value: unknown): GhostexSession | null {
     isCoordinator: trimmedValue(value, 'coordinatorRole') === 'coordinator',
     isMainCoordinator: trimmedValue(value, 'coordinatorRole') === 'coordinator' && value.isMainCoordinator === true,
     isChief: value.isChief === true,
+    ...(value.switchingHostMode === true ? { switchingHostMode: true } : {}),
     gbotsChat: parseGbotsChat(value.gbotsChat),
     coordinatorProjectId: trimmedValue(value, 'coordinatorProjectId'),
     coordinatorSessionId: trimmedValue(value, 'coordinatorSessionId'),

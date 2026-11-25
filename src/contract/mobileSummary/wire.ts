@@ -66,6 +66,8 @@ export type MobileSummaryWireSession = {
   coordinatorRole?: string;
   /** This computer's Chief (server/src/chief/): drawn as its own row, never in its project. */
   isChief?: boolean;
+  /** gxserver is switching the session between Native and Terminal-based right now (server/src/acp/host_mode_switching.rs); absent otherwise and from an older gxserver. */
+  switchingHostMode?: boolean;
   /** Its project's main coordinator on its computer (server/src/coordinators/main_coordinator.rs); absent from an older gxserver. */
   isMainCoordinator?: boolean;
   /** On a thread: its coordinator's ids and the thread's state (server/src/coordinators/presentation.rs). */

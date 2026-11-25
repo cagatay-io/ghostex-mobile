@@ -1,11 +1,14 @@
 /**
- * Confirmation bottom sheet for switching a Terminal chat to Native mode (`Q4769`, `Q4771`).
+ * Confirmation bottom sheets for switching a chat between Terminal-based and Native, one sheet for
+ * both ways (`SwitchModeSheet`).
  *
- * Explains the brief restart (or mid-reply queueing) and includes a checked-by-default
- * "Use Native for new chats with <agent>" checkbox when Native is not yet that agent's default.
+ * Switch to Native (`Q4769`, `Q4771`) explains the brief restart (or mid-reply queueing) and
+ * includes a checked-by-default "Use Native for new chats with <agent>" checkbox when Native is not
+ * yet that agent's default. Switch to Terminal-based asks in the computer's words
+ * (`ask_and_switch_non_cli_session_to_terminal`, apps/desktop/src/app/session_chat/drafts_and_attachments.rs).
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import BottomSheet from '../../../components/common/BottomSheet';
@@ -42,28 +45,99 @@ export function SwitchToNativeSheet({
     : `Ghostex will reopen ${agentName} in Native mode. Your chat history stays, and you can switch back to Terminal-based anytime.`;
 
   return (
-    <BottomSheet visible={offer !== null} onClose={busy ? () => undefined : onCancel}>
+    <SwitchModeSheet
+      visible={offer !== null}
+      title="Switch to Native?"
+      body={body}
+      confirmLabel={busy ? 'Switching…' : 'Switch to Native'}
+      busy={busy}
+      onCancel={onCancel}
+      onConfirm={() => {
+        if (offer !== null) onConfirm(offer, useAsDefault);
+      }}
+    >
+      {offer !== null && !offer.nativeDefault ? (
+        <Pressable
+          onPress={() => setUseAsDefault((prev) => !prev)}
+          disabled={busy}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: useAsDefault }}
+          accessibilityLabel={`Use Native for new chats with ${agentName}`}
+          style={({ pressed }) => [styles.checkRow, pressed ? styles.checkRowPressed : null]}
+        >
+          <View style={[styles.checkbox, useAsDefault ? styles.checkboxChecked : null]}>
+            {useAsDefault ? <ComposerGlyph name="check" size={12} color={appearance.background} /> : null}
+          </View>
+          <Text style={styles.checkLabel}>{`Use Native for new chats with ${agentName}`}</Text>
+        </Pressable>
+      ) : null}
+    </SwitchModeSheet>
+  );
+}
+
+/**
+ * The Switch to Terminal-based question on a Native chat: its More actions row and its chat box's
+ * Terminal View button. The computer's words, with Interrupt & Switch while the agent is replying.
+ */
+export function SwitchToTerminalSheet({
+  visible,
+  working,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  working: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <SwitchModeSheet
+      visible={visible}
+      title={working ? 'Interrupt and switch to Terminal-based?' : 'Switch to Terminal-based?'}
+      body={
+        working
+          ? 'This session is running in Native mode and currently working. Switching to Terminal-based is not instant: Ghostex will interrupt the active turn and reopen the agent in Terminal-based mode.'
+          : 'This session is running in Native mode. Switching to Terminal-based is not instant: Ghostex will stop the Native host and reopen the agent in Terminal-based mode.'
+      }
+      confirmLabel={working ? 'Interrupt & Switch' : 'Switch to Terminal-based'}
+      busy={false}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+/** The sheet both switches share: title, explanation, anything between, then Cancel and the switch. */
+function SwitchModeSheet({
+  visible,
+  title,
+  body,
+  confirmLabel,
+  busy,
+  onCancel,
+  onConfirm,
+  children,
+}: {
+  visible: boolean;
+  title: string;
+  body: string;
+  confirmLabel: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  children?: ReactNode;
+}) {
+  const appearance = useAppearance();
+  const styles = useMemo(() => createStyles(appearance), [appearance]);
+  return (
+    <BottomSheet visible={visible} onClose={busy ? () => undefined : onCancel}>
       <View style={styles.wrap}>
         <View style={styles.header}>
-          <Text style={styles.title}>Switch to Native?</Text>
+          <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>{body}</Text>
         </View>
 
-        {offer !== null && !offer.nativeDefault ? (
-          <Pressable
-            onPress={() => setUseAsDefault((prev) => !prev)}
-            disabled={busy}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: useAsDefault }}
-            accessibilityLabel={`Use Native for new chats with ${agentName}`}
-            style={({ pressed }) => [styles.checkRow, pressed ? styles.checkRowPressed : null]}
-          >
-            <View style={[styles.checkbox, useAsDefault ? styles.checkboxChecked : null]}>
-              {useAsDefault ? <ComposerGlyph name="check" size={12} color={appearance.background} /> : null}
-            </View>
-            <Text style={styles.checkLabel}>{`Use Native for new chats with ${agentName}`}</Text>
-          </Pressable>
-        ) : null}
+        {children}
 
         <View style={styles.footer}>
           <Pressable
@@ -76,12 +150,10 @@ export function SwitchToNativeSheet({
             <Text style={styles.btnNeutralLabel}>Cancel</Text>
           </Pressable>
           <Pressable
-            onPress={() => {
-              if (offer !== null) onConfirm(offer, useAsDefault);
-            }}
-            disabled={busy || offer === null}
+            onPress={onConfirm}
+            disabled={busy || !visible}
             accessibilityRole="button"
-            accessibilityLabel="Switch to Native"
+            accessibilityLabel={confirmLabel}
             style={({ pressed }) => [
               styles.btn,
               styles.btnPrimary,
@@ -89,7 +161,7 @@ export function SwitchToNativeSheet({
               pressed ? styles.btnPrimaryPressed : null,
             ]}
           >
-            <Text style={styles.btnPrimaryLabel}>{busy ? 'Switching…' : 'Switch to Native'}</Text>
+            <Text style={styles.btnPrimaryLabel}>{confirmLabel}</Text>
           </Pressable>
         </View>
       </View>
