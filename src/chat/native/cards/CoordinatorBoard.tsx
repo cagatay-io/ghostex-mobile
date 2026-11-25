@@ -618,12 +618,20 @@ export function CoordinatorBoardMenu(props: BoardMenuProps) {
  * the in progress please lets not do this ... i just want a quick white outline that blinks twice
  * smoothly (fade in and out) on them", then the slower speed (Q4951) and "make the outline shifted
  * 10px from left/right/bottom please so it's not hugging items so close". The tinted box with its
- * padding is gone; an outline overlay sits outside the group, so nothing inside moves. The
- * desktop's `GROUP_BLINK_FOR` (native_chat/coordinator_board.rs) matches.
+ * padding is gone; an outline overlay sits outside the group, so nothing inside moves. Then, of
+ * its bottom edge running into the next group's header: "please make it not overlap and also pls
+ * make the color of the outline more transparent": the bottom edge is the group's own (its last
+ * card's 8 pt margin below it) and the line peaks at GROUP_BLINK_PEAK. The desktop's
+ * `GROUP_BLINK_FOR` (native_chat/coordinator_board.rs) matches.
  */
 const GROUP_BLINK_MS = 1800;
-/** How far the outline sits outside the group on the left, right and bottom. */
+/**
+ * How far the outline sits outside the group on the left and right. Its top and bottom are the
+ * group's own edges: the groups above and below start right there.
+ */
 const GROUP_BLINK_ROOM = 10;
+/** The outline's opacity at the top of each blink: a soft line, not a full white one. */
+const GROUP_BLINK_PEAK = 0.4;
 
 /**
  * The outline a jumped-to group blinks with: absolute over the group (its own layout untouched),
@@ -639,7 +647,7 @@ function GroupBlinkOutline({ light }: { light: boolean }) {
         easing: Easing.inOut(Easing.sin),
         useNativeDriver: true,
       });
-    const run = Animated.sequence([fade(0.9), fade(0), fade(0.9), fade(0)]);
+    const run = Animated.sequence([fade(GROUP_BLINK_PEAK), fade(0), fade(GROUP_BLINK_PEAK), fade(0)]);
     run.start();
     return () => run.stop();
   }, [blink]);
@@ -651,7 +659,7 @@ function GroupBlinkOutline({ light }: { light: boolean }) {
         top: 0,
         left: -GROUP_BLINK_ROOM,
         right: -GROUP_BLINK_ROOM,
-        bottom: -GROUP_BLINK_ROOM,
+        bottom: 0,
         borderRadius: 14,
         borderWidth: 1.5,
         borderColor: light ? '#141414' : '#ffffff',
@@ -1288,7 +1296,6 @@ const useStyles = themedStyles((P) => ({
   },
   rowsContent: {
     paddingHorizontal: GROUP_BLINK_ROOM,
-    paddingBottom: GROUP_BLINK_ROOM,
   },
   groupLine: {
     flexDirection: 'row',
