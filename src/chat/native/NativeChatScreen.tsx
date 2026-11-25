@@ -204,12 +204,17 @@ export default function NativeChatScreen({
   // The GBot whose settings the "GBot added" card's Open settings opened (the core's `openGbotSettings`).
   // A "Routine set" card's Edit opens the same sheet on its Routines tab (`editGbotRoutine`).
   const [gbotSettings, setGbotSettings] = useState<{ botId: string; tab?: GbotSettingsTab } | null>(null);
+  // The core's own switchToTerminal (a model the Native host cannot run, the not-delivered card's button): on a Native
+  // chat it asks and switches like the More actions row (`askOrShowTerminal`, set once that path is defined below).
+  const coreSwitchToTerminal = useRef<() => void>(onSwitchToTerminal);
+  const requestSwitchToTerminal = useCallback(() => coreSwitchToTerminal.current(), []);
   const { toast, show } = useChatViewRequests(
     chat,
     machine,
     projectId,
     sessionId,
     onSwitchToTerminal,
+    requestSwitchToTerminal,
     openHandoff,
     setPage,
     setGbotSettings,
@@ -518,11 +523,18 @@ export default function NativeChatScreen({
       }
     })();
   }, [machine, projectId, sessionId, show]);
+  // A request to work in the terminal: on a Native chat it is the switch, asked first; otherwise the terminal shows.
+  const askOrShowTerminal = useCallback(() => {
+    if (nativeNow) openSwitchToTerminal(true);
+    else onSwitchToTerminal();
+  }, [nativeNow, onSwitchToTerminal, openSwitchToTerminal]);
+  coreSwitchToTerminal.current = askOrShowTerminal;
   // More actions > Handoff / Export opens the chat's own dialog, the one the model menu's handoff opens.
   const exportCount = useRef(0);
   const hostAction = useCallback(
     (action: string, params: Record<string, unknown> = {}) => {
-      if (action === 'terminalView' || action === 'switchToTerminal') onSwitchToTerminal();
+      if (action === 'terminalView') onSwitchToTerminal();
+      else if (action === 'switchToTerminal') askOrShowTerminal();
       else if (action === 'switchToTerminalBased') openSwitchToTerminal(params.source === 'more_menu');
       else if (action === 'pickModel') setModelRequestId((current) => current + 1);
       else if (action === 'openAgentSettings') {
@@ -602,6 +614,7 @@ export default function NativeChatScreen({
       machineName,
       onHostAction,
       onSwitchToTerminal,
+      askOrShowTerminal,
       openHandoff,
       openSwitchToNative,
       openSwitchToTerminal,
@@ -1120,6 +1133,8 @@ function useChatViewRequests(
   projectId: string,
   sessionId: string,
   onSwitchToTerminal: () => void,
+  /** The core's `switchToTerminal`: the switch, asked first, on a Native chat (`askOrShowTerminal`). */
+  onCoreSwitchToTerminal: () => void,
   onHandoff: (request: HandoffRequest) => void,
   onOpenPage: (page: ComputerAddress) => void,
   onOpenGbotSettings: (settings: { botId: string; tab?: GbotSettingsTab }) => void,
@@ -1176,7 +1191,8 @@ function useChatViewRequests(
             show('Saved to Markdown', false);
             return;
           case 'hostAction': {
-            if (request.action === 'switchToTerminal' || request.action === 'terminalView') onSwitchToTerminal();
+            if (request.action === 'terminalView') onSwitchToTerminal();
+            else if (request.action === 'switchToTerminal') onCoreSwitchToTerminal();
             // A page's Export (gx-chat-core `questions/page_export.rs`): shared on the iPhone, saved on Android.
             else if (request.action === 'pageExported') {
               const page = readExportedPage(request.params);
@@ -1375,6 +1391,7 @@ function useChatViewRequests(
       onHandoff,
       onOpenGbotSettings,
       onOpenPage,
+      onCoreSwitchToTerminal,
       onSwitchToTerminal,
       openMachineLink,
       projectId,
