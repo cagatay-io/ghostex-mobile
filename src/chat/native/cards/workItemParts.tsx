@@ -199,6 +199,7 @@ export function openWorkReply(reply: JsonRecord, scope: ReplyDraftScope | null):
     ...(typeof reply.item === 'string' ? { item: reply.item, key: str(reply, 'key') } : {}),
     ...(typeof reply.questions === 'string' ? { questions: reply.questions, to: str(reply, 'to') } : {}),
     scope,
+    arrow: true,
   });
 }
 
