@@ -933,7 +933,7 @@ export type ChatDocument = {
   /** A thread's "Approved from <coordinator>" lines, empty when none. Desktop: `relayed_approval.rs`. */
   /** The approval the agent waits on is a `workDock` row: which card steps aside (gx-chat-core `extras::dock_approvals`). */
   approvalInDock?: 'notice' | 'prompt' | null;
-  /** An Inbox row's reply arrow goes straight to the chat box (Settings' `chatInboxReplyInChat`); absent from an older core. */
+  /** An Inbox row's reply arrow goes straight to the chat box (Settings > Chat > Inbox reply arrow, `chatInboxReplyArrow` set to `chat`); absent from an older core. */
   inboxReplyInChat?: boolean;
   /** The background tasks the agent left running, or null; the Background pill's sheet. Desktop: `background_tasks.rs`. */
   backgroundTasksPanel: Json;
