@@ -1085,10 +1085,16 @@ export type QueuedPrompt = {
   errorMessage?: string | null;
   /** Why gxserver still holds a waiting row, once it has waited about a minute. */
   waitReason?: string | null;
+  /** The status chip's few words for `waitReason` (server wait_reason.rs; "Waiting" from an older one). */
+  waitLabel?: string | null;
   createdAt: string;
   updatedAt: string;
   /** The one line the row shows. */
   preview: string;
+  /** "+4 lines" when the message has more lines than the row shows (core `queue_row_more`). */
+  moreLines?: string;
+  /** The whole message, shown on a press when `moreLines` is set. */
+  fullText?: string;
   /** The row's controls are held while it is mid-flight. */
   busy: boolean;
   [key: string]: unknown;

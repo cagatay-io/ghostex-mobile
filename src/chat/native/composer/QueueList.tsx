@@ -13,6 +13,7 @@ import type { ChatDocument, QueuedPrompt } from '../../rust/document';
 import { Glyph, type GlyphName } from './icons';
 import { useDispatchWithAnswerCancel } from '../transcript/context';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { colorWithOpacity } from '../../../theme/palette';
 
 const ROW_HEIGHT = 34;
 const ROW_GAP = 4;
@@ -41,15 +42,23 @@ export function QueueList({
 }) {
   const styles = useStyles();
   const dispatch = useDispatchWithAnswerCancel(rawDispatch);
+  // The row whose status chip or "+N lines" was tapped or held: its full sentence or message
+  // shows under the list.
+  const [shown, setShown] = useState<{ id: string; part: RowDetail } | null>(null);
   const prompts = document.queue.prompts.filter((prompt) => prompt.startupSend !== true);
   const capabilities = document.queue.capabilities;
   if (!capabilities.supported || prompts.length === 0) return null;
   const blocked = typeof document.sendBlockedReason === 'string';
   const canDrag = !blocked && prompts.length > 1 && capabilities.canReorder;
-  // Why gxserver still holds the first row, once it has waited about a minute. It sits under the
-  // list rather than in the row, whose fixed height the drag math counts on (desktop: queue.rs).
-  const head = prompts[0];
-  const reason = head !== undefined && head.state !== 'failed' ? (head.waitReason ?? '') : '';
+  // The sentence sits under the list rather than in the row, whose fixed height the drag math
+  // counts on; the chip in the row says the short form (desktop: the chip's tooltip, queue.rs).
+  const shownPrompt = shown === null ? undefined : prompts.find((prompt) => prompt.id === shown.id);
+  const detail =
+    shown === null || shownPrompt === undefined
+      ? ''
+      : shown.part === 'wait'
+        ? waitReason(shownPrompt)
+        : (shownPrompt.fullText ?? '');
   return (
     <View style={styles.list} accessibilityLabel="Queued prompts">
       {prompts.map((prompt, index) => (
@@ -62,6 +71,12 @@ export function QueueList({
           blocked={blocked}
           capabilities={capabilities}
           onCard={document.sendFailureCardPromptId === prompt.id}
+          shownPart={shown?.id === prompt.id ? shown.part : null}
+          onDetailPress={(part, hold) =>
+            setShown((current) =>
+              current?.id === prompt.id && current.part === part && !hold ? null : { id: prompt.id, part },
+            )
+          }
           onMove={(to) => {
             const target = prompts[to];
             if (target !== undefined && to !== index)
@@ -70,13 +85,21 @@ export function QueueList({
           dispatch={dispatch}
         />
       ))}
-      {reason.length > 0 ? (
+      {detail.length > 0 ? (
         <Text style={styles.waitReason} accessibilityRole="text">
-          {reason}
+          {detail}
         </Text>
       ) : null}
     </View>
   );
+}
+
+/** What a press on a row shows under the list: its status sentence or its whole message. */
+type RowDetail = 'wait' | 'text';
+
+/** Why gxserver still holds a waiting row, once it has waited about a minute; empty otherwise. */
+function waitReason(prompt: QueuedPrompt): string {
+  return prompt.state === 'failed' ? '' : (prompt.waitReason ?? '').trim();
 }
 
 function QueueRow({
@@ -87,6 +110,8 @@ function QueueRow({
   blocked,
   capabilities,
   onCard,
+  shownPart,
+  onDetailPress,
   onMove,
   dispatch,
 }: {
@@ -98,6 +123,10 @@ function QueueRow({
   capabilities: ChatDocument['queue']['capabilities'];
   /** The card that stands for this failed row is showing, with its own Retry. */
   onCard: boolean;
+  /** Which of this row's details shows under the list, if any. */
+  shownPart: RowDetail | null;
+  /** A tap toggles a detail; a hold (`hold`) shows it. */
+  onDetailPress: (part: RowDetail, hold: boolean) => void;
   onMove: (to: number) => void;
   dispatch: (action: UserAction) => void;
 }) {
@@ -106,6 +135,10 @@ function QueueRow({
   const busy = prompt.busy;
   const failed = prompt.state === 'failed';
   const locked = blocked || busy;
+  const reason = waitReason(prompt);
+  const label = (prompt.waitLabel ?? '').trim();
+  const moreLines = prompt.moreLines ?? '';
+  const fullText = prompt.fullText ?? '';
   const offset = useRef(new Animated.Value(0)).current;
   const [dragging, setDragging] = useState(false);
   const latest = useRef({ index, count, onMove });
@@ -195,6 +228,24 @@ function QueueRow({
       >
         {prompt.preview}
       </Text>
+      {moreLines.length > 0 && fullText.length > 0 ? (
+        // CDXC:SessionChat 2026-11-25 DECISION: User (Q4866, "line count"): a queued message of
+        // several lines keeps its one line plus the core's "+N lines" (`queue_row_more`), and the
+        // whole message shows on hover on the desktop; here a tap or a hold shows it under the list.
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={fullText}
+          accessibilityState={{ expanded: shownPart === 'text' }}
+          hitSlop={6}
+          onPress={() => onDetailPress('text', false)}
+          onLongPress={() => onDetailPress('text', true)}
+          style={({ pressed }) => [styles.moreLines, pressed ? styles.actionPressed : null]}
+        >
+          <Text style={styles.moreLinesText} numberOfLines={1}>
+            {moreLines}
+          </Text>
+        </Pressable>
+      ) : null}
       {failed ? (
         <View style={styles.error}>
           <Glyph name="alert-triangle" size={13} color={P.error} />
@@ -202,6 +253,26 @@ function QueueRow({
             {notSent(prompt.errorMessage)}
           </Text>
         </View>
+      ) : null}
+      {reason.length > 0 && label.length > 0 ? (
+        // CDXC:SessionChat 2026-11-25 DECISION: User (Q4865, "chip"): the status is a short chip on
+        // the row's right, worded by gxserver (`waitLabel`, wait_reason.rs) as on the desktop, and
+        // "the full text on hovering on that status pill": a phone has no hover, so a tap or a hold
+        // on the chip shows the sentence, as the (i) of a background task does (WorkingStrip.tsx).
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={reason}
+          accessibilityState={{ expanded: shownPart === 'wait' }}
+          hitSlop={6}
+          onPress={() => onDetailPress('wait', false)}
+          onLongPress={() => onDetailPress('wait', true)}
+          style={({ pressed }) => [styles.waitChip, pressed ? styles.actionPressed : null]}
+        >
+          <Glyph name="clock" size={11} color={P.muted} />
+          <Text style={styles.waitChipText} numberOfLines={1}>
+            {label}
+          </Text>
+        </Pressable>
       ) : null}
       {actions
         .filter((entry) => entry.show)
@@ -249,6 +320,20 @@ const useStyles = themedStyles((P) => ({
   error: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 1, maxWidth: '45%' },
   errorText: { color: P.cardMuted, fontSize: 11.5, flexShrink: 1 },
   waitReason: { color: P.muted, fontSize: 11.5, paddingLeft: 26, paddingRight: 8 },
+  waitChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+    height: 22,
+    paddingHorizontal: 8,
+    marginLeft: 2,
+    borderRadius: 11,
+    backgroundColor: colorWithOpacity(P.foreground, 6),
+  },
+  waitChipText: { color: P.muted, fontSize: 11.5 },
+  moreLines: { flexShrink: 0, height: 22, justifyContent: 'center', paddingHorizontal: 4, borderRadius: 6 },
+  moreLinesText: { color: colorWithOpacity(P.muted, 75), fontSize: 11.5 },
   action: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   actionPressed: { backgroundColor: P.controlPressed },
   disabled: { opacity: 0.4 },
