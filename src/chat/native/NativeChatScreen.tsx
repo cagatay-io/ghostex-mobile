@@ -427,9 +427,10 @@ export default function NativeChatScreen({
               queued?: unknown;
               switched?: unknown;
               reason?: unknown;
+              wait?: unknown;
             };
             if (payload.queued === true) {
-              show('Switches to Native when this reply ends.', false, 'Switch to Native');
+              show(queuedSwitchReason(payload.wait), false, 'Switch to Native');
             } else if (payload.switched !== true) {
               const reason =
                 typeof payload.reason === 'string' && payload.reason.trim().length > 0
@@ -972,6 +973,18 @@ const NO_HOST_ACTIONS: readonly string[] = [];
 // `sessionMenu`: the rows shared with the long-press menu, which open alerts and sheets of the screen
 // (screens/terminal-screen/use-session-menu-runner.tsx).
 const OPENS_OVER_SHEET = new Set(['promptEditor', 'disconnect', 'killSession', 'sessionMenu']);
+
+/**
+ * The queued Switch to Native toast: what gxserver's `switchSessionCliToAcp` answer says the switch
+ * waits on (`wait`), in the chip tooltip's words. A copy of gx-chat-core's `queued_reason`
+ * (`extras/native_switch.rs`), since this toast is shown from the answer, before the chat state
+ * that carries the tooltip arrives; an older gxserver sends no `wait` and gets the reply wording.
+ */
+function queuedSwitchReason(wait: unknown): string {
+  if (wait === 'background') return 'Switches to Native when background work ends.';
+  if (wait === 'answer') return 'Switches to Native after you answer.';
+  return 'Switches to Native when this reply ends.';
+}
 
 /**
  * The composer's model sheet while a question takes the composer's place: the held-messages card's Pick model
