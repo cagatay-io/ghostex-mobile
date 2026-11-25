@@ -431,9 +431,9 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: 'settings:chat:session-mode',
     group: 'Session mode',
     title: 'Session mode',
-    description: 'Choose Terminal-based or Native mode per agent for Claude Code, Codex, Antigravity, OpenCode, and Grok Build.',
+    description: 'Choose Terminal-based or Native mode per agent for Claude Code, Codex, Antigravity, OpenCode, Grok Build, and Hermes Agent.',
     catalog: 'agentSessionMode',
-    keywords: ['native', 'terminal-based', 'terminal', 'claude', 'codex', 'antigravity', 'opencode', 'grok', 'session mode'],
+    keywords: ['native', 'terminal-based', 'terminal', 'claude', 'codex', 'antigravity', 'opencode', 'grok', 'hermes', 'session mode'],
   },
   {
     page: 'chat',
