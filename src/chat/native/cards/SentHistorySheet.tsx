@@ -10,20 +10,16 @@
  * `native_chat/sent_history.rs`): Copy reference and Reference in chat (a numbered message), Put
  * back in the chat box (the pencil, since the back arrow is Rewind's), then Rewind to here and Fork
  * from here, the same actions a message's own menu runs (`MessageActions.tsx`). A tap is the jump.
+ *
+ * CDXC:SessionChat 2026-11-26 WHY: the user found History slow to open (the core's decision on it is
+ * in `composer/sent_history.rs`). The cards are an inverted list, so only the newest ones on screen
+ * are built when the sheet opens, older pages land above them without moving the ones in view, and
+ * the next page is asked for well before the top.
  */
 
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  type ScrollViewInstance,
-} from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ActivityIndicator, FlatList, Image, Pressable, Text, TextInput, View } from 'react-native';
 
 import type { UserAction } from '../../rust/actions';
 import type { ChatDocument, SentHistoryItem, SentHistoryState } from '../../rust/document';
@@ -43,8 +39,10 @@ import { openChatImageViewer, type ChatImage } from './overlayStore';
 import { ChatButton } from './primitives';
 
 const EMPTY_IMAGES = {};
-/** How near the list's top (in points) the next older page is asked for. */
-const MORE_EDGE = 80;
+/** How near the list's top the next older page is asked for, in screens of cards. */
+const MORE_AHEAD = 1.5;
+/** Cards built when the sheet opens, then per batch as the list scrolls. */
+const FIRST_CARDS = 12;
 
 /** The History pill: the history glyph alone, a neutral pill like the ? beside it. */
 export function SentHistoryPill({ open, onPress }: { open: boolean; onPress: () => void }) {
@@ -75,15 +73,14 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
   const [query, setQuery] = useState(history?.query ?? '');
   const [held, setHeld] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const scroll = useRef<ScrollViewInstance>(null);
-  const firstId = useRef<string | null>(null);
   const open = history?.open === true;
+  // Newest first, for the inverted list, which draws the first at the bottom.
+  const newestFirst = useMemo(() => [...(history?.items ?? [])].reverse(), [history?.items]);
   useEffect(() => {
     if (!open) {
       setQuery('');
       setHeld(null);
       setCopied(null);
-      firstId.current = null;
     }
   }, [open]);
   if (history === undefined) return null;
@@ -111,93 +108,86 @@ export function SentHistorySheet({ chat, document }: { chat: RustChat; document:
   } else if (items.length === 0) {
     list = <Text style={styles.empty}>{history.emptyLabel}</Text>;
   } else {
+    const renderCard = ({ item }: { item: SentHistoryItem }) => (
+          <SentCard
+            item={item}
+            held={held === item.id}
+            onPress={() => {
+              setHeld(null);
+              close();
+              dispatch({ type: 'sentHistoryJump', messageId: item.id, timestamp: item.timestamp });
+            }}
+            onLongPress={() => setHeld(held === item.id ? null : item.id)}
+          >
+            <View style={styles.actions}>
+              <ChatButton
+                label={copied === item.id ? 'Copied' : 'Copy'}
+                icon="copy"
+                onPress={() => {
+                  const id = item.id;
+                  void Clipboard.setStringAsync(item.copyText).then(() => setCopied(id));
+                }}
+              />
+              {item.referenceLink ? (
+                <ChatButton
+                  label="Copy reference"
+                  icon="hash"
+                  onPress={() => run(item, () => void Clipboard.setStringAsync(item.referenceLink ?? ''), true)}
+                />
+              ) : null}
+              {item.referencePill ? (
+                <ChatButton
+                  label="Reference in chat"
+                  icon="quote"
+                  onPress={() =>
+                    run(item, () =>
+                      dispatch({ type: 'appendToDraft', text: item.referencePill ?? '', inline: true }),
+                    )
+                  }
+                />
+              ) : null}
+              <ChatButton
+                label="Put back in the chat box"
+                icon="pencil"
+                onPress={() => run(item, () => dispatch({ type: 'appendToDraft', text: item.draft }))}
+              />
+              {canRewind ? (
+                <ChatButton
+                  label="Rewind to here"
+                  icon="arrow-back-up"
+                  onPress={() =>
+                    run(item, () => dispatch({ type: 'rewindOpen', messageId: item.id, prompt: item.copyText }))
+                  }
+                />
+              ) : null}
+              {canFork ? (
+                <ChatButton label="Fork from here" icon="git-branch" onPress={() => run(item, () => fork(item.id))} />
+              ) : null}
+            </View>
+          </SentCard>
+    );
     list = (
-      <ScrollView
-        ref={scroll}
-        style={{ maxHeight: height * 0.55 }}
-        nestedScrollEnabled
-        keyboardShouldPersistTaps="handled"
-        // An older page arriving above keeps the cards in view where they were.
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-        scrollEventThrottle={64}
-        onScroll={(event) => {
-          if (event.nativeEvent.contentOffset.y < MORE_EDGE && history.hasMore && !history.loadingMore) {
-            dispatch({ type: 'sentHistoryMore' });
-          }
-        }}
-        onContentSizeChange={() => {
-          // A new list (opened, searched or filtered) opens on its newest card; an older page
-          // prepended keeps the same newest card and stays where the reader is.
-          const last = items[items.length - 1]?.id ?? null;
-          if (last !== firstId.current) {
-            firstId.current = last;
-            scroll.current?.scrollToEnd({ animated: false });
-          }
-        }}
-      >
-        <Text style={styles.hint}>Tap a card to jump to it; hold it for its actions.</Text>
-        <ChatImagesProvider value={chat.state?.images ?? EMPTY_IMAGES}>
-          {items.map((item) => (
-            <SentCard
-              key={item.id}
-              item={item}
-              held={held === item.id}
-              onPress={() => {
-                setHeld(null);
-                close();
-                dispatch({ type: 'sentHistoryJump', messageId: item.id, timestamp: item.timestamp });
-              }}
-              onLongPress={() => setHeld(held === item.id ? null : item.id)}
-            >
-              <View style={styles.actions}>
-                <ChatButton
-                  label={copied === item.id ? 'Copied' : 'Copy'}
-                  icon="copy"
-                  onPress={() => {
-                    const id = item.id;
-                    void Clipboard.setStringAsync(item.copyText).then(() => setCopied(id));
-                  }}
-                />
-                {item.referenceLink ? (
-                  <ChatButton
-                    label="Copy reference"
-                    icon="hash"
-                    onPress={() => run(item, () => void Clipboard.setStringAsync(item.referenceLink ?? ''), true)}
-                  />
-                ) : null}
-                {item.referencePill ? (
-                  <ChatButton
-                    label="Reference in chat"
-                    icon="quote"
-                    onPress={() =>
-                      run(item, () =>
-                        dispatch({ type: 'appendToDraft', text: item.referencePill ?? '', inline: true }),
-                      )
-                    }
-                  />
-                ) : null}
-                <ChatButton
-                  label="Put back in the chat box"
-                  icon="pencil"
-                  onPress={() => run(item, () => dispatch({ type: 'appendToDraft', text: item.draft }))}
-                />
-                {canRewind ? (
-                  <ChatButton
-                    label="Rewind to here"
-                    icon="arrow-back-up"
-                    onPress={() =>
-                      run(item, () => dispatch({ type: 'rewindOpen', messageId: item.id, prompt: item.copyText }))
-                    }
-                  />
-                ) : null}
-                {canFork ? (
-                  <ChatButton label="Fork from here" icon="git-branch" onPress={() => run(item, () => fork(item.id))} />
-                ) : null}
-              </View>
-            </SentCard>
-          ))}
-        </ChatImagesProvider>
-      </ScrollView>
+      <ChatImagesProvider value={chat.state?.images ?? EMPTY_IMAGES}>
+        <FlatList
+          inverted
+          data={newestFirst}
+          keyExtractor={(item) => item.id}
+          renderItem={renderCard}
+          extraData={`${held ?? ''}:${copied ?? ''}:${canFork}:${canRewind}`}
+          style={{ maxHeight: height * 0.55 }}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={FIRST_CARDS}
+          maxToRenderPerBatch={FIRST_CARDS}
+          windowSize={7}
+          // The end of an inverted list is its top: the oldest card.
+          onEndReachedThreshold={MORE_AHEAD}
+          onEndReached={() => {
+            if (history.hasMore && !history.loadingMore) dispatch({ type: 'sentHistoryMore' });
+          }}
+          ListFooterComponent={<Text style={styles.hint}>Tap a card to jump to it; hold it for its actions.</Text>}
+        />
+      </ChatImagesProvider>
     );
   }
   return (
