@@ -208,7 +208,7 @@ export default function NativeChatScreen({
   // chat it asks and switches like the More actions row (`askOrShowTerminal`, set once that path is defined below).
   const coreSwitchToTerminal = useRef<() => void>(onSwitchToTerminal);
   const requestSwitchToTerminal = useCallback(() => coreSwitchToTerminal.current(), []);
-  const { toast, show } = useChatViewRequests(
+  const { toast, show, showUndo } = useChatViewRequests(
     chat,
     machine,
     projectId,
@@ -886,6 +886,7 @@ export default function NativeChatScreen({
                 status={dockStatus}
                 onOpenWork={openWorkSheet}
                 onAskSettled={(title) => show(title, false)}
+                onUndoToast={showUndo}
                 typing={composerShown && composerFocused && keyboardUp}
                 errorShown={errorBannerShown}
                 {...(dockCap !== undefined ? { maxHeight: dockCap } : {})}
@@ -1138,7 +1139,11 @@ function useChatViewRequests(
   onHandoff: (request: HandoffRequest) => void,
   onOpenPage: (page: ComputerAddress) => void,
   onOpenGbotSettings: (settings: { botId: string; tab?: GbotSettingsTab }) => void,
-): { toast: Toast; show: (message: string, error: boolean, title?: string) => void } {
+): {
+  toast: Toast;
+  show: (message: string, error: boolean, title?: string) => void;
+  showUndo: (message: string, durationMs: number, undo: () => void) => void;
+} {
   const machineId = machine.id;
   const openMachineLink = useOpenMachineLink();
   const handoffs = useRef(0);
@@ -1152,6 +1157,11 @@ function useChatViewRequests(
   const show = useCallback((message: string, error: boolean, title?: string) => {
     counter.current += 1;
     setToast({ id: counter.current, message, error, ...(title !== undefined ? { title } : {}) });
+  }, []);
+  // The Inbox's Undo toast (WorkCards.tsx `onUndoToast`): what was marked, with Undo.
+  const showUndo = useCallback((message: string, durationMs: number, undo: () => void) => {
+    counter.current += 1;
+    setToast({ id: counter.current, message, error: false, durationMs, action: { label: 'Undo', onPress: undo } });
   }, []);
   useEffect(
     () =>
@@ -1399,7 +1409,7 @@ function useChatViewRequests(
       show,
     ], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  return { toast, show };
+  return { toast, show, showUndo };
 }
 
 /** How long the Handoff sheet waits on iOS for the sheet it was opened from to finish going away. */

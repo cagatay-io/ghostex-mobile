@@ -9,15 +9,23 @@
 
 import { BlurView } from 'expo-blur';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useReduceTransparency } from '../../components/common/reduceTransparency';
 import { errorHue } from './cards/ErrorLine';
 import { Glyph } from './cards/icons';
 import { useTranscriptTheme } from './transcript/theme';
 
-/** One toast; a new `id` shows it again even with the same words. */
-export type Toast = { id: number; title?: string; message: string; error: boolean } | null;
+/** One toast; a new `id` shows it again even with the same words. One with an `action` (the
+ * Inbox's Undo) shows its button at its end and stays `durationMs`. */
+export type Toast = {
+  id: number;
+  title?: string;
+  message: string;
+  error: boolean;
+  action?: { label: string; onPress: () => void };
+  durationMs?: number;
+} | null;
 
 /** A short-lived toast at the top of the chat. */
 export function ChatToast({ toast }: { toast: Toast }) {
@@ -32,12 +40,17 @@ export function ChatToast({ toast }: { toast: Toast }) {
     Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
     const timer = setTimeout(() => {
       Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShown(null));
-    }, 2600);
+    }, toast.durationMs ?? 2600);
     return () => clearTimeout(timer);
   }, [opacity, toast]);
   if (shown === null) return null;
+  const action = shown.action;
   return (
-    <Animated.View pointerEvents="none" style={[styles.toastRow, { opacity }]} accessibilityLiveRegion="polite">
+    <Animated.View
+      pointerEvents={action === undefined ? 'none' : 'box-none'}
+      style={[styles.toastRow, { opacity }]}
+      accessibilityLiveRegion="polite"
+    >
       <View
         style={[
           styles.toast,
@@ -79,6 +92,22 @@ export function ChatToast({ toast }: { toast: Toast }) {
             {shown.message}
           </Text>
         </View>
+        {action !== undefined ? (
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => {
+              action.onPress();
+              setShown(null);
+            }}
+            style={({ pressed }) => [
+              styles.action,
+              { backgroundColor: pressed ? theme.neutralFillPressed : theme.neutralFill },
+            ]}
+          >
+            <Text style={[styles.actionText, { color: theme.foreground }]}>{action.label}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Animated.View>
   );
@@ -102,4 +131,6 @@ const styles = StyleSheet.create({
   words: { flexShrink: 1, gap: 2 },
   toastTitle: { fontSize: 13, fontWeight: '600' },
   toastText: { fontSize: 13, lineHeight: 18 },
+  action: { marginVertical: -3, paddingHorizontal: 11, paddingVertical: 4, borderRadius: 7 },
+  actionText: { fontSize: 13, fontWeight: '600' },
 });

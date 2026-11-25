@@ -68,7 +68,7 @@ import {
   WorkDescription,
   WorkMenuButton,
   WorkMenuList,
-  rowAsksQuestion,
+  isClearLabel,
   rowMarkdown,
   workMenuRows,
 } from './workItemParts';
@@ -266,6 +266,7 @@ export function WorkDock({
   status = null,
   onOpenWork,
   onAskSettled,
+  onUndoToast,
   typing = false,
   errorShown = false,
   maxHeight,
@@ -281,6 +282,9 @@ export function WorkDock({
   onHostAction?: (action: string) => void;
   /** Shows the chat's toast for an ask settled elsewhere while its sheet was open: "Answered" or "Withdrawn". */
   onAskSettled?: (title: string) => void;
+  /** Shows the chat's toast with Undo after Seen, Not needed or Clear Inbox (gx-chat-core
+   * `workDock.undoToast`): its words, how long it stays and what Undo runs. */
+  onUndoToast?: (message: string, durationMs: number, undo: () => void) => void;
   projectId?: string;
   sessionId?: string;
   /** The chat box has the caret with the keyboard up: the dock folds to its bar until a tap opens it. */
@@ -388,10 +392,33 @@ export function WorkDock({
   }, [dockSessionKey, sheetKey, rows, pendingDetailsTick]);
   const snoozed = dockSnoozed(document);
   const recent = dockRecent(document);
-  const recentArchiveAll = obj(dock?.recentArchiveAll) ?? obj(dock?.doneArchiveAll);
-  const recentArchiveAllCmd = obj(recentArchiveAll?.command);
-  const undoMarkAllRead = obj(dock?.undoMarkAllRead);
+  const clearInbox = obj(dock?.clearInbox);
+  const [headMenu, setHeadMenu] = useState(false);
   const board = obj(boardValue);
+  // CDXC:Coordinators 2026-11-25 DECISION:
+  // User (Q4931): undo with a toast, not the full-width "Archived N · Undo" row ("it's too big").
+  // Each new press of Seen, Not needed or Clear Inbox (a new `undoToast.id`) shows the chat's toast
+  // once, for as long as the core keeps the undo; its Undo sends the core's command, which brings
+  // back exactly what that press hid and takes back the note to the agent (desktop
+  // `sync_inbox_undo_toast`).
+  const undoToast = obj(dock?.undoToast);
+  const undoId = undoToast === null ? null : undoToast.id;
+  const shownUndo = useRef<unknown>(undefined);
+  useEffect(() => {
+    if (shownUndo.current === undefined) {
+      // The chat opening on an undo kept from before shows none.
+      shownUndo.current = undoId;
+      return;
+    }
+    if (undoId === null || undoId === shownUndo.current || undoToast === null) return;
+    shownUndo.current = undoId;
+    const command = obj(undoToast.command);
+    const remaining = typeof undoToast.remainingMs === 'number' ? undoToast.remainingMs : 0;
+    if (command === null || remaining < 500) return;
+    onUndoToast?.(str(undoToast, 'label'), remaining, () => coreChat.dispatch(command as never));
+    // Only a new press matters, not each new document.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoId]);
   // The sheet's row left the dock while it was open: the sheet goes (its key with it, so the same
   // row coming back later does not pop it up again), and an ask the coordinator, the computer or
   // another phone settled says how in a toast (desktop `sync_dock_ask_modal`). The reader's own
@@ -421,7 +448,7 @@ export function WorkDock({
     return null;
   }
   // With nothing docked the bar is one line: no chevron, nothing to open.
-  const collapsible = rows.length > 0 || snoozed.length > 0 || recent.length > 0 || undoMarkAllRead !== null;
+  const collapsible = rows.length > 0 || snoozed.length > 0 || recent.length > 0;
   const hiddenInCore = isTrue(dock, 'hidden');
   // An approval the agent waits on (or one just answered) keeps the dock open while typing: it is
   // drawn nowhere else (gx-chat-core extras/dock_approvals.rs; desktop `render_work_dock`).
@@ -432,8 +459,6 @@ export function WorkDock({
   const limit = typeof dock?.phoneLimit === 'number' ? dock.phoneLimit : 3;
   const hidden = Math.max(0, rows.length - limit);
   const shown = all && hidden > 0 ? rows : rows.slice(0, limit);
-  const markAllSeen = obj(dock?.markAllSeen);
-  const markAllSummary = str(markAllSeen, 'summary');
   const sheetRow =
     sheetKey === null
       ? null
@@ -455,6 +480,8 @@ export function WorkDock({
               collapsible={collapsible}
               open={!collapsed}
               onOpenGroup={(group) => dispatch({ type: 'showCoordinatorBoardGroup', group } as never)}
+              onMore={clearInbox !== null ? () => setHeadMenu(true) : undefined}
+              moreOpen={headMenu}
               onOpenWork={
                 onOpenWork ?? (() => dispatch({ type: 'showCoordinatorBoardGroup', group: 'needs' } as never))
               }
@@ -493,20 +520,15 @@ export function WorkDock({
                     ) : (
                       <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
                     );
-                  const rowDismissLabel = str(row, 'dismissLabel');
-                  const isArchiveDismiss =
-                    rowDismissLabel === 'Archive' ||
-                    rowDismissLabel === 'Archive all' ||
-                    rowDismissLabel === 'Done' ||
-                    rowDismissLabel === 'Mark as read' ||
-                    rowDismissLabel === 'Mark all done' ||
-                    rowDismissLabel === 'Read all';
+                  // The swipe says what the row's menu says (gx-chat-core `dismissLabel`, Q4918):
+                  // Seen on a page, Not needed on a to-do, All seen on a group, Dismiss on a question.
+                  const rowDismissLabel = str(row, 'dismissLabel') || 'Dismiss';
                   return (
                     <View key={rowKey}>
                       <QuestionFlashFrame target={rowKey} light={P.light}>
                         <SwipeableInboxRow
                           canDismiss={dismissCmd !== null}
-                          dismissLabel={isArchiveDismiss ? 'Archive' : 'Dismiss'}
+                          dismissLabel={rowDismissLabel}
                           canSnooze={rowSnooze.length > 0}
                           onDismiss={() => {
                             if (dismissCmd !== null) dispatch(dismissCmd as never);
@@ -519,74 +541,18 @@ export function WorkDock({
                     </View>
                   );
                 })}
-                {hidden > 0 || markAllSeen !== null ? (
+                {/* Clear Inbox is in the header's ⋯ and its Undo is the chat's toast (Q4932, Q4931). */}
+                {hidden > 0 ? (
                   <View style={styles.dockFoot}>
-                    {hidden > 0 ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityState={{ expanded: all }}
-                        hitSlop={8}
-                        onPress={() => setAll((was) => !was)}
-                      >
-                        <Text style={styles.dockMore}>
-                          {all ? 'Show fewer' : dockMoreLabel(rows.slice(limit))}
-                        </Text>
-                      </Pressable>
-                    ) : markAllSummary.length > 0 ? (
-                      <Text style={styles.dockMarkSummary} numberOfLines={1}>
-                        {markAllSummary}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: all }}
+                      hitSlop={8}
+                      onPress={() => setAll((was) => !was)}
+                    >
+                      <Text style={styles.dockMore}>
+                        {all ? 'Show fewer' : dockMoreLabel(rows.slice(limit))}
                       </Text>
-                    ) : null}
-                    {markAllSeen !== null ? (() => {
-                      const rawLabel =
-                        str(markAllSeen, 'label')
-                          .replace(/^Mark all (?:read|done)\b/, 'Archive all')
-                          .replace(/\s*\(\d+\)$/, '') || 'Archive all';
-                      const count = typeof markAllSeen.count === 'number' && markAllSeen.count > 0 ? markAllSeen.count : null;
-                      return (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={count !== null ? `${rawLabel}, ${count}` : rawLabel}
-                          hitSlop={8}
-                          style={({ pressed }) => [
-                            styles.dockMarkSeen,
-                            { flexDirection: 'row', alignItems: 'center', gap: 6 },
-                            pressed && { backgroundColor: P.ink(0.09) },
-                          ]}
-                          onPress={() => dispatch(markAllSeen.command as never)}
-                        >
-                          <Text style={styles.dockMarkSeenText}>{rawLabel}</Text>
-                          {count !== null ? <CountBadge count={count} light={P.light} /> : null}
-                        </Pressable>
-                      );
-                    })() : null}
-                  </View>
-                ) : null}
-                {undoMarkAllRead !== null ? (
-                  <View style={styles.dockUndoBar}>
-                    <Glyph name="archive" size={13} color={P.muted} />
-                    <Text style={styles.dockUndoText} numberOfLines={1}>
-                      {str(undoMarkAllRead, 'label').replace(/^Marked (\d+) (?:read|done)$/, 'Archived $1') || 'Archived'}
-                    </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={8}
-                      style={({ pressed }) => [
-                        styles.dockUndoButton,
-                        pressed && { backgroundColor: P.ink(0.12) },
-                      ]}
-                      onPress={() => dispatch(undoMarkAllRead.command as never)}
-                    >
-                      <Text style={styles.dockUndoButtonText}>Undo</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss"
-                      hitSlop={8}
-                      onPress={() => dispatch(undoMarkAllRead.dismiss as never)}
-                      style={styles.dockUndoClose}
-                    >
-                      <Glyph name="x" size={12} color={P.muted} />
                     </Pressable>
                   </View>
                 ) : null}
@@ -632,20 +598,6 @@ export function WorkDock({
                       </Text>
                       <CountBadge count={recent.length} light={P.light} />
                     </View>
-                    {recentOpen && recentArchiveAllCmd !== null ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Archive all, ${recent.length}`}
-                        hitSlop={6}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          dispatch(recentArchiveAllCmd as never);
-                        }}
-                        style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
-                      >
-                        <Text style={styles.bundleButtonText}>Archive all</Text>
-                      </Pressable>
-                    ) : null}
                     <View style={recentOpen ? styles.dockSnoozedChevronOpen : null}>
                       <Glyph name="chevron-down" size={12} color={P.cardMuted} />
                     </View>
@@ -654,21 +606,11 @@ export function WorkDock({
                 {recentOpen
                   ? recent.map((row, idx) => {
                       const rowKey = str(row, 'key');
+                      // Recent clears itself; its rows have nothing to archive (Q4915).
                       if (str(row, 'kind') === 'finished') {
-                        const dismissCmd = obj(row.dismiss);
                         return (
                           <View key={rowKey} style={styles.dockSnoozedRow}>
-                            <SwipeableInboxRow
-                              canDismiss={dismissCmd !== null}
-                              dismissLabel="Archive"
-                              canSnooze={false}
-                              onDismiss={() => {
-                                if (dismissCmd !== null) dispatch(dismissCmd as never);
-                              }}
-                              onSnooze={() => undefined}
-                            >
-                              <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
-                            </SwipeableInboxRow>
+                            <DockRow row={row} chat={chat} scope={scope} onShow={() => setSheetKey(rowKey)} />
                           </View>
                         );
                       }
@@ -750,6 +692,26 @@ export function WorkDock({
             ))}
           </View>
         </Sheet>
+        {/* The Inbox header's ⋯ (desktop `work_dock_header_menu`): Clear Inbox, with the line
+            saying what it marks and that nothing is deleted (gx-chat-core `clear_inbox_hint`). */}
+        {clearInbox !== null ? (
+          <Sheet visible={headMenu} onClose={() => setHeadMenu(false)} title={INBOX_NAME}>
+            <WorkMenuList
+              rows={[
+                {
+                  label: str(clearInbox, 'label') || 'Clear Inbox',
+                  hint: str(clearInbox, 'hint'),
+                  icon: 'check',
+                  ...(obj(clearInbox.command) !== null ? { command: obj(clearInbox.command) as JsonRecord } : {}),
+                },
+              ]}
+              onPick={(command) => {
+                setHeadMenu(false);
+                dispatch(command as never);
+              }}
+            />
+          </Sheet>
+        ) : null}
       </TranscriptEnvProvider>
     </TranscriptFlagsProvider>
   );
@@ -832,8 +794,7 @@ export function workDockShown(document: ChatDocument, status: WorkingCardValue |
   if (
     dockRows(document).length > 0 ||
     dockSnoozed(document).length > 0 ||
-    dockRecent(document).length > 0 ||
-    obj(dock?.undoMarkAllRead) !== null
+    dockRecent(document).length > 0
   ) {
     return true;
   }
@@ -930,7 +891,7 @@ function SwipeableInboxRow({
           <View style={[styles.swipeActionRight, { backgroundColor: dismissBg }]}>
             <Text style={[styles.swipeActionText, { color: dismissFg }]}>{dismissLabel}</Text>
             <Glyph
-              name={dismissLabel === 'Archive' || dismissLabel === 'Done' ? 'check' : 'x'}
+              name={isClearLabel(dismissLabel) ? 'check' : 'x'}
               size={14}
               color={dismissFg}
             />
@@ -956,7 +917,6 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
   const body = useBodyColor();
   const [open, setOpen] = useState(false);
   const unread = isTrue(row, 'unread');
-  const dismiss = obj(row.dismiss);
   const pages = arr(row.bundlePages)
     .map(obj)
     .filter((p): p is JsonRecord => p !== null);
@@ -989,16 +949,6 @@ function DockPageBundleRow({ row, chat }: { row: JsonRecord; chat: RustChat }) {
             >
               <Text style={styles.bundleButtonText}>{open ? 'Collapse' : 'Expand'}</Text>
             </Pressable>
-            {dismiss !== null ? (
-              <Pressable
-                accessibilityRole="button"
-                hitSlop={6}
-                onPress={() => chat.dispatch(dismiss as never)}
-                style={({ pressed }) => [styles.bundleButton, pressed && { backgroundColor: P.ink(0.09) }]}
-              >
-                <Text style={styles.bundleButtonText}>Archive all</Text>
-              </Pressable>
-            ) : null}
           </View>
         </View>
       </Pressable>
@@ -1048,6 +998,8 @@ function DockHeader({
   onOpenGroup,
   onOpenWork,
   onToggle,
+  onMore,
+  moreOpen = false,
 }: {
   rows: JsonRecord[];
   board: JsonRecord | null;
@@ -1057,6 +1009,9 @@ function DockHeader({
   onOpenGroup: (group: string) => void;
   onOpenWork: () => void;
   onToggle: () => void;
+  /** Opens the header's ⋯ (Clear Inbox); no ⋯ while nothing can be cleared. */
+  onMore?: (() => void) | undefined;
+  moreOpen?: boolean;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -1067,7 +1022,8 @@ function DockHeader({
   const statusWidth =
     status === null ? 0 : 24 + (status.label ?? '').length * 7.4 + 12;
   const inboxLabelWidth = 18 + INBOX_NAME.length * 7.6 + 10;
-  const room = width - 24 - 12 - 5 - (board !== null ? 32 : 0) - (collapsible ? 30 : 0) - 16 - statusWidth;
+  const room =
+    width - 24 - 12 - 5 - (board !== null ? 32 : 0) - (onMore !== undefined ? 32 : 0) - (collapsible ? 30 : 0) - 16 - statusWidth;
   const showInboxLabel = status === null || room >= inboxLabelWidth + 80;
   const named =
     (showInboxLabel ? inboxLabelWidth : 22) +
@@ -1164,6 +1120,11 @@ function DockHeader({
         >
           <Glyph name="layout-board-split" size={14} color={P.cardMuted} />
         </Pressable>
+      ) : null}
+      {onMore !== undefined ? (
+        <View style={styles.dockHeadButton}>
+          <WorkMenuButton label="More Inbox actions" active={moreOpen} onPress={onMore} />
+        </View>
       ) : null}
       {collapsible ? (
         <View style={styles.dockHeadButton}>
@@ -1310,10 +1271,6 @@ function DockRow({
       : null;
   const logosWidth = threadChips.length * (THREAD_LOGO + 6);
   const count = str(row, 'count');
-  const markRead = str(row, 'kind') === 'finished' ? obj(row.dismiss) : null;
-  // Every other closed row with a Dismiss or Mark as read in its menu leads its buttons with Mark
-  // as read, the same command (desktop `dock_mark_read_icon`), unless it asks a question.
-  const readButton = !opened && !settled && markRead === null && !rowAsksQuestion(row) ? obj(row.dismiss) : null;
   // A question form that needs the reader is the visuals list's checklist in the need-you pink
   // (desktop `row_mark`; the user: "use this icon for this one when it's a question form (keep
   // pink color)"); a page its page, everything else its status's mark.
@@ -1347,7 +1304,6 @@ function DockRow({
           details={details}
           iconOnly={!opened && !isThreadWait}
           context={obj(row.context)}
-          markRead={readButton}
         />
       </View>
     ) : logos !== null ? (
@@ -1487,26 +1443,7 @@ function DockRow({
           {direct && count.length > 0 ? <Text style={styles.pageCount}>{count}</Text> : null}
           <View style={styles.ageSlot}>
             <Text style={styles.foldTime}>{str(row, 'age')}</Text>
-            {/* What the newest turn finished asks nothing: Mark as read stands on the row itself,
-                always shown since the phone has no hover (the desktop shows it over the age under
-                the pointer). It is the row's own silent `dismissWorkDockCard`, as its menu's Mark
-                as read: the row leaves the dock, the agent is sent nothing and the item stays Done.
-
-                CDXC:Coordinators 2026-11-18 DECISION:
-                User, of a Done row in the dock: "i need a button on the right there to mark this
-                one as read pls ... should be an icon button on the right side shown only when
-                hovered". */}
-            {markRead !== null ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Archive"
-                hitSlop={{ top: 11, bottom: 11, left: 6, right: 6 }}
-                onPress={() => dispatch(markRead as never)}
-                style={({ pressed }) => [styles.dismiss, pressed && { backgroundColor: P.neutralFillPressed }]}
-              >
-                <Glyph name="check" size={14} color={P.cardMuted} />
-              </Pressable>
-            ) : null}
+            {/* Seen, Not needed and Dismiss are in the ⋯ and the swipe only (Q4917). */}
             {menuRows.length > 0 ? <WorkMenuButton active={menu} onPress={() => setMenu(true)} /> : null}
           </View>
         </View>
@@ -2163,19 +2100,6 @@ function WorkCard({ card, dispatch }: { card: JsonRecord; dispatch: Dispatch }) 
         </View>
         <Text style={[styles.title, { color: body }]}>{str(card, 'title')}</Text>
         {right.length > 0 ? <Text style={styles.right}>{right}</Text> : null}
-        {/* A finished card in the dock goes away with its check (gx-chat-core `dock`). It asks no
-            question, so it reads Archive, as the dock's finished row does; it sends nothing. */}
-        {obj(card.dismiss) !== null ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Archive"
-            hitSlop={8}
-            onPress={() => dispatch(card.dismiss as never)}
-            style={styles.dismiss}
-          >
-            <Glyph name="check" size={12} color={P.muted} />
-          </Pressable>
-        ) : null}
       </View>
       {line.length > 0 ? <Text style={styles.line}>{line}</Text> : null}
       {chips.length > 0 || buttons.length > 0 ? (
@@ -2646,30 +2570,6 @@ const useStyles = themedStyles((P) => ({
   swipeActionText: { fontSize: PROSE_SIZE - 1, fontWeight: '600' },
   swipeSpacer: { flex: 1 },
   swipeForeground: { backgroundColor: P.cardPanel, borderRadius: 8 },
-  dockMarkSummary: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE - 1.5, color: P.muted, paddingLeft: 8 },
-  dockUndoBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: P.ink(0.08),
-    backgroundColor: P.ink(0.04),
-  },
-  dockUndoText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE - 0.5, color: P.foreground },
-  dockUndoButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: P.ink(0.12),
-    backgroundColor: P.ink(0.06),
-  },
-  dockUndoButtonText: { fontSize: PROSE_SIZE - 1, fontWeight: '600', color: P.foreground },
-  dockUndoClose: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 5 },
   dockAnsweredRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2892,17 +2792,6 @@ const useStyles = themedStyles((P) => ({
     borderTopWidth: 1,
     borderTopColor: P.ink(0.06),
   },
-  dockMarkSeen: {
-    marginLeft: 'auto',
-    flexShrink: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: P.ink(0.10),
-    backgroundColor: P.ink(0.04),
-  },
-  dockMarkSeenText: { fontSize: PROSE_SIZE - 1, color: P.foreground },
   dismiss: { width: 20, height: PROSE_LINE, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   dockFold: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   dockLineText: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, color: P.cardMuted },

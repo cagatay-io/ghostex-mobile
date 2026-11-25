@@ -178,8 +178,6 @@ const DETAILS_GLYPH: GlyphName = 'message-question';
 const PAGE_OPEN_GLYPH: GlyphName = 'external-link';
 /** A Needs you row's Jump to context (desktop `CONTEXT_ICON`). */
 const CONTEXT_GLYPH: GlyphName = 'message-share';
-/** A Needs you row's Archive action (desktop `MARK_READ_ICON`). */
-const MARK_READ_GLYPH: GlyphName = 'check';
 
 /** A Reply button's width as `WorkAnswerLine` measures it. */
 function replyWidthOf(replied: string, fontScale: number): number {
@@ -205,23 +203,12 @@ export function openWorkReply(reply: JsonRecord, scope: ReplyDraftScope | null):
 }
 
 /**
- * Whether a dock row carries a question the reader must answer, so it has no Mark as read: an ask
- * with answers, a one-click question, a form or page with open questions, an approval with buttons,
- * a to-do that offers its own choices. A page that only waits to be seen (its dismiss reads "Mark
- * as read"), a to-do with only Done, a blocked line of work and a notice with no answers ask
- * nothing. Desktop has the same rule (native_chat/work_actions.rs `row_asks_question`).
+ * Whether a row's `dismissLabel` clears something that asks nothing (Seen on a page, Not needed on
+ * a to-do, All seen on a group of pages), as against a question's Dismiss: it takes the check
+ * (desktop native_chat/work_actions.rs `is_clear_label`).
  */
-export function rowAsksQuestion(row: JsonRecord): boolean {
-  const key = str(row, 'key');
-  const buttons = arr(row.buttons);
-  if (key.startsWith('work-ask:')) return true;
-  if (key.startsWith('dock-questions:')) {
-    const label = str(row, 'dismissLabel');
-    return label !== 'Archive' && label !== 'Done' && label !== 'Mark as read';
-  }
-  const onlyDone = buttons.length === 0 || (buttons.length === 1 && str(buttons[0], 'label') === 'Done');
-  if (key.startsWith('needs-you:')) return !onlyDone;
-  return buttons.length > 0;
+export function isClearLabel(label: string): boolean {
+  return label === 'Seen' || label === 'Not needed' || label === 'All seen';
 }
 
 /**
@@ -503,7 +490,6 @@ export function WorkAnswerLine({
   details = null,
   iconOnly = false,
   context = null,
-  markRead = null,
 }: {
   answers: JsonRecord[];
   reply: JsonRecord | null;
@@ -546,13 +532,6 @@ export function WorkAnswerLine({
    * `work_cards::context_of`; desktop `dock_context_icon`). A computer that sends none draws no
    * button. */
   context?: JsonRecord | null;
-  /** Mark as read, the first of the dock's closed row's buttons: the row's own `dismiss`, the
-   * command its menu's Dismiss / Mark as read sends (desktop `dock_mark_read_icon`).
-   *
-   * CDXC:Coordinators 2026-11-21 DECISION: the user, of Needs you rows with Details and Reply:
-   * "can we add the message open icon to mark as read to be to the left of the current 2 buttons
-   * that are there?" */
-  markRead?: JsonRecord | null;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -612,17 +591,6 @@ export function WorkAnswerLine({
         }}
       />
     ) : null;
-  const markReadButton =
-    markRead != null ? (
-      <WorkButton
-        key="read"
-        keep
-        iconOnly
-        label="Archive"
-        icon={MARK_READ_GLYPH}
-        onPress={() => dispatch(markRead as never)}
-      />
-    ) : null;
   // CDXC:Coordinators 2026-11-24 DECISION (ask-details-page, Layout C + "Details"):
   // Keep answer buttons visible on the folded row and put a quiet neutral "Details" button beside
   // them to open the full bottom sheet.
@@ -631,7 +599,7 @@ export function WorkAnswerLine({
   const detailsWidth =
     detailsButton !== null ? (measured.details ?? buttonWidth('Details', false, false, fontScale)) + 6 : 0;
   const contextWidth =
-    detailsWidth + (contextButton !== null ? ICON_BUTTON + 6 : 0) + (markReadButton !== null ? ICON_BUTTON + 6 : 0);
+    detailsWidth + (contextButton !== null ? ICON_BUTTON + 6 : 0);
   const pillRoom = pillWidths(pills, fontScale);
   if (answers.length === 0) {
     // A form or page offers Reply after its Open (gx-chat-core `questionsReply`).
@@ -658,7 +626,6 @@ export function WorkAnswerLine({
       return (
         <View style={styles.line}>
           {lead}
-          {markReadButton}
           {iconOnly ? (
             <WorkButton
               keep
@@ -678,7 +645,6 @@ export function WorkAnswerLine({
     return detailsButton !== null || replyButton !== null || contextButton !== null || pills.length > 0 || logos != null ? (
       <View style={styles.line}>
         {lead}
-        {markReadButton}
         {detailsButton}
         {contextButton}
         {replyButton}
@@ -785,7 +751,6 @@ export function WorkAnswerLine({
         {/* Opened: the item pills at the left, the answers and Reply at the right edge (user,
             2026-11-12: "move the answer buttons to bottom right. keep work item tag bottom left"). */}
         {divider ? <View style={styles.flex} /> : null}
-        {markReadButton}
         {fold ? (
           <WorkButton
             keep
@@ -823,6 +788,8 @@ export type WorkMenuRow = {
   /** Words a pick copies to the clipboard (Copy as Markdown). */
   copy?: string;
   destructive?: boolean;
+  /** A quiet line under the label saying what the pick does (the Inbox header's Clear Inbox). */
+  hint?: string;
 };
 
 /** "Answers: A, B (recommended: A)" for a question's choices, "" for none. */
@@ -914,22 +881,13 @@ export function workMenuRows(
   const markAnswered = obj(actions.markAnswered);
   if (markAnswered !== null) rows.push({ label: 'Mark answered', icon: 'circle-check', command: markAnswered });
   const dismiss = obj(actions.dismiss);
-  // Dismiss, or Archive on a row that asks no question (a Needs you to-do, a page that only
-  // waits to be seen, what the newest turn finished): gx-chat-core's `dismissLabel`. Both send the
-  // agent nothing; gxserver tells it with its next message (server/src/session_chat_dismissed.rs).
+  // Dismiss on a question, or on a row that asks nothing what clears it: Seen on a page that only
+  // waits to be seen, Not needed on a to-do with only Done, All seen on a group of pages
+  // (gx-chat-core's `dismissLabel`, CDXC:Coordinators 2026-11-25 Q4918). None sends the agent
+  // anything; gxserver tells it with its next message (server/src/session_chat_dismissed.rs).
   if (dismiss !== null) {
-    const label = str(actions, 'dismissLabel');
-    const archive =
-      label === 'Archive' ||
-      label === 'Archive all' ||
-      label === 'Done' ||
-      label === 'Mark all done' ||
-      label === 'Mark as read';
-    rows.push({
-      label: archive ? (label === 'Archive all' ? 'Archive all' : 'Archive') : label || 'Dismiss',
-      icon: archive ? 'check' : 'x',
-      command: dismiss,
-    });
+    const label = str(actions, 'dismissLabel') || 'Dismiss';
+    rows.push({ label, icon: isClearLabel(label) ? 'check' : 'x', command: dismiss });
   }
   const snooze = arr(actions.snooze)
     .map(obj)
@@ -1008,7 +966,14 @@ export function WorkMenuList({
           style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
         >
           <Glyph name={row.icon} size={15} color={P.cardMuted} />
-          <Text style={[styles.menuText, styles.flex]}>{row.label}</Text>
+          {row.hint !== undefined && row.hint.length > 0 ? (
+            <View style={[styles.flex, styles.menuWords]}>
+              <Text style={styles.menuText}>{row.label}</Text>
+              <Text style={styles.menuHint}>{row.hint}</Text>
+            </View>
+          ) : (
+            <Text style={[styles.menuText, styles.flex]}>{row.label}</Text>
+          )}
           {row.snooze !== undefined ? <Glyph name="chevron-right" size={14} color={P.cardMuted} /> : null}
         </Pressable>
       ))}
@@ -1017,13 +982,21 @@ export function WorkMenuList({
 }
 
 /** The ⋯ that opens an item's menu: always shown, since a phone has no hover. */
-export function WorkMenuButton({ onPress, active }: { onPress: () => void; active?: boolean }) {
+export function WorkMenuButton({
+  onPress,
+  active,
+  label = 'More actions',
+}: {
+  onPress: () => void;
+  active?: boolean;
+  label?: string;
+}) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="More actions"
+      accessibilityLabel={label}
       accessibilityState={{ expanded: active === true }}
       hitSlop={{ top: 11, bottom: 11, left: 8, right: 8 }}
       onPress={onPress}
@@ -1099,6 +1072,8 @@ const useStyles = themedStyles((P) => ({
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 16 },
   menuRowPressed: { backgroundColor: P.neutralFillPressed },
   menuText: { color: P.foreground, fontSize: PROSE_SIZE + 1 },
+  menuWords: { paddingVertical: 8, gap: 2 },
+  menuHint: { color: P.cardMuted, fontSize: PROSE_SIZE - 1, lineHeight: PROSE_SIZE + 4 },
   flex: { flex: 1 },
   dots: { width: 26, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   draftDot: { position: 'absolute', top: -2, right: -2, width: 6, height: 6, borderRadius: 3 },
