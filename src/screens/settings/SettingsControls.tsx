@@ -512,6 +512,59 @@ export function SegmentedRow<Value extends string>({
   );
 }
 
+/**
+ * An on/off setting whose two states are two named behaviours: its label over a two-choice
+ * segmented control, in place of a switch. `choices` is in the order they show, each with the
+ * value it saves.
+ *
+ * CDXC:Settings 2026-11-26 SEE-ALSO: the user's decision (Q5019) is on `bool_segmented_field` in the
+ * desktop's apps/desktop/src/app/window/settings_modal/fields/segmented.rs.
+ */
+export function BoolChoiceRow({
+  label,
+  choices,
+  value,
+  onChange,
+}: {
+  label: string;
+  choices: readonly [readonly [string, boolean], readonly [string, boolean]];
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const styles = useSettingsStyles();
+  const options = choices.map(([choice, on]) => ({ value: on ? 'on' : 'off', label: choice }) as const);
+  return (
+    <SettingsSearchAnchor label={label}>
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>{label}</Text>
+        <SegmentedRow
+          label={label}
+          options={options}
+          value={value ? 'on' : 'off'}
+          onChange={(next) => onChange(next === 'on')}
+        />
+      </View>
+    </SettingsSearchAnchor>
+  );
+}
+
+/** A boolean setting drawn as a [`BoolChoiceRow`]. */
+export function SettingBoolChoice({
+  settingKey,
+  label,
+  choices,
+}: {
+  settingKey: BooleanSettingKey;
+  label: string;
+  choices: readonly [readonly [string, boolean], readonly [string, boolean]];
+}) {
+  const value = useSettingsStore((state) => state.settings[settingKey]);
+  const setSetting = useSettingsStore((state) => state.setSetting);
+  return (
+    <BoolChoiceRow label={label} choices={choices} value={value} onChange={(next) => setSetting(settingKey, next)} />
+  );
+}
+
 /** A switch bound to one boolean setting. */
 export function SettingToggle({ settingKey, label }: { settingKey: BooleanSettingKey; label: string }) {
   const value = useSettingsStore((state) => state.settings[settingKey]);

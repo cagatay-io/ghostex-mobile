@@ -539,8 +539,8 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "keywords": []
   },
   "sessionChatDetailedView": {
-    "title": "Default to Detailed view",
-    "subtitle": "New chats open in Detailed view: Quiet View with every line open, so all the work between replies shows. Off, they open in Normal view. More actions > View in a chat picks Summary, Normal or Detailed for that chat.",
+    "title": "New chats open in",
+    "subtitle": "Normal view, or Detailed view: Quiet View with every line open, so all the work between replies shows. More actions > View in a chat picks Summary, Normal or Detailed for that chat.",
     "options": [],
     "keywords": []
   },
@@ -591,7 +591,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "sidebarHideDisconnectedMachines": {
     "title": "Hide sessions and projects from computers that aren't connected",
-    "subtitle": "Leave a computer that isn't connected out of the Project sidebar: its sessions leave every project, and a project only it has is hidden. They come back when it reconnects. Off: its last sessions stay, faded. The Unified sidebar always leaves it out. The phone follows this. Shown while Separate by machine is off.",
+    "subtitle": "Leave a computer that isn't connected out of the Project sidebar: its sessions leave every project, and a project only it has is hidden. They come back when it reconnects. Off: its last sessions stay, faded. The Unified sidebar always leaves it out. The phone follows this. Shown while Computers is set to One list.",
     "options": [],
     "keywords": [
       "offline",
@@ -607,13 +607,13 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "sidebarMergeRepositoryCopies": {
     "title": "Merge copies of the same repository",
-    "subtitle": "Show two folders on this computer that are copies of the same repository (the same git remote, opened at the same folder inside it) as one project, with the sessions of both. Turn off to give each folder its own project with only its own sessions. Copies on different computers are one project either way. The phone follows this. Shown while Separate by machine is off.",
+    "subtitle": "Show two folders on this computer that are copies of the same repository (the same git remote, opened at the same folder inside it) as one project, with the sessions of both. Turn off to give each folder its own project with only its own sessions. Copies on different computers are one project either way. The phone follows this. Shown while Computers is set to One list.",
     "options": [],
     "keywords": []
   },
   "sidebarSeparateByMachine": {
-    "title": "Separate by machine",
-    "subtitle": "Show one computer at a time, each with its own tab, project list and Spaces. Off (the default): one list for every connected computer, where a project on several computers is one entry with the sessions of all of them, and Spaces and project groups are shared by all of them.",
+    "title": "Computers",
+    "subtitle": "One list (the default): every connected computer in one list, where a project on several computers is one entry with the sessions of all of them, and Spaces and project groups are shared by all of them. A tab each: one computer at a time, each with its own tab, project list and Spaces.",
     "options": [],
     "keywords": []
   },
@@ -685,7 +685,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "sidebarView": {
     "title": "Sidebar",
-    "subtitle": "Project sidebar lists each project with its sessions under it. Unified sidebar shows every session in one list, with the ones that need you on top. Both show every connected computer together unless Separate by machine is on.",
+    "subtitle": "Project sidebar lists each project with its sessions under it. Unified sidebar shows every session in one list, with the ones that need you on top. Both show every connected computer together unless Computers is set to A tab each.",
     "options": [
       "Project sidebar",
       "project",
@@ -1865,8 +1865,8 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "keywords": []
   },
   "worktreeSessionsInProject": {
-    "title": "Worktree sessions show in their project",
-    "subtitle": "List a session started in a worktree under its repository's project, with the worktree's branch on its row, instead of giving the worktree a project of its own. The session still works in the worktree's folder. Turn off to show each worktree as its own project under its repository. Shown while the Project sidebar is selected.",
+    "title": "Worktree sessions",
+    "subtitle": "In their repository: a session started in a worktree is listed under its repository's project, with the worktree's branch on its row; the session still works in the worktree's folder. Own project: each worktree shows as its own project under its repository. Shown while the Project sidebar is selected.",
     "options": [],
     "keywords": []
   }

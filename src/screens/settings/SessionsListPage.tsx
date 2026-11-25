@@ -5,7 +5,7 @@ import { setSidebarSetting } from '../../settingsSync/settingsSync';
 import { useSidebarOrganization, type SidebarOrganization } from '../../settingsSync/sidebarOrganization';
 import { useSyncedEntriesStore } from '../../settingsSync/syncedEntries';
 import { SettingsSection } from './SectionBoundary';
-import { Caption, SectionHeader, SegmentedRow, SettingsScreenLayout, ToggleRow } from './SettingsControls';
+import { BoolChoiceRow, Caption, SectionHeader, SegmentedRow, SettingsScreenLayout, ToggleRow } from './SettingsControls';
 import { SessionTagsSection } from './SessionTagsSection';
 
 const VIEW_OPTIONS: { value: SidebarOrganization['sidebarView']; label: string }[] = [
@@ -63,13 +63,18 @@ export default function SessionsListPage() {
           {unified
             ? 'Every session in one list, with the ones that need you on top.'
             : 'Each project with its sessions under it.'}{' '}
-          Both show every connected computer together unless Separate by machine is on.
+          Both show every connected computer together unless Computers is set to A tab each.
         </Caption>
-        {toggle(
-          'sidebarSeparateByMachine',
-          'Separate by machine',
-          'One computer at a time, each with its own tab, project list and Spaces.',
-        )}
+        <BoolChoiceRow
+          label="Computers"
+          choices={[
+            ['One list', false],
+            ['A tab each', true],
+          ]}
+          value={organization.sidebarSeparateByMachine === true}
+          onChange={(next) => setSidebarSetting('sidebarSeparateByMachine', next as never)}
+        />
+        <Caption>A tab each: one computer at a time, each with its own tab, project list and Spaces.</Caption>
         {organization.sidebarSeparateByMachine
           ? null
           : toggle(
@@ -109,11 +114,16 @@ export default function SessionsListPage() {
               'Hide projects without sessions',
               'A Show all projects row at the end brings them back.',
             )}
-            {toggle(
-              'worktreeSessionsInProject',
-              'Worktree sessions show in their project',
-              "Listed under the repository's project, with the worktree's branch on the row.",
-            )}
+            <BoolChoiceRow
+              label="Worktree sessions"
+              choices={[
+                ['In their repository', true],
+                ['Own project', false],
+              ]}
+              value={organization.worktreeSessionsInProject === true}
+              onChange={(next) => setSidebarSetting('worktreeSessionsInProject', next as never)}
+            />
+            <Caption>In their repository: listed under the repository's project, with the worktree's branch on the row.</Caption>
             {/* CDXC:RemoteMachines 2026-11-15 DECISION (packages/gx-core/src/sidebar_view/merged.rs): off by default;
                 the Unified list always leaves a computer that isn't connected out, and Separate by machine gives each its
                 own tab. */}

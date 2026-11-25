@@ -230,8 +230,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: 'settings:sessions-list:sidebar',
     group: 'Layout',
     formerGroup: 'Sidebar',
-    title: 'Separate by machine',
-    description: 'One computer at a time, each with its own tab, project list and Spaces.',
+    title: 'Computers',
+    description: 'One list, or A tab each: one computer at a time, each with its own tab, project list and Spaces.',
     catalog: 'sidebarSeparateByMachine',
   },
   {
@@ -294,8 +294,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: 'settings:sessions-list:sidebar',
     group: 'Layout',
     formerGroup: 'Sidebar',
-    title: 'Worktree sessions show in their project',
-    description: "Listed under the repository's project, with the worktree's branch on the row.",
+    title: 'Worktree sessions',
+    description: "In their repository (under the repository's project, with the worktree's branch on the row), or Own project.",
     catalog: 'worktreeSessionsInProject',
   },
   {
@@ -1000,8 +1000,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     page: 'advanced',
     section: 'settings:advanced:chat-transcript',
     group: 'Chat transcript',
-    title: 'Default to Detailed view',
-    description: 'New chats open in Detailed view, with the work under each agent reply shown.',
+    title: 'New chats open in',
+    description: 'Normal view, or Detailed view, with the work under each agent reply shown.',
     catalog: 'sessionChatDetailedView',
   },
   {
