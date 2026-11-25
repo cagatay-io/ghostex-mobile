@@ -19,7 +19,14 @@ import { machineNameById } from '../machines/store';
 const CALL_TIMEOUT_MS = 12_000;
 
 export type AgentSessionMode = 'agent-cli' | 'non-cli';
-export type NativeModeFamily = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'grok' | 'hermes';
+export type NativeModeFamily =
+  | 'claude'
+  | 'codex'
+  | 'antigravity'
+  | 'opencode'
+  | 'grok'
+  | 'hermes'
+  | 'cursor';
 
 export const NATIVE_MODE_AGENTS: readonly { family: NativeModeFamily; label: string }[] = [
   { family: 'claude', label: 'Claude Code' },
@@ -28,6 +35,7 @@ export const NATIVE_MODE_AGENTS: readonly { family: NativeModeFamily; label: str
   { family: 'opencode', label: 'OpenCode' },
   { family: 'grok', label: 'Grok Build' },
   { family: 'hermes', label: 'Hermes Agent' },
+  { family: 'cursor', label: 'Cursor CLI' },
 ];
 
 export const SESSION_MODE_OPTIONS: readonly { value: AgentSessionMode; label: string }[] = [
@@ -59,6 +67,10 @@ export function canonicalNativeModeFamily(raw: string): NativeModeFamily | null 
     case 'hermes':
     case 'hermes-agent':
       return 'hermes';
+    case 'cursor':
+    case 'cursor-cli':
+    case 'cursor-agent':
+      return 'cursor';
     default:
       return null;
   }

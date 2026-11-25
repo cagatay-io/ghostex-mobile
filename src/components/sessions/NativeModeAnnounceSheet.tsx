@@ -21,7 +21,15 @@ import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import BottomSheet from '../common/BottomSheet';
 
 const SEEN_STORAGE_KEY = 'ghostex.nativeModeAnnounceSeen.v1';
-const NATIVE_FAMILIES = ['antigravity', 'claude', 'codex', 'opencode', 'grok', 'hermes'] as const;
+const NATIVE_FAMILIES = [
+  'antigravity',
+  'claude',
+  'codex',
+  'opencode',
+  'grok',
+  'hermes',
+  'cursor',
+] as const;
 
 type BulkSwitchSummary = {
   completed: boolean;
