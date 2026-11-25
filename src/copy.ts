@@ -1296,6 +1296,9 @@ export const EditMachineCopy = {
   machineTools: {
     agentsLabel: 'Agent CLIs',
     toolsLabel: 'Skills and tools',
+    /** Beside a failed install (the same button as the Ghostex row's). */
+    runInTerminal: 'Run in terminal',
+    runInTerminalFailed: 'Could not open a terminal',
     reading: 'Reading what is installed there…',
     notConnected: (computer: string) => `Connect to ${computer} to see and update its agent CLIs, skills and tools.`,
     retry: 'Read again',

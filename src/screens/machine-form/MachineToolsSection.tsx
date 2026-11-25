@@ -4,14 +4,17 @@
  * and Integrations with that machine picked.
  */
 
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { DownloadGlyph, RefreshGlyph } from '../../components/sessions/icons';
 import { EditMachineCopy } from '../../copy';
+import { openShownCommandTerminal } from '../../machines/appUpdate';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { machineNameById } from '../../machines/store';
 import {
@@ -37,6 +40,7 @@ import {
   type AgentSessionMode,
   type NativeModeFamily,
 } from '../../settings/agentSessionMode';
+import type { RootStackParamList } from '../../navigation/types';
 import { SetupPalette } from '../../theme/palette';
 import { useFormStyles } from './styles';
 
@@ -64,6 +68,9 @@ function Row({
   const appearance = useAppearance();
   const formStyles = useFormStyles();
   const [legacyTipOpen, setLegacyTipOpen] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const runInTerminal = row.busy ? null : (row.runInTerminal ?? null);
   const starting = tools.starting[row.key] === true;
   const failed = tools.failed[row.key];
   const action = row.action;
@@ -109,6 +116,30 @@ function Row({
           />
         ) : null}
       </View>
+      {runInTerminal !== null ? (
+        <View style={[formStyles.row, { paddingTop: 2, borderTopWidth: 0 }]}>
+          <SetupButton
+            small
+            variant="primary"
+            label={EditMachineCopy.machineTools.runInTerminal}
+            busy={opening}
+            onPress={() => {
+              setOpening(true);
+              void openShownCommandTerminal(machine, runInTerminal)
+                .then(({ sessionKey, title }) =>
+                  navigation.navigate('Terminal', { sessionKey, machineId: machine.id, title }),
+                )
+                .catch((error: unknown) =>
+                  Alert.alert(
+                    EditMachineCopy.machineTools.runInTerminalFailed,
+                    error instanceof Error ? error.message : String(error),
+                  ),
+                )
+                .finally(() => setOpening(false));
+            }}
+          />
+        </View>
+      ) : null}
       {nativeFamily !== null && currentMode !== null && onChangeSessionMode !== undefined ? (
         <View style={modeStyles.modeBlock}>
           <View style={modeStyles.modeRow}>

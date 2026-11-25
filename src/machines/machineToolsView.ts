@@ -14,6 +14,8 @@ export type ToolJob = {
   status?: string;
   error?: string | null;
   output?: string;
+  /** Run in terminal's id on a failed install (server/src/shown_commands/installs.rs); missing from an older gxserver. */
+  runInTerminal?: string | null;
 };
 
 /** One `/api/agentCliMaintenance` `list` entry, as far as the phone reads it. */
@@ -73,6 +75,8 @@ export type ToolRowView = {
   tone: RowTone;
   busy: boolean;
   action: RowAction | null;
+  /** Run in terminal beside a failed install: the id that computer gave the failed job, or null. */
+  runInTerminal?: string | null;
 };
 
 export function jobActive(job: ToolJob | null | undefined): boolean {
@@ -90,6 +94,16 @@ function runningWord(operation: string | undefined): string {
     default:
       return 'Installing';
   }
+}
+
+/**
+ * Run in terminal's id beside a failed install, only when that computer's gxserver gave the failed job
+ * one (older computers show no button). The desktop's twins: settings_modal/tabs/integrations/tools.rs
+ * and tabs/agents/cli.rs.
+ */
+function failedRunInTerminal(job: ToolJob | null | undefined): string | null {
+  if (job?.status !== 'failed') return null;
+  return job.runInTerminal?.trim() || null;
 }
 
 /** A failed job's last words, so a row says why. */
@@ -129,6 +143,7 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
       tone: failure !== null || unavailable ? 'warning' : 'muted',
       busy: false,
       action: method === null ? null : { label: 'Install', operation: 'install', methodId: method.id },
+      runInTerminal: failedRunInTerminal(agent.job),
     };
   }
   const version = agent.version?.trim();
@@ -157,6 +172,7 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
     tone: failure !== null ? 'warning' : 'success',
     busy: false,
     action: update ? { label: 'Update', operation: 'update', methodId: agent.detectedMethodId ?? undefined } : null,
+    runInTerminal: failedRunInTerminal(agent.job),
   };
 }
 
@@ -211,6 +227,7 @@ export function toolRow(tool: ManagedTool, computer: string): ToolRowView {
       tone: failure !== null ? 'warning' : 'muted',
       busy: false,
       action: can('install') && !viaTerminal ? { label: 'Install', operation: 'install' } : null,
+      runInTerminal: failedRunInTerminal(tool.job),
     };
   }
   const version = tool.version?.trim();
@@ -225,6 +242,7 @@ export function toolRow(tool: ManagedTool, computer: string): ToolRowView {
     tone: failure !== null || note || tool.updateAvailable === true ? 'warning' : 'success',
     busy: false,
     action: tool.updateAvailable === true && can('update') ? { label: 'Update', operation: 'update' } : null,
+    runInTerminal: failedRunInTerminal(tool.job),
   };
 }
 
