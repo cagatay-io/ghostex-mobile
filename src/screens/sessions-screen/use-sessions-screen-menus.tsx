@@ -7,6 +7,7 @@
  * launchAgent) run in their original relative order.
  */
 
+import { staysUnderCoordinator } from '../../contract/coordinatorTree';
 import { plural } from '../../plural';
 import { unifiedNewSessionTarget, type ActiveProject } from '../../contract/unified/choices';
 import { snoozeWakeAt } from '../../contract/unified/snooze';
@@ -1078,7 +1079,8 @@ export function useSessionsScreenMenus({
     const sessions = collectionMemberSessions(ctx);
     const awake = sessions.filter(isRunningSession);
     const sleeping = sessions.filter(isSleepingSession);
-    const unpinned = sessions.filter((session) => !session.isPinned);
+    // A coordinator's thread is never pinned (CDXC:Coordinators 2026-11-25 in contract/coordinatorTree.ts).
+    const unpinned = sessions.filter((session) => !session.isPinned && !staysUnderCoordinator(session));
     const pinned = sessions.filter((session) => session.isPinned);
     const nonBrowser = sessions.filter((session) => !isBrowserSession(session));
     const items: ContextMenuItem[] = [];

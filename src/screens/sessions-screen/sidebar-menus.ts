@@ -18,6 +18,7 @@
  * packages/gx-core/src/sidebar_view/tags.rs (the default tag list).
  */
 
+import { staysUnderCoordinator } from '../../contract/coordinatorTree';
 import { SNOOZE_PRESETS, type SnoozePreset } from '../../contract/unified/snooze';
 import {
   displayStatus,
@@ -862,6 +863,7 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
       ? ['sleep']
       : enabled.filter((action) => action !== 'close' && action !== 'closeAfterDone')
     : [];
+  const thread = staysUnderCoordinator(session);
   const shown = (action: HoverAction): boolean =>
     mirror.includes(action) || (action !== 'note' && !enabled.includes(action));
   const tags = (): SidebarMenuItem[] => (caps.canTag ? tagItems(session, customTags, tagListItems) : []);
@@ -883,6 +885,9 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
           : [];
       case 'pin': {
         const pinned = session.isPinned;
+        // A coordinator's thread offers no Pin, Snooze or Park; a row still on one keeps its way back (gx-core
+        // session.rs, CDXC:Coordinators 2026-11-25 in contract/coordinatorTree.ts).
+        if (thread && !pinned) return [];
         return [layoutRow(layout, 'pin', command({ type: 'setSessionPinned', sessionId: id, pinned: !pinned }), pinned)];
       }
       case 'voiceCall':
@@ -891,7 +896,7 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
           : [];
       case 'snooze':
         // CDXC:Sidebar 2026-10-30 SEE-ALSO: gx-core `session.rs` `snooze`: Unsnooze on a snoozed session, else the presets.
-        if (!snooze || caps.isBrowser || !shown('snooze')) return [];
+        if (!snooze || caps.isBrowser || !shown('snooze') || (thread && !isSnoozedNow(session))) return [];
         return isSnoozedNow(session)
           ? [layoutRow(layout, 'snooze', { type: 'unsnooze', sessionId: id }, true)]
           : [
@@ -906,6 +911,7 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
       case 'park': {
         if (caps.isBrowser || !settings.enableSessionParking || !caps.canPark || !shown('park')) return [];
         const parked = session.isParked === true;
+        if (thread && !parked) return [];
         const tagRows = tags();
         if (!parked && settings.showTagMenuWhenParking && tagRows.length > 0) {
           return [

@@ -11,7 +11,7 @@
  * gxserver predates the field links same-computer threads only.
  */
 
-import { layOutTree, TREE_ROOT, type CoordinatorBadge, type FoldedStatus, type RowNesting, type TreeChildren, type TreeSpot } from '../coordinatorTree';
+import { layOutTree, staysUnderCoordinator, TREE_ROOT, type CoordinatorBadge, type FoldedStatus, type RowNesting, type TreeChildren, type TreeSpot } from '../coordinatorTree';
 import type { UnifiedFilter, UnifiedRow, UnifiedSessionInput, UnifiedSettings } from './build';
 
 /** How long after its last activity a thread that neither works nor waits is still listed. */
@@ -181,8 +181,10 @@ export function nestUnifiedRows<S>(
   rows.forEach((entry, index) => indexOf.set(entry.key, index));
   const parentOf: Array<number | null> = rows.map((entry, index) => {
     const session = entry.row.session;
+    // A coordinator's own thread is never detached (gx-core unified_sidebar/tree.rs `detached`).
     const detached =
-      (settings.parking && session.isParked) || (session.snoozedUntilMs !== null && session.snoozedUntilMs > nowMs);
+      !staysUnderCoordinator(session) &&
+      ((settings.parking && session.isParked) || (session.snoozedUntilMs !== null && session.snoozedUntilMs > nowMs));
     if (detached || entry.parent === null) return null;
     const parent = indexOf.get(entry.parent);
     return parent === undefined || parent === index ? null : parent;

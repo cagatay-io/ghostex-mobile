@@ -70,7 +70,7 @@ import { CoordinatorFold } from '../../components/sessions/CoordinatorFold';
 import { showsFoldedStatus, UnifiedCrewCount, UnifiedFoldedStatus } from '../../components/sessions/unified/crew';
 import { sessionLinksDisplay } from '../../chat/native/sessionLinks';
 import { SessionCopy } from '../../copy';
-import type { RowNesting } from '../../contract/coordinatorTree';
+import { staysUnderCoordinator, type RowNesting } from '../../contract/coordinatorTree';
 import { ancestorsOf, crewHasBanner, drawnLines, rowsInTree } from '../../contract/unified/tree';
 import type { MachineInventory } from '../../inventory/store';
 import { agentMenuNotice, type NewSessionNotice } from './new-session-button';
@@ -797,7 +797,12 @@ export function useUnifiedList(deps: UnifiedListDeps) {
         onSnooze={(anchor) => target !== null && setSnoozeFor({ machine: target, session, anchor })}
         onPark={() => target !== null && void runBulkSessionActions(target, [parkSessionAction(session, true)])}
         onSleep={() => target !== null && void runBulkSessionActions(target, [lifecycleSessionAction(session, true)])}
-        swipeActions={swipeActions}
+        // A coordinator's thread has no Snooze or Park (CDXC:Coordinators 2026-11-25 in contract/coordinatorTree.ts).
+        swipeActions={
+          staysUnderCoordinator(session)
+            ? swipeActions.filter((action) => action !== 'snooze' && action !== 'park')
+            : swipeActions
+        }
         inGroup={item.inGroup === true}
         onToggleCrew={toggleCoordinator}
       />

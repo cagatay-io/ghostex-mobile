@@ -226,11 +226,34 @@ function isBrowser(session: GhostexSession): boolean {
 }
 
 /**
- * A parked or snoozed thread stays in its own section (gx-core threads.rs `is_nestable_thread`, which reads parking
- * through the section: a parked thread is an ordinary one while parking is off); every other thread, resolved ones
- * included, joins the tree.
+ * A coordinator's own thread (not a session linked to a lead): it always shows under its coordinator, so it offers no
+ * Park, Pin or Snooze (gx-core `SessionRow::stays_under_coordinator`).
+ *
+ * CDXC:Coordinators 2026-11-25 SEE-ALSO: the user's decision in server/src/coordinators/thread_shelves.rs ("i want
+ * threads that are under a coordinator to not be able to be away from it. they always appear below it. and no
+ * parking/pinning for those, no need").
+ */
+export function staysUnderCoordinator(session: {
+  coordinatorProjectId?: string | null;
+  coordinatorSessionId?: string | null;
+  kind?: string;
+  surface?: string;
+}): boolean {
+  return (
+    (session.coordinatorProjectId ?? '').length > 0 &&
+    (session.coordinatorSessionId ?? '').length > 0 &&
+    session.kind !== 'browser' &&
+    session.surface !== 'browser'
+  );
+}
+
+/**
+ * A coordinator's thread always joins the tree, parked or snoozed too (gx-core threads.rs `is_nestable_thread`); a
+ * lead's parked or snoozed linked session stays in its own section (parking read through the section: a parked
+ * session is an ordinary one while parking is off).
  */
 function isNestableThread(session: GhostexSession, ownSection: unknown): boolean {
+  if (staysUnderCoordinator(session)) return true;
   return parentKey(session) !== null && !isBrowser(session) && ownSection !== 'parked' && ownSection !== 'snoozed';
 }
 

@@ -12,6 +12,7 @@ import {
   crewBadgeOf,
   coordinatorRowKey,
   nestCoordinatorThreads,
+  staysUnderCoordinator,
   type CoordinatorBadge,
   type RowNesting,
 } from './coordinatorTree';
@@ -1035,7 +1036,8 @@ function mergeRepositoryCopyBuckets(
 }
 
 /**
- * CDXC:Coordinators 2026-11-16 SEE-ALSO: the WHY in packages/gx-core/src/sidebar_view/thread_fold.rs. In the Project list a coordinator's thread that lives in another project of this computer (linked with `ghostex coordinator link`, or started with `--project-id`/`--path`) moves into the bucket that holds its coordinator, so it is nested under it instead of listed as a plain row in its own project; the session still runs and acts in its own project. A thread in a worktree of the coordinator's own project is left to the worktree fold, and Chief of Staff's sessions stay in their projects. The Unified list nests across projects itself. Returns the moved threads' row keys.
+ * CDXC:Coordinators 2026-11-16 SEE-ALSO: the WHY in packages/gx-core/src/sidebar_view/thread_fold.rs. In the Project list a coordinator's thread that lives in another project of this computer (linked with `ghostex coordinator link`, or started with `--project-id`/`--path`) moves into the bucket that holds its coordinator, so it is nested under it instead of listed as a plain row in its own project; the session still runs and acts in its own project. Chief of Staff's sessions stay in their projects. The Unified list nests across projects itself. Returns the moved threads' row keys.
+ * CDXC:Coordinators 2026-11-25 SEE-ALSO: the user's decision in server/src/coordinators/thread_shelves.rs ("they always appear below it"): a thread in a worktree project listed on its own moves under its coordinator too (one in a worktree the worktree fold already put in its coordinator's bucket stays there), and `withMovedThreads` puts a thread in its coordinator's session group.
  */
 function foldCrossProjectThreads(
   summary: GhostexMobileSummary,
@@ -1058,7 +1060,6 @@ function foldCrossProjectThreads(
       const parentSessionId = session.coordinatorSessionId ?? '';
       if (parentProjectId.length === 0 || parentSessionId.length === 0) continue;
       if (session.projectId === parentProjectId) continue;
-      if (projectById.get(session.projectId)?.worktreeParentProjectId === parentProjectId) continue;
       const target = bucketOfCoordinator.get(
         coordinatorRowKey({ projectId: parentProjectId, sessionId: parentSessionId }),
       );
@@ -1080,31 +1081,37 @@ function foldCrossProjectThreads(
 }
 
 /**
- * A project's session groups, with each moved thread (`foldCrossProjectThreads`) added to the group that holds its
- * coordinator, as gx-core moves the row into whichever group draws the coordinator.
+ * A project's session groups, with each coordinator's thread (a moved one, `foldCrossProjectThreads`, or one of this
+ * project) in the group that holds its coordinator and in no other, as gx-core moves the row into whichever group
+ * draws the coordinator (thread_fold.rs).
  */
 function withMovedThreads(
   groups: GhostexSessionGroup[],
   sessions: readonly GhostexSession[],
   moved: ReadonlySet<string>,
 ): GhostexSessionGroup[] {
-  if (moved.size === 0 || groups.length === 0) return groups;
-  const extra = new Map<string, string[]>();
+  if (groups.length === 0) return groups;
+  const home = new Map<string, string | null>();
   for (const session of sessions) {
-    if (!moved.has(coordinatorRowKey(session))) continue;
+    if (!moved.has(coordinatorRowKey(session)) && !staysUnderCoordinator(session)) continue;
     const coordinatorInBucket = sessions.some(
       (listed) =>
         listed.projectId === session.coordinatorProjectId && listed.sessionId === session.coordinatorSessionId,
     );
-    const group = coordinatorInBucket
-      ? groups.find((candidate) => candidate.sessionIds.includes(session.coordinatorSessionId))
-      : undefined;
-    if (group !== undefined) extra.set(group.groupId, [...(extra.get(group.groupId) ?? []), session.sessionId]);
+    if (!coordinatorInBucket) continue;
+    const group = groups.find((candidate) => candidate.sessionIds.includes(session.coordinatorSessionId));
+    home.set(session.sessionId, group?.groupId ?? null);
   }
-  if (extra.size === 0) return groups;
-  return groups.map((group) =>
-    extra.has(group.groupId) ? { ...group, sessionIds: [...group.sessionIds, ...extra.get(group.groupId)!] } : group,
-  );
+  if (home.size === 0) return groups;
+  return groups.map((group) => {
+    const kept = group.sessionIds.filter((id) => !home.has(id) || home.get(id) === group.groupId);
+    const added = [...home]
+      .filter(([id, groupId]) => groupId === group.groupId && !kept.includes(id))
+      .map(([id]) => id);
+    return kept.length === group.sessionIds.length && added.length === 0
+      ? group
+      : { ...group, sessionIds: [...kept, ...added] };
+  });
 }
 
 function pathParts(path: string): string[] {
