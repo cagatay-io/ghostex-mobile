@@ -29,6 +29,8 @@ const NATIVE_FAMILIES = [
   'grok',
   'hermes',
   'cursor',
+  'pi',
+  'omp',
 ] as const;
 
 type BulkSwitchSummary = {

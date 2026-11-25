@@ -26,7 +26,9 @@ export type NativeModeFamily =
   | 'opencode'
   | 'grok'
   | 'hermes'
-  | 'cursor';
+  | 'cursor'
+  | 'pi'
+  | 'omp';
 
 export const NATIVE_MODE_AGENTS: readonly { family: NativeModeFamily; label: string }[] = [
   { family: 'claude', label: 'Claude Code' },
@@ -36,6 +38,8 @@ export const NATIVE_MODE_AGENTS: readonly { family: NativeModeFamily; label: str
   { family: 'grok', label: 'Grok Build' },
   { family: 'hermes', label: 'Hermes Agent' },
   { family: 'cursor', label: 'Cursor CLI' },
+  { family: 'pi', label: 'Pi Agent' },
+  { family: 'omp', label: 'OMP' },
 ];
 
 export const SESSION_MODE_OPTIONS: readonly { value: AgentSessionMode; label: string }[] = [
@@ -71,6 +75,12 @@ export function canonicalNativeModeFamily(raw: string): NativeModeFamily | null 
     case 'cursor-cli':
     case 'cursor-agent':
       return 'cursor';
+    case 'pi':
+    case 'pi-agent':
+      return 'pi';
+    case 'omp':
+    case 'oh-my-pi':
+      return 'omp';
     default:
       return null;
   }
