@@ -2,8 +2,14 @@
  * Clickable switch-request toast (`Q4705`-`Q4711`) floating above the bottom safe area.
  *
  * Latest request wins in place, auto-dismisses after 8 seconds with a hairline countdown bar,
- * and shows an extra "Open external" button for browser-open requests. JS-only so it ships
- * over the air without changing native runtimes.
+ * and shows an External browser switch for browser-open requests. JS-only so it ships over the
+ * air without changing native runtimes.
+ *
+ * CDXC:SwitchRequests 2026-11-26 DECISION: User (Q5026 = A, Q5027 = A, #762): the Open external
+ * button became an External browser switch at the left of the buttons (toast-toggle.html). It is
+ * that computer's "Agents open pages in" (on = My default browser, off = Ghostex Browser), saved
+ * there as it flips; with it and Always on, the computer opens agents' later pages in its default
+ * browser without a toast. Open on the phone still opens the page in the phone's browser.
  *
  * CDXC:SwitchRequests 2026-11-26 DECISION: User (Q5021-Q5022, #762): a page-open toast also has
  * Always, after Open. It opens the page as Open does and turns on that computer's "Let agents
@@ -12,7 +18,7 @@
  * takes this setting from it; agents can't set it.
  */
 import { BlurView } from 'expo-blur';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -48,6 +54,13 @@ export default function SwitchRequestToast() {
     return () => anim.stop();
   }, [active, progress]);
 
+  const activeRequestId = active?.request.id;
+  const activeExternalBrowser = active?.request.externalBrowser === true;
+  const [externalBrowser, setExternalBrowser] = useState(activeExternalBrowser);
+  useEffect(() => {
+    setExternalBrowser(activeExternalBrowser);
+  }, [activeRequestId, activeExternalBrowser]);
+
   if (active === null) return null;
 
   const { machineId, request } = active;
@@ -79,12 +92,27 @@ export default function SwitchRequestToast() {
     }
   };
 
-  const openExternal = () => {
-    const url = request.externalUrl;
-    dismissSwitchRequest(request.id);
-    if (url !== undefined) {
-      void Linking.openURL(url);
-    }
+  const toggleExternalBrowser = () => {
+    const next = !externalBrowser;
+    setExternalBrowser(next);
+    if (record === undefined) return;
+    const link = chatMachineLink(record);
+    void link
+      .route()
+      .then(() =>
+        link.rpc(
+          'dispatchRendererCommand',
+          {
+            action: 'updateSettingsPatch',
+            payload: {
+              patch: { agentPreviewBrowser: next ? 'system-default-browser' : 'internal-browser' },
+              source: 'mobile:toast-external-browser',
+            },
+          },
+          15_000,
+        ),
+      )
+      .catch(() => undefined);
   };
 
   const pageOpen = request.action === 'openBrowser' || request.action === 'openBrowserPane';
@@ -150,12 +178,19 @@ export default function SwitchRequestToast() {
         <View style={styles.buttons}>
           {request.externalUrl !== undefined ? (
             <Pressable
-              accessibilityRole="button"
-              onPress={openExternal}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-              testID="switch-request-open-external"
+              accessibilityRole="switch"
+              accessibilityState={{ checked: externalBrowser }}
+              accessibilityLabel="External browser"
+              accessibilityHint="Opens this computer's agent pages in its default browser"
+              onPress={toggleExternalBrowser}
+              hitSlop={6}
+              style={({ pressed }) => [styles.externalSwitch, pressed && styles.buttonPressed]}
+              testID="switch-request-external-browser"
             >
-              <Text style={styles.secondaryLabel}>Open external</Text>
+              <View style={[styles.miniTrack, externalBrowser && styles.miniTrackOn]}>
+                <View style={[styles.miniKnob, externalBrowser && styles.miniKnobOn]} />
+              </View>
+              <Text style={styles.secondaryLabel}>External browser</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -255,7 +290,40 @@ function createStyles(appearance: Appearance, opaque: boolean) {
     buttons: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
+      alignItems: 'center',
       gap: 8,
+    },
+    externalSwitch: {
+      marginRight: 'auto',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      paddingVertical: 4,
+    },
+    miniTrack: {
+      width: 30,
+      height: 18,
+      borderRadius: 6,
+      backgroundColor: appearance.neutralFill,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: appearance.border,
+      justifyContent: 'center',
+    },
+    miniTrackOn: {
+      backgroundColor: light ? '#262626' : '#e5e5e5',
+      borderColor: 'transparent',
+    },
+    miniKnob: {
+      position: 'absolute',
+      left: 1.5,
+      width: 14,
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: appearance.muted,
+    },
+    miniKnobOn: {
+      left: 13.5,
+      backgroundColor: light ? '#ffffff' : '#171717',
     },
     secondaryButton: {
       paddingHorizontal: 11,

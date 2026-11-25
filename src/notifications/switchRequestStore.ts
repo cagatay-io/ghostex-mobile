@@ -21,6 +21,8 @@ export type SwitchRequest = {
   projectId?: string;
   sessionId?: string;
   externalUrl?: string;
+  /** Page opens: the computer's "Agents open pages in" is My default browser (the toast's External browser switch, #762). */
+  externalBrowser?: boolean;
   createdAt?: string;
 };
 
@@ -69,6 +71,7 @@ function parseSwitchRequest(value: unknown): SwitchRequest | null {
     projectId: optStr('projectId'),
     sessionId: optStr('sessionId'),
     externalUrl: optStr('externalUrl'),
+    externalBrowser: raw.externalBrowser === true ? true : undefined,
     createdAt: optStr('createdAt'),
   };
 }
