@@ -30,6 +30,7 @@ import {
 } from './singleLineCard';
 import { openTranscriptMenu } from './transcriptMenuStore';
 import { FoldChevron } from './foldChevron';
+import { Shimmer } from './ToolCard';
 
 /** The tool row's horizontal padding, icon tile size, and described label opacity (`ToolRows.tsx`). */
 const ROW_PAD_X = 8;
@@ -53,6 +54,10 @@ function fileRows(files: unknown): JsonRecord[] {
   return arr(files)
     .map((file) => obj(file))
     .filter((file): file is JsonRecord => file !== null);
+}
+
+function fileCallStatus(file: JsonRecord): string {
+  return str(file, 'callStatus') || (file.failed === true ? 'failed' : 'done');
 }
 
 /** The card's hues, the desktop palette's (`file_change_card.rs`). */
@@ -181,19 +186,23 @@ export function FilesFold({
   notice?: ReactNode;
   boxed?: boolean;
 }) {
-  const { theme } = useTranscriptEnv();
+  const { theme, working } = useTranscriptEnv();
   const find = useRowFind();
   const rows = fileRows(files);
   const colors = palette(theme);
   const summary = obj(card) ?? {};
   const added = num(summary, 'added') ?? 0;
   const removed = num(summary, 'removed') ?? 0;
-  const anyFailed = rows.some((file) => file.failed === true);
-  const allFailed = rows.length > 0 && rows.every((file) => file.failed === true);
+  const anyRunning = rows.some((file) => fileCallStatus(file) === 'running');
+  const anyFailed = rows.some((file) => fileCallStatus(file) === 'failed');
+  const allFailed = rows.length > 0 && rows.every((file) => fileCallStatus(file) === 'failed');
+  const shimmer = anyRunning && working === true;
   const ends = (
     <>
       {added + removed > 0 ? <Counts added={added} removed={removed} /> : null}
-      <Glyph name={anyFailed ? 'x' : 'check'} size={13} color={anyFailed ? theme.error : successTone(theme.light)} />
+      {!anyRunning ? (
+        <Glyph name={anyFailed ? 'x' : 'check'} size={13} color={anyFailed ? theme.error : successTone(theme.light)} />
+      ) : null}
     </>
   );
   if (boxed) {
@@ -211,12 +220,21 @@ export function FilesFold({
           ]}
         >
           <SingleLineTile glyph="pencil" />
-          <Text
-            numberOfLines={1}
-            style={[SINGLE_LINE_TITLE, styles.cardTitle, { color: allFailed ? theme.error : theme.foreground }]}
-          >
-            {highlightLabel(label, find, foldKey)}
-          </Text>
+          {shimmer ? (
+            <View style={[styles.shimmerBox, styles.fill]}>
+              <Text numberOfLines={1} style={[SINGLE_LINE_TITLE, { color: theme.foreground }]}>
+                {highlightLabel(label, find, foldKey)}
+              </Text>
+              <Shimmer color={theme.light ? '#000000' : '#ffffff'} />
+            </View>
+          ) : (
+            <Text
+              numberOfLines={1}
+              style={[SINGLE_LINE_TITLE, styles.cardTitle, { color: allFailed ? theme.error : theme.foreground }]}
+            >
+              {highlightLabel(label, find, foldKey)}
+            </Text>
+          )}
           {ends}
         </Pressable>
         {open ? (
@@ -249,15 +267,27 @@ export function FilesFold({
         <View style={[styles.foldTile, { backgroundColor: theme.ink(0.05) }]}>
           <Glyph name="pencil" size={13} color={theme.muted} />
         </View>
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.foldLabel,
-            { color: allFailed ? theme.error : dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) },
-          ]}
-        >
-          {highlightLabel(label, find, foldKey)}
-        </Text>
+        {shimmer ? (
+          <View style={[styles.shimmerBox, styles.fill]}>
+            <Text
+              numberOfLines={1}
+              style={[styles.foldLabel, { color: dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) }]}
+            >
+              {highlightLabel(label, find, foldKey)}
+            </Text>
+            <Shimmer color={theme.light ? '#000000' : '#ffffff'} />
+          </View>
+        ) : (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.foldLabel,
+              { color: allFailed ? theme.error : dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) },
+            ]}
+          >
+            {highlightLabel(label, find, foldKey)}
+          </Text>
+        )}
         {ends}
       </Pressable>
       {open ? (
@@ -336,13 +366,15 @@ const FileFoldEntryRow = memo(function FileFoldEntryRow({
   file: JsonRecord;
   colors: Palette;
 }) {
-  const { theme, filePreviews } = useTranscriptEnv();
+  const { theme, filePreviews, working } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const key = `file:${stackId}:${num(file, 'disclosureIndex') ?? index}`;
   const [open, toggle] = useDisclosure(disclosures, key, filePreviews || file.awaitingApproval === true);
   const status = str(file, 'status') || 'edited';
   const glyphColor = status === 'new' ? colors.new : status === 'deleted' ? colors.deleted : theme.muted;
-  const failed = file.failed === true;
+  const callStatus = fileCallStatus(file);
+  const failed = callStatus === 'failed';
+  const shimmer = callStatus === 'running' && working === true;
   const added = num(file, 'added') ?? 0;
   const removed = num(file, 'removed') ?? 0;
   const filename = str(file, 'filename');
@@ -365,15 +397,27 @@ const FileFoldEntryRow = memo(function FileFoldEntryRow({
         <View style={[styles.foldTile, { backgroundColor: theme.ink(0.05) }]}>
           <Glyph name={statusGlyph(status)} size={13} color={glyphColor} />
         </View>
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.foldFileName,
-            { color: failed ? theme.error : dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) },
-          ]}
-        >
-          {filename}
-        </Text>
+        {shimmer ? (
+          <View style={styles.shimmerBox}>
+            <Text
+              numberOfLines={1}
+              style={[styles.foldFileName, { color: dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) }]}
+            >
+              {filename}
+            </Text>
+            <Shimmer color={theme.light ? '#000000' : '#ffffff'} />
+          </View>
+        ) : (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.foldFileName,
+              { color: failed ? theme.error : dimmed(theme.prose, DESCRIBED_LABEL_OPACITY) },
+            ]}
+          >
+            {filename}
+          </Text>
+        )}
         {parent.length > 0 ? (
           <Text numberOfLines={1} ellipsizeMode="head" style={[styles.parent, { color: theme.muted }]}>
             {parent}
@@ -382,11 +426,8 @@ const FileFoldEntryRow = memo(function FileFoldEntryRow({
         {failed ? <Text style={[styles.failed, { color: theme.error }]}>Failed</Text> : null}
         <View style={styles.spacer} />
         {added + removed > 0 ? <Counts added={added} removed={removed} /> : null}
-        <Glyph
-          name={failed ? 'x' : 'check'}
-          size={13}
-          color={failed ? theme.error : successTone(theme.light)}
-        />
+        {callStatus === 'done' ? <Glyph name="check" size={13} color={successTone(theme.light)} /> : null}
+        {callStatus === 'failed' ? <Glyph name="x" size={13} color={theme.error} /> : null}
       </Pressable>
       {open ? (
         <View style={styles.foldInset}>
@@ -612,6 +653,8 @@ const styles = StyleSheet.create({
   },
   foldLabel: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400' },
   foldFileName: { fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400', flexShrink: 0, maxWidth: '50%' },
+  fill: { flex: 1 },
+  shimmerBox: { flexShrink: 1, minWidth: 0, overflow: 'hidden' },
   foldInset: { paddingLeft: ROW_PAD_X + TILE / 2 - 10 },
   // The boxed fold: the "N tool calls" card's header and body (`ToolRows.tsx`).
   cardHeader: {
