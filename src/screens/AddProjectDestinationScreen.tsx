@@ -9,9 +9,10 @@
  */
 
 import { useCallback, useState, type ReactElement } from 'react';
+import { Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { cloneRepository } from '../addProject/client';
+import { CloneFailedError, cloneRepository } from '../addProject/client';
 import FolderBrowser from '../addProject/FolderBrowser';
 import {
   cloneFolderName,
@@ -37,8 +38,9 @@ import {
   invalidateProjectPickerPlacesCache,
   useProjectPickerPlaces,
 } from '../addProject/useProjectPickerPlaces';
-import { AddProjectCopy } from '../copy';
+import { AddProjectCopy, EditMachineCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import { openShownCommandTerminal } from '../machines/appUpdate';
 import { useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -53,6 +55,9 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
     folderName.length > 0 ? `${ADD_PROJECT_DEFAULT_PATH}${folderName}` : ADD_PROJECT_DEFAULT_PATH,
   );
   const [error, setError] = useState<string | null>(null);
+  /** Run in terminal's id for the failed clone's next step (`gh auth login`), when the computer offers it. */
+  const [errorCommand, setErrorCommand] = useState<string | null>(null);
+  const [openingTerminal, setOpeningTerminal] = useState(false);
   const [pending, setPending] = useState(false);
   const [showAllPlaces, setShowAllPlaces] = useState(false);
 
@@ -87,6 +92,7 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
     }
     setPending(true);
     setError(null);
+    setErrorCommand(null);
     try {
       await cloneRepository(machine, remoteUrl, destination);
       invalidateProjectPickerPlacesCache(machineId);
@@ -95,8 +101,20 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
     } catch (failure) {
       setPending(false);
       setError(failure instanceof Error ? failure.message : String(failure));
+      setErrorCommand(failure instanceof CloneFailedError ? failure.runInTerminal : null);
     }
   }, [destination, machine, machineId, navigation, pending, remoteUrl]);
+
+  const runInTerminal = useCallback(() => {
+    if (machine === null || errorCommand === null || openingTerminal) return;
+    setOpeningTerminal(true);
+    void openShownCommandTerminal(machine, errorCommand)
+      .then(({ sessionKey, title }) => navigation.navigate('Terminal', { sessionKey, machineId, title }))
+      .catch((failure: unknown) =>
+        Alert.alert(EditMachineCopy.appUpdate.runInTerminalFailed, failure instanceof Error ? failure.message : String(failure)),
+      )
+      .finally(() => setOpeningTerminal(false));
+  }, [errorCommand, machine, machineId, navigation, openingTerminal]);
 
   if (machine === null) {
     return (
@@ -108,7 +126,22 @@ export default function AddProjectDestinationScreen({ navigation, route }: Props
 
   return (
     <AddProjectShell>
-      {error === null ? null : <ErrorBanner message={error} />}
+      {error === null ? null : (
+        <ErrorBanner
+          message={error}
+          action={
+            errorCommand === null ? undefined : (
+              <InlineActionButton
+                primary
+                testID="add-project-clone-run-in-terminal"
+                label={EditMachineCopy.appUpdate.runInTerminal}
+                loading={openingTerminal}
+                onPress={runInTerminal}
+              />
+            )
+          }
+        />
+      )}
       {browse.error === null ? null : <ErrorBanner message={browse.error} />}
       <SectionTitle>{AddProjectCopy.repositorySection}</SectionTitle>
       <RepositoryCard title={repositoryTitle} subtitle={repositoryUrl} />

@@ -325,12 +325,14 @@ export function ProjectPathInput({
 }
 
 /** Inline rose-tinted failure banner — mobile never uses toasts (spec §5.2). */
-export function ErrorBanner({ message }: { message: string }): ReactElement {
+/** `action`: a button under the message (Run in terminal beside a failed clone that names a command). */
+export function ErrorBanner({ action, message }: { action?: ReactNode; message: string }): ReactElement {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   return (
     <View accessibilityRole="alert" style={styles.errorBanner}>
       <Text style={styles.errorText}>{message}</Text>
+      {action === undefined ? null : <View style={{ marginTop: 8, flexDirection: 'row' }}>{action}</View>}
     </View>
   );
 }

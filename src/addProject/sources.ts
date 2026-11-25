@@ -77,7 +77,12 @@ export function addProjectRepositoryActionLabel(source: AddProjectSourceId): str
   return source === 'url' ? AddProjectCopy.continueButton : AddProjectCopy.lookupButton;
 }
 
-export type AddProjectSourceReadiness = { ready: boolean; hint: string | null };
+export type AddProjectSourceReadiness = {
+  ready: boolean;
+  hint: string | null;
+  /** Run in terminal's id for a signed-out provider's sign-in, when its computer offers one. */
+  runInTerminal?: string;
+};
 
 function unavailableReadiness(): AddProjectSourceReadiness {
   return { ready: false, hint: AddProjectCopy.providerUnavailableHint };
@@ -94,6 +99,7 @@ function readinessForProvider(provider: AddProjectProviderDiscovery): AddProject
     return {
       ready: false,
       hint: detail.length > 0 ? detail : AddProjectCopy.providerUnauthenticatedHint(label),
+      ...(provider.auth.runInTerminal !== undefined ? { runInTerminal: provider.auth.runInTerminal } : {}),
     };
   }
   // `unknown` auth counts as ready — spec §3.3.

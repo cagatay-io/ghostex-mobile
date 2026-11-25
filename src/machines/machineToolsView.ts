@@ -28,7 +28,14 @@ export type AgentCli = {
   updateAvailable?: boolean;
   updateHeldBack?: string | null;
   detectedMethodId?: string | null;
-  methods?: { id: string; label?: string; command?: string | null; unavailableReason?: string | null }[];
+  methods?: {
+    id: string;
+    label?: string;
+    command?: string | null;
+    unavailableReason?: string | null;
+    /** Run in terminal's id for the command `unavailableReason` names (`bunUpgrade`); missing from an older gxserver. */
+    runInTerminal?: string | null;
+  }[];
   job?: ToolJob | null;
 };
 
@@ -45,6 +52,8 @@ export type ManagedTool = {
   unsupportedReason?: string | null;
   unavailableReason?: string | null;
   terminalCommand?: string | null;
+  /** Run in terminal's id for `terminalCommand` (`systemToolsInstall`); missing from an older gxserver. */
+  runInTerminal?: string | null;
   permissionNote?: string | null;
   /** Its check ran past the time limit on the computer (GitHub #336): why. */
   notAnswering?: string | null;
@@ -101,6 +110,11 @@ function runningWord(operation: string | undefined): string {
  * one (older computers show no button). The desktop's twins: settings_modal/tabs/integrations/tools.rs
  * and tabs/agents/cli.rs.
  */
+/** Run in terminal's id for a command the row names (`bunUpgrade`, `systemToolsInstall`), when that computer offers it. */
+function shownRunInTerminal(commandId: string | null | undefined): string | null {
+  return commandId?.trim() || null;
+}
+
 function failedRunInTerminal(job: ToolJob | null | undefined): string | null {
   if (job?.status !== 'failed') return null;
   return job.runInTerminal?.trim() || null;
@@ -143,7 +157,8 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
       tone: failure !== null || unavailable ? 'warning' : 'muted',
       busy: false,
       action: method === null ? null : { label: 'Install', operation: 'install', methodId: method.id },
-      runInTerminal: failedRunInTerminal(agent.job),
+      runInTerminal:
+        failedRunInTerminal(agent.job) ?? (unavailable ? shownRunInTerminal(agent.methods?.[0]?.runInTerminal) : null),
     };
   }
   const version = agent.version?.trim();
@@ -172,7 +187,11 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
     tone: failure !== null ? 'warning' : 'success',
     busy: false,
     action: update ? { label: 'Update', operation: 'update', methodId: agent.detectedMethodId ?? undefined } : null,
-    runInTerminal: failedRunInTerminal(agent.job),
+    runInTerminal:
+      failedRunInTerminal(agent.job) ??
+      (agent.updateAvailable === true && unavailableReason !== null && failure === null
+        ? shownRunInTerminal(detectedMethod?.runInTerminal)
+        : null),
   };
 }
 
@@ -227,7 +246,7 @@ export function toolRow(tool: ManagedTool, computer: string): ToolRowView {
       tone: failure !== null ? 'warning' : 'muted',
       busy: false,
       action: can('install') && !viaTerminal ? { label: 'Install', operation: 'install' } : null,
-      runInTerminal: failedRunInTerminal(tool.job),
+      runInTerminal: failedRunInTerminal(tool.job) ?? (viaTerminal ? shownRunInTerminal(tool.runInTerminal) : null),
     };
   }
   const version = tool.version?.trim();

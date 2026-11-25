@@ -63,7 +63,12 @@ export type AddProjectProviderDiscovery = {
   status: AddProjectProviderStatus;
   installHint: string;
   detail?: string;
-  auth: { status: AddProjectProviderAuthStatus; detail?: string };
+  auth: {
+    status: AddProjectProviderAuthStatus;
+    detail?: string;
+    /** Run in terminal's id for the sign-in command (server/src/shown_commands/); absent from an older computer. */
+    runInTerminal?: string;
+  };
 };
 
 export type AddProjectSourceControlDiscovery = {
@@ -507,6 +512,7 @@ function parseProviderDiscovery(value: unknown): AddProjectProviderDiscovery | n
   const auth = isObject(value.auth) ? value.auth : null;
   const authStatus = auth === null ? '' : readString(auth.status);
   const authDetail = auth === null ? '' : readString(auth.detail);
+  const authRunInTerminal = auth === null ? '' : readString(auth.runInTerminal);
   const detail = readString(value.detail);
   return {
     provider,
@@ -517,6 +523,7 @@ function parseProviderDiscovery(value: unknown): AddProjectProviderDiscovery | n
     auth: {
       status: authStatus === 'authenticated' || authStatus === 'unauthenticated' ? authStatus : 'unknown',
       ...(authDetail.length > 0 ? { detail: authDetail } : {}),
+      ...(authRunInTerminal.length > 0 ? { runInTerminal: authRunInTerminal } : {}),
     },
   };
 }
@@ -713,6 +720,20 @@ export async function githubSignIn(
 }
 
 /**
+ * A failed clone, with Run in terminal's id when its sentence names a command to run on the computer
+ * (`ghAuthLogin` when git needs a sign-in; server/src/shown_commands/). Absent from an older computer.
+ */
+export class CloneFailedError extends Error {
+  readonly runInTerminal: string | null;
+
+  constructor(message: string, runInTerminal: string | null) {
+    super(message);
+    this.name = 'CloneFailedError';
+    this.runInTerminal = runInTerminal;
+  }
+}
+
+/**
  * Clone into `destinationPath` and register the result as a project. The
  * daemon's clone job performs the registration itself, so there is no separate
  * add step afterwards.
@@ -737,7 +758,11 @@ export async function cloneRepository(
   const job = isObject(json.job) ? json.job : null;
   const state = job === null ? '' : readString(job.state);
   if (job === null || state !== 'completed') {
-    throw new Error(structuredError(json) ?? 'The clone did not finish.');
+    const runInTerminal = job === null ? '' : readString(job.runInTerminal).trim();
+    throw new CloneFailedError(
+      structuredError(json) ?? 'The clone did not finish.',
+      runInTerminal.length > 0 ? runInTerminal : null,
+    );
   }
   return { projectPath: readString(job.projectPath) };
 }

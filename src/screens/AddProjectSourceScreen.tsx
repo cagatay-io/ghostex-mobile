@@ -54,8 +54,9 @@ import {
   GitForkGlyph,
   WorldGlyph,
 } from '../components/sessions/icons';
-import { AddProjectCopy } from '../copy';
+import { AddProjectCopy, EditMachineCopy } from '../copy';
 import { useInventoryStore } from '../inventory/store';
+import { openShownCommandTerminal } from '../machines/appUpdate';
 import { machineDisplayLabel, useMachinesStore } from '../machines/store';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppearance } from '../theme/useAppearance';
@@ -98,6 +99,7 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const [addingPath, setAddingPath] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
+  const [openingTerminal, setOpeningTerminal] = useState(false);
   const mountedRef = useRef(true);
   const addingRef = useRef(false);
 
@@ -107,6 +109,26 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
       mountedRef.current = false;
     };
   }, []);
+
+  /**
+   * Run in terminal beside a signed-out provider (GitLab's `glab auth login`): the computer opens a Main Hub
+   * terminal with the sign-in typed in, and the phone shows it so the user presses Enter there.
+   */
+  const runInTerminal = useCallback(
+    (commandId: string) => {
+      if (machine === null || openingTerminal) return;
+      setOpeningTerminal(true);
+      void openShownCommandTerminal(machine, commandId)
+        .then(({ sessionKey, title }) => navigation.navigate('Terminal', { sessionKey, machineId, title }))
+        .catch((error: unknown) =>
+          Alert.alert(EditMachineCopy.appUpdate.runInTerminalFailed, error instanceof Error ? error.message : String(error)),
+        )
+        .finally(() => {
+          if (mountedRef.current) setOpeningTerminal(false);
+        });
+    },
+    [machine, machineId, navigation, openingTerminal],
+  );
 
   const pickerPlaces = useProjectPickerPlaces(machine);
   const { places } = pickerPlaces;
@@ -327,7 +349,21 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
               }
               icon={sourceIcon(source, appearance.muted)}
               disabled={!enabled}
-              trailing={enabled ? undefined : <SetupRequiredBadge label={AddProjectCopy.setupRequired} />}
+              trailing={
+                enabled ? undefined : !signsInFromList && state.runInTerminal !== undefined ? (
+                  <InlineActionButton
+                    primary
+                    testID={`add-project-source-${source}-run-in-terminal`}
+                    label={EditMachineCopy.appUpdate.runInTerminal}
+                    loading={openingTerminal}
+                    onPress={() => {
+                      if (state.runInTerminal !== undefined) runInTerminal(state.runInTerminal);
+                    }}
+                  />
+                ) : (
+                  <SetupRequiredBadge label={AddProjectCopy.setupRequired} />
+                )
+              }
               onPress={() => navigation.navigate('AddProjectRepository', { machineId, source })}
             />
           );
