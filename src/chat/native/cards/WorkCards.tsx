@@ -1234,6 +1234,7 @@ function DockRow({
     str(row, 'mention'),
     chat.state?.composer.text ?? '',
     rowMarkdown(row, chat.state?.document?.questionForms),
+    str(row, 'reference'),
   );
   const chips = arr(row.chips)
     .map(obj)

@@ -555,6 +555,8 @@ const GLYPHS = {
       'M19 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5',
     ],
   },
+  /** Copy reference (desktop `titlebar/hash.svg`). */
+  hash: { paths: ['M5 9l14 0', 'M5 15l14 0', 'M11 4l-4 16', 'M17 4l-4 16'] },
 } satisfies Record<string, GlyphSpec>;
 
 export type GlyphName = keyof typeof GLYPHS;

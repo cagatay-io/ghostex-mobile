@@ -327,19 +327,28 @@ function useUserActionItems(message: ProjectedMessage): ActionItem[] {
   const queued = message.queued === true && (delivery === undefined || delivery === null);
   const items: ActionItem[] = [];
   // A message the user wrote has an ID (core `transcript/message_numbers.rs`, CDXC:SessionChat 2026-11-20 there):
-  // Copy message ID copies it as a link that pastes as its pill, short words and the full ID in the link
-  // (`[M12](message:G9jt7.M12)`, core `copied_message_link`, CDXC:SessionChat 2026-11-25 there), Reference in chat
-  // puts its pill in the chat box. Desktop `user_menu_rows` in native_chat/message_actions.rs.
+  // Copy reference copies it as a link that pastes as its pill, its words and the full ID in the link
+  // (`referenceLink`, `[Fix the sidebar spacing](message:G9jt7.M12)`, core `copied_message_link`), Reference in
+  // chat puts its pill in the chat box (`referencePill`, `[Fix the sidebar spacing](message:M12)`), both named by
+  // the message's words (core `item_references.rs` `reference_label`, CDXC:SessionChat 2026-11-25 there).
+  // Desktop `user_menu_rows` in native_chat/message_actions.rs.
   const messageRef = typeof message.messageRef === 'string' ? message.messageRef : '';
   if (messageRef.length > 0 && typeof message.messageNumber === 'number') {
-    const pill = `M${message.messageNumber}`;
-    const copied = `[${pill}](message:${messageRef})`;
-    items.push({ label: 'Copy message ID', icon: 'hash', run: () => void Clipboard.setStringAsync(copied) });
+    const tag = `M${message.messageNumber}`;
+    const copied =
+      typeof message.referenceLink === 'string' && message.referenceLink.length > 0
+        ? message.referenceLink
+        : `[${tag}](message:${messageRef})`;
+    const pill =
+      typeof message.referencePill === 'string' && message.referencePill.length > 0
+        ? message.referencePill
+        : `[${tag}](message:${tag})`;
+    items.push({ label: 'Copy reference', icon: 'hash', run: () => void Clipboard.setStringAsync(copied) });
     if (main) {
       items.push({
         label: 'Reference in chat',
         icon: 'quote',
-        run: () => dispatch({ type: 'appendToDraft', text: `[${pill}](message:${pill})`, inline: true }),
+        run: () => dispatch({ type: 'appendToDraft', text: pill, inline: true }),
       });
     }
   }

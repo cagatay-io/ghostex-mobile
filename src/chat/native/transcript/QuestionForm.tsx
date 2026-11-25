@@ -15,11 +15,13 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import {
   Modal,
   Pressable,
@@ -36,11 +38,13 @@ import {
 
 import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
 import type { Json } from '../../rust/document';
-import { useOptionalNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
+import { useChatSessionId, useOptionalNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { useRevealFocusedField } from './fieldReveal';
 import { useEchoedText } from '../cards/useEchoedText';
 import { ErrorLine } from '../cards/ErrorLine';
-import { CardMoreMenu, snoozeRow } from '../cards/CardMoreMenu';
+import { CardMoreMenu, referenceRows, snoozeRow } from '../cards/CardMoreMenu';
+import { MenuSheet, type MenuRow } from '../composer/MenuSheet';
+import { questionLink } from '../referenceLabel';
 import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, askColor } from '../cards/askCard';
 import { arr, obj, str, type JsonRecord } from './json';
 import { Glyph } from './icons';
@@ -721,6 +725,21 @@ function otherBoxes(form: Json | undefined, slot: number | 'notes'): string {
   return texts.join('\n');
 }
 
+/**
+ * A tagged question's Copy reference, `[<label of its title>](question:G9jt7.Q4933)` with this chat's
+ * session so it pastes into any chat, and Reference in chat (`inChat`, this session's own transcript),
+ * `[<label>](question:Q4933)` at the end of the chat box (gx-chat-core `item_references.rs`
+ * `question_link`, CDXC:SessionChat 2026-11-25 there). None for a question with no tag.
+ */
+function useQuestionReferenceRows(title: string, tag: string, inChat: boolean): MenuRow[] {
+  const sessionId = useChatSessionId();
+  return useMemo(() => {
+    if (!/^Q[0-9]+$/u.test(tag)) return [];
+    const rows = referenceRows(questionLink(title, tag, sessionId), questionLink(title, tag));
+    return inChat ? rows : rows.slice(0, 1);
+  }, [inChat, sessionId, tag, title]);
+}
+
 function FormQuestion({
   formId,
   index,
@@ -743,7 +762,7 @@ function FormQuestion({
   enabled: boolean;
   answered: boolean;
 }) {
-  const { theme, dispatch } = useTranscriptEnv();
+  const { theme, dispatch, main } = useTranscriptEnv();
   const tag = str(question, 'tag');
   const detail = str(question, 'detail');
   const multiple = question?.multiple === true;
@@ -761,20 +780,47 @@ function FormQuestion({
   const reveal = useRevealFocusedField();
   const skipped = draft?.skipped === true;
   const anchor = useQuestionAnchor(formId, tag);
+  const title = str(question, 'title');
+  const references = useQuestionReferenceRows(title, tag, main);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const head = (
+    <>
+      <LinkWords
+        text={title}
+        runs={question?.titleRuns}
+        color={theme.foreground}
+        style={styles.questionTitle}
+        selectable
+      />
+      {tag.length > 0 ? (
+        // A tap on a question's tag offers Copy reference and Reference in chat for it
+        // (`useQuestionReferenceRows`); the title stays selectable, so a hold there selects words.
+        <Text
+          style={[styles.tag, { color: theme.muted, backgroundColor: `${theme.muted}2e` }]}
+          onPress={references.length > 0 ? () => setMenuOpen(true) : undefined}
+          accessibilityRole={references.length > 0 ? 'button' : undefined}
+          accessibilityHint={references.length > 0 ? 'Copy reference or Reference in chat' : undefined}
+        >
+          {tag}
+        </Text>
+      ) : null}
+    </>
+  );
   return (
     <View ref={anchor} collapsable={false} style={styles.question}>
-      <View style={styles.questionHead}>
-        <LinkWords
-          text={str(question, 'title')}
-          runs={question?.titleRuns}
-          color={theme.foreground}
-          style={styles.questionTitle}
-          selectable
+      <View style={styles.questionHead}>{head}</View>
+      {references.length > 0 ? (
+        <MenuSheet
+          rows={menuOpen ? references : null}
+          onClose={() => setMenuOpen(false)}
+          onCommand={(command) => {
+            if (typeof command.text !== 'string') return;
+            if (command.local === 'copyText') void Clipboard.setStringAsync(command.text);
+            else if (command.local === 'appendToDraft')
+              dispatch({ type: 'appendToDraft', text: command.text, inline: true });
+          }}
         />
-        {tag.length > 0 ? (
-          <Text style={[styles.tag, { color: theme.muted, backgroundColor: `${theme.muted}2e` }]}>{tag}</Text>
-        ) : null}
-      </View>
+      ) : null}
       {detail.length > 0 ? (
         <LinkWords
           text={detail}

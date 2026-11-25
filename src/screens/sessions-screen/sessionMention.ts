@@ -8,7 +8,7 @@ export const MORE_DETAILS_LINE =
   'More details: run `ghostex agents` to see how to message other agents and check their status';
 
 /**
- * gx-protocol `session_mention`, what Copy ID copies: `[<session title>](<Global Ref>)`, the title
+ * gx-protocol `session_mention`, what Copy Reference copies: `[<session title>](<Global Ref>)`, the title
  * on one line with Markdown's brackets and backslashes escaped.
  */
 export function sessionMentionText(title: string, globalRef: string): string {

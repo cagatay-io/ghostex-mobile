@@ -3,7 +3,7 @@
  * chat box, `WorkCards.tsx`, and the Work sheet's opened cards, `CoordinatorBoard.tsx`): its answers
  * as the dock's filled buttons, the recommended one starred, Reply after them (after a thin divider
  * on an opened row), and one menu of what every item repeats: Show in chat, Dismiss, Snooze with its
- * lengths, and Mention. Port of desktop `native_chat/work_actions.rs` and the dock row's ⋯ menu
+ * lengths, Copy reference and Reference in chat. Port of desktop `native_chat/work_actions.rs` and the dock row's ⋯ menu
  * (`work_cards.rs` `row_menu`); the rows' words and commands are the chat core's
  * (gx-chat-core `extras/work_cards.rs` `dock` and `panel_actions`).
  *
@@ -938,9 +938,9 @@ export function rowMarkdown(row: JsonRecord, forms: { [id: string]: unknown } | 
   }
   if (kind !== 'form') return '';
   if (isTrue(row, 'page')) {
-    // Its mention is `[Name](url) (Q12 to Q14)` (gx-chat-core `questions_mention`), or the name in
+    // Its `titleLink` is `[Name](url) (Q12 to Q14)` (gx-chat-core `questions_mention`), or the name in
     // quotes when the page has no address: the heading is the link, else the title.
-    const mention = str(row, 'mention');
+    const mention = str(row, 'titleLink');
     const link = (tags.length > 0 ? mention.replace(/ \([^()]*\)$/u, '') : mention).trimEnd();
     const heading = link.startsWith('[') && link.endsWith(')') ? link : title;
     return join([`## ${heading}`, tags.length > 0 ? `Open questions: ${tags}` : '']);
@@ -965,14 +965,17 @@ export function rowMarkdown(row: JsonRecord, forms: { [id: string]: unknown } | 
 
 /**
  * An item's menu rows from its actions (desktop `row_menu`): Show in chat, Mark answered, Dismiss (or Mark as read), Snooze with its
- * lengths, Copy as Markdown when `markdown` has words (`rowMarkdown`), then Mention in chat box,
- * which puts the item, form or page in the chat box.
+ * lengths, Copy as Markdown when `markdown` has words (`rowMarkdown`), then Copy reference, which
+ * copies the row's `reference` (its `mention` when an older computer sends none), and Reference in
+ * chat, which puts the row's `mention` (the item, form or page) in the chat box (gx-chat-core
+ * `transcript/item_references.rs`, CDXC:SessionChat 2026-11-25 there).
  */
 export function workMenuRows(
   actions: JsonRecord | null,
   mention: string,
   composerText: string,
   markdown = '',
+  reference = '',
 ): WorkMenuRow[] {
   if (actions === null) return [];
   const rows: WorkMenuRow[] = [];
@@ -1002,9 +1005,11 @@ export function workMenuRows(
     .filter((choice): choice is JsonRecord => choice !== null);
   if (snooze.length > 0) rows.push({ label: 'Snooze', icon: 'moon', snooze });
   if (markdown.length > 0) rows.push({ label: 'Copy as Markdown', icon: 'markdown', copy: markdown });
+  const copied = reference.length > 0 ? reference : mention;
+  if (copied.length > 0) rows.push({ label: 'Copy reference', icon: 'hash', copy: copied });
   if (mention.length > 0) {
     rows.push({
-      label: 'Mention in chat box',
+      label: 'Reference in chat',
       icon: 'quote',
       command: { type: 'insertBoardReference', reference: mention, text: composerText },
     });

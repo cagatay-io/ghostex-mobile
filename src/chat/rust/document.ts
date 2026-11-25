@@ -480,8 +480,12 @@ export type ProjectedMessage = {
   /** On a message the user wrote: its number in this chat (12 for M12), from gxserver (core
    * `transcript/message_numbers.rs`). Absent before message IDs existed and from an older computer. */
   messageNumber?: number;
-  /** The same message's ID written from anywhere, `G9jt7.M12`: the link Copy message ID copies (`[M12](message:G9jt7.M12)`). */
+  /** The same message's ID written from anywhere, `G9jt7.M12` (inside `referenceLink`). */
   messageRef?: string;
+  /** What Copy reference copies: `[Fix the sidebar spacing](message:G9jt7.M12)` (core `copied_message_link`). */
+  referenceLink?: string;
+  /** What Reference in chat inserts: `[Fix the sidebar spacing](message:M12)` (core `message_link_named`). */
+  referencePill?: string;
   /** A one-line slash command: the bubble draws it in monospace (core `is_slash_command_line`). */
   slashCommand?: boolean;
   /** Whether Rewind is offered on this row. Desktop: `message_actions.rs`, `rewind.rs`. */

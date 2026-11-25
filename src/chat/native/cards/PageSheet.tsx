@@ -564,17 +564,20 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
             </Pressable>
           ) : null}
           {pageId !== null ? (
-            // This page: Snooze and Star; Share: optional Share link, Export page and Import answers
-            // (`CardMoreMenu.tsx` `pageMenuRows`); a snoozed page's sheet closes.
+            // This page: Snooze, Star, Copy reference and Reference in chat; Share: optional Share link,
+            // Export page and Import answers (`CardMoreMenu.tsx` `pageMenuRows`); a snoozed page's
+            // sheet closes, and so does one put in the chat box, which then shows its pill.
             <CardMoreMenu
               rows={pageMenuRows(pageId, {
                 snooze: true,
                 starred: starredPages?.includes(pageId) ?? false,
                 shared: canShare ? sharedPages.has(pageId) : null,
+                title,
               })}
               dispatch={chat.dispatch}
               color={P.primary}
               onSnoozed={close}
+              onReferenced={close}
               onShare={canShare ? () => setShareOpen(true) : undefined}
             />
           ) : null}

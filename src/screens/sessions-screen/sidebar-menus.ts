@@ -543,7 +543,7 @@ function formatIdentifier(value: string): string {
  * clipboard.rs). The phone sees every session as one on the computer the menu is about, which
  * is how that computer's own sidebar copies it, so there is no Remote Machine line.
  */
-/** The stored title Copy Details and Copy ID quote. */
+/** The stored title Copy Details and Copy Reference quote. */
 function sessionTitle(session: GhostexSession): string {
   return (
     [session.title, session.primaryTitle, session.displayTitle]
@@ -653,7 +653,12 @@ function linkSubmenu(
 }
 
 /**
- * The menu's own Copy ID row, or null while the session has no Global Ref yet.
+ * The menu's own Copy Reference row (named Copy ID until 2026-11-25), or null while the session has no Global Ref yet.
+ *
+ * CDXC:SessionChat 2026-11-25 DECISION:
+ * User: "make threads and session say Copy Reference" (gx-chat-core `transcript/item_references.rs`): the row is
+ * Copy Reference, one name with every question, work item, Live page and message; it still copies
+ * `[<session title>](<Global Ref>)`. The Beads screen's Copy ID is another thing and keeps its name.
  *
  * CDXC:ContextMenus 2026-11-12 DECISION:
  * User: "i want a new Copy ID that let's me just copy the id and name of an agent so i can mention it in other chats" (2026-10-28), then (2026-11-12) "move Copy ID to sit directly above Tag As": Copy ID leaves the Copy submenu and is a row of the menu itself, right above Tag As, as on the desktop (gx-core copy.rs `copy_id_row`). It copies `[<session title>](<Global Ref>)`.
@@ -665,7 +670,7 @@ function linkSubmenu(
 function copyIdRow(session: GhostexSession): SidebarMenuItem | null {
   const ref = session.globalRef.trim();
   if (ref.length === 0) return null;
-  return row('Copy ID', 'hash', command({ type: 'copyText', text: sessionMentionText(sessionTitle(session), ref) }));
+  return row('Copy Reference', 'hash', command({ type: 'copyText', text: sessionMentionText(sessionTitle(session), ref) }));
 }
 
 /**

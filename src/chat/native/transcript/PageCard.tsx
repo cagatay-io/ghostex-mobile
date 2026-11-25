@@ -361,13 +361,15 @@ function PageCardBody({
             </Pressable>
           ) : null}
           {pageId.length > 0 ? (
-            // This page: Snooze while it waits, then Star; Share: optional Share link, Export page and
-            // Import answers (`cards/CardMoreMenu.tsx` `pageMenuRows`).
+            // This page: Snooze while it waits, Star, Copy reference and Reference in chat; Share:
+            // optional Share link, Export page and Import answers (`cards/CardMoreMenu.tsx` `pageMenuRows`).
             <CardMoreMenu
               rows={pageMenuRows(pageId, {
                 snooze: waiting,
                 starred: flags.starredPages.has(pageId),
                 shared: canShare ? sharedPages.has(pageId) : null,
+                title,
+                url,
               })}
               dispatch={dispatch}
               color={theme.foreground}

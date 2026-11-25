@@ -814,7 +814,7 @@ export default function NativeChatScreen({
   const subagentOpen = document?.subagent !== undefined && document.subagent !== null;
 
   return (
-    <NativeChatUiProvider chat={chat} shown={visible}>
+    <NativeChatUiProvider chat={chat} shown={visible} sessionId={sessionId}>
       <ForkFromMessageProvider value={forkFromMessage}>
         <DictatedFormBoxes chat={chat} />
         <ChatPlacementProvider value={placement}>

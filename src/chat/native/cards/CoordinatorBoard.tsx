@@ -10,6 +10,7 @@
 
 import { plural } from '../../../plural';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
   Animated,
@@ -187,17 +188,24 @@ function menuGlyph(icon: string): GlyphName {
     case 'tag':
     case 'trash':
     case 'arrow-back-up':
+    case 'hash':
+    case 'quote':
       return icon;
     default:
       return 'chevron-right';
   }
 }
 
+/** How long a copying row says "Copied" before the menu closes. */
+const MENU_COPIED_MS = 900;
+
 /**
- * A card's menu, opened in place under the held card: the core's rows (Open, Mention in chat,
- * Tags, Mark done, Remove or Restore), and Tags turning the list into the sidebar's tags with a
- * back row, as the desktop's menu reopens in place. In place rather than a second sheet, which iOS
- * cannot show over the board's own.
+ * A card's menu, opened in place under the held card: the core's rows (Open, Copy reference,
+ * Reference in chat, Tags, Mark done, Remove or Restore), and Tags turning the list into the
+ * sidebar's tags with a back row, as the desktop's menu reopens in place. In place rather than a
+ * second sheet, which iOS cannot show over the board's own. A row that copies (the core's
+ * `{type: "copyText", text}`, a dock row's `copy`) puts its words on the clipboard here and says
+ * "Copied" in its place for a moment before the menu closes (`onCopied`).
  */
 function CardMenu({
   row,
@@ -206,6 +214,7 @@ function CardMenu({
   tagsPage,
   onTags,
   onPick,
+  onCopied,
 }: {
   row: unknown;
   /** The dock's own rows for this item first: Show in chat, Dismiss, Snooze (`workItemParts.tsx`). */
@@ -214,10 +223,25 @@ function CardMenu({
   tagsPage: boolean;
   onTags: (open: boolean) => void;
   onPick: (command: Record<string, unknown>) => void;
+  onCopied: () => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [snoozing, setSnoozing] = useState<Record<string, unknown>[] | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current !== null) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
+  const copy = (key: string, text: string) => {
+    void Clipboard.setStringAsync(text);
+    setCopied(key);
+    if (copiedTimer.current !== null) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(onCopied, MENU_COPIED_MS);
+  };
   const setTag = obj(obj(row)?.setTag);
   const current = str(row, 'tag');
   if (snoozing !== null) {
@@ -285,38 +309,64 @@ function CardMenu({
   }
   return (
     <View style={styles.cardMenu}>
-      {workRows.map((item) => (
-        <Pressable
-          key={`work:${item.label}`}
-          accessibilityRole="button"
-          onPress={() =>
-            item.snooze !== undefined ? setSnoozing(item.snooze) : item.command ? onPick(item.command) : undefined
-          }
-          style={styles.cardMenuRow}
-        >
-          <Glyph name={item.icon} size={15} color={P.foreground} />
-          <Text style={[styles.cardMenuText, styles.flex]}>{item.label}</Text>
-          {item.snooze !== undefined ? <Glyph name="chevron-right" size={14} color={P.cardMuted} /> : null}
-        </Pressable>
-      ))}
+      {workRows.map((item) => {
+        const key = `work:${item.label}`;
+        return (
+          <Pressable
+            key={key}
+            accessibilityRole="button"
+            onPress={() =>
+              item.snooze !== undefined
+                ? setSnoozing(item.snooze)
+                : item.copy !== undefined
+                  ? copy(key, item.copy)
+                  : item.command
+                    ? onPick(item.command)
+                    : undefined
+            }
+            style={styles.cardMenuRow}
+          >
+            <Glyph name={copied === key ? 'check' : item.icon} size={15} color={P.foreground} />
+            <Text style={[styles.cardMenuText, styles.flex]}>{copied === key ? 'Copied' : item.label}</Text>
+            {item.snooze !== undefined ? <Glyph name="chevron-right" size={14} color={P.cardMuted} /> : null}
+          </Pressable>
+        );
+      })}
       {arr(obj(row)?.menu).map((item, index) => {
         const destructive = isTrue(item, 'destructive');
         const color = destructive ? SidebarPalette.ROW_APPROVAL : P.foreground;
         const command = obj(obj(item)?.command);
         const tags = str(item, 'submenu') === 'tags';
+        const key = `${index}:${str(item, 'label')}`;
+        // Copy reference (gx-chat-core `coordinator_board.rs`, CDXC:SessionChat 2026-11-25 in
+        // transcript/item_references.rs): the phone copies the words itself.
+        const copyText = command !== null && str(command, 'type') === 'copyText' ? str(command, 'text') : null;
+        const shownCopied = copied === key;
         return (
           <Pressable
-            key={`${index}:${str(item, 'label')}`}
+            key={key}
             accessibilityRole="button"
-            onPress={() => (tags ? onTags(true) : command !== null ? onPick(command) : undefined)}
+            onPress={() =>
+              tags
+                ? onTags(true)
+                : copyText !== null
+                  ? copyText.length > 0
+                    ? copy(key, copyText)
+                    : undefined
+                  : command !== null
+                    ? onPick(command)
+                    : undefined
+            }
             style={styles.cardMenuRow}
           >
             {str(item, 'icon') === 'agent' ? (
               <AgentMark icon={str(row, 'agentIcon') || null} size={15} />
             ) : (
-              <Glyph name={menuGlyph(str(item, 'icon'))} size={15} color={color} />
+              <Glyph name={shownCopied ? 'check' : menuGlyph(str(item, 'icon'))} size={15} color={color} />
             )}
-            <Text style={[styles.cardMenuText, styles.flex, { color }]}>{str(item, 'label')}</Text>
+            <Text style={[styles.cardMenuText, styles.flex, { color }]}>
+              {shownCopied ? 'Copied' : str(item, 'label')}
+            </Text>
             {tags ? <Glyph name="chevron-right" size={14} color={P.cardMuted} /> : null}
           </Pressable>
         );
@@ -796,7 +846,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                 const answers = arr(obj(row)?.answers);
                 // The dock's actions for it (gx-chat-core `panel_actions`): Reply among its answers,
                 // Show in chat, Dismiss and Snooze at the top of its menu, which also holds the
-                // board's own rows (Open, Mention in chat, Tags, Mark done, Drop).
+                // board's own rows (Open, Copy reference, Reference in chat, Tags, Mark done, Drop).
                 const actions = obj(obj(row)?.actions);
                 const reply = obj(actions?.reply);
                 const workRows = workMenuRows(actions, '', '');
@@ -1165,6 +1215,10 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                         tagOptions={arr(board.tagOptions)}
                         tagsPage={menuTags}
                         onTags={setMenuTags}
+                        onCopied={() => {
+                          setMenuFor(null);
+                          setMenuTags(false);
+                        }}
                         onPick={(picked) => {
                           setMenuFor(null);
                           setMenuTags(false);

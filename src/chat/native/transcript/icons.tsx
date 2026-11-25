@@ -86,6 +86,21 @@ const GLYPHS = {
     'M10 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5',
     'M19 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5',
   ],
+  // A question and a Live page pointed at (`questionRef` and `pageRef` in reference-visual.json, core
+  // `transcript/item_references.rs`).
+  questionRef: [
+    'M8 9h8',
+    'M8 13h6',
+    'M14 18h-1l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v4.5',
+    'M19 22v.01',
+    'M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483',
+  ],
+  pageRef: [
+    'M14 3v4a1 1 0 0 0 1 1h4',
+    'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z',
+    'M9 13l-1.5 2l1.5 2',
+    'M15 13l1.5 2l-1.5 2',
+  ],
   skill: ['m12 3-1.9 5.1L5 10l5.1 1.9L12 18l1.9-5.1L19 11l-5.1-1.9z', 'M5 3v4', 'M3 5h4', 'M19 17v4', 'M17 19h4'],
   link: [
     'M9 15l6 -6',

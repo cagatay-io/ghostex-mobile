@@ -59,6 +59,11 @@ export type NativeChatUi = {
    * computer with (`mentionedSession.ts`); null while the chat has no target.
    */
   homeMachineId: string | null;
+  /**
+   * The chat's own session ID (`G9jt7`), for the references the phone writes itself: a question's
+   * Copy reference names it (`question:G9jt7.Q4933`, gx-chat-core `item_references.rs`). '' outside a chat.
+   */
+  sessionId: string;
 };
 
 const UiContext = createContext<NativeChatUi | null>(null);
@@ -66,9 +71,12 @@ const UiContext = createContext<NativeChatUi | null>(null);
 export function NativeChatUiProvider({
   chat,
   shown = true,
+  sessionId = '',
   children,
 }: {
   chat: RustChat;
+  /** The chat's own session ID (`NativeChatUi.sessionId`). */
+  sessionId?: string;
   /** Whether the chat is on screen; its views that animate forever stop while it is not (`chatShown.ts`). */
   shown?: boolean;
   children: ReactNode;
@@ -151,6 +159,7 @@ export function NativeChatUiProvider({
     () => ({
       issueLinkBase,
       homeMachineId,
+      sessionId,
       disclosures,
       demand,
       dictationTargets,
@@ -167,6 +176,7 @@ export function NativeChatUiProvider({
       homeMachineId,
       issueLinkBase,
       requestImage,
+      sessionId,
       renderVisual,
       renderVisualAsync,
       openPicture,
@@ -210,6 +220,11 @@ export function useHomeMachineId(): string | null {
   return useContext(UiContext)?.homeMachineId ?? null;
 }
 
+/** The chat's own session ID (`NativeChatUi.sessionId`), or '' outside a chat screen. */
+export function useChatSessionId(): string {
+  return useContext(UiContext)?.sessionId ?? '';
+}
+
 /** The chat's `issueLinkBase`, or null outside a chat screen (a sheet drawn on its own). */
 export function useIssueLinkBase(): string | null {
   return useContext(UiContext)?.issueLinkBase ?? null;
@@ -235,6 +250,7 @@ function getFallbackNativeChatUi(): NativeChatUi {
       toolAppLogo: () => null,
       issueLinkBase: null,
       homeMachineId: null,
+      sessionId: '',
     };
   }
   return fallbackNativeChatUi;

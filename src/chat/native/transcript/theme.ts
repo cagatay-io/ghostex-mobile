@@ -67,7 +67,19 @@ export type TranscriptTheme = {
    * Reference colours in the transcript, by kind: `transcript` in `reference-visual.json`, the same
    * brighter set the GPUI transcript uses (see `presentations` in native_chat/markdown_links.rs).
    */
-  link: { url: string; file: string; folder: string; image: string; skill: string; comment: string; message: string; boost: string };
+  link: {
+    url: string;
+    file: string;
+    folder: string;
+    image: string;
+    skill: string;
+    comment: string;
+    message: string;
+    boost: string;
+    /** A question pointed at (`questionRef`, the answer pills' pink) and a Live page (`pageRef`, a message's blue). */
+    questionRef: string;
+    pageRef: string;
+  };
   alert: { note: string; tip: string; important: string; warning: string; caution: string };
   diff: { added: string; removed: string; addedRow: string; removedRow: string; rail: string; border: string };
   /** A pressed row. */
@@ -190,7 +202,18 @@ const DARK: ChatRoles = {
   error: '#ef9999',
   inlineCodeSurface: '#282828',
   inlineCodeBorder: 'rgba(252,252,252,0.18)',
-  link: { url: '#6cb4ff', file: '#9dbcf0', folder: '#e3c283', image: '#8ed8ab', skill: '#a3d9bd', comment: '#b4c3ef', message: '#7dd3fc', boost: '#fbbf24' },
+  link: {
+    url: '#6cb4ff',
+    file: '#9dbcf0',
+    folder: '#e3c283',
+    image: '#8ed8ab',
+    skill: '#a3d9bd',
+    comment: '#b4c3ef',
+    message: '#7dd3fc',
+    boost: '#fbbf24',
+    questionRef: '#f472b6',
+    pageRef: '#7dd3fc',
+  },
   alert: { note: '#51a2ff', tip: '#00d492', important: '#c27aff', warning: '#fe9a00', caution: '#ff6467' },
   diff: {
     added: '#94caaa',
@@ -246,6 +269,9 @@ const DARK: ChatRoles = {
     board: '#5ccfc4',
     // A Boost (`boost` in reference-visual.json's `transcript`, core `extras/boosts.rs`).
     boost: '#fbbf24',
+    // A question and a Live page pointed at (`questionRef`, `pageRef` in reference-visual.json's `transcript`).
+    questionRef: '#f472b6',
+    pageRef: '#7dd3fc',
   },
   meterTrack: 'rgba(158,158,158,0.24)',
   meterFill: '#b9b9b9',
@@ -264,7 +290,18 @@ const LIGHT: ChatRoles = {
   error: '#c53030',
   inlineCodeSurface: '#efefef',
   inlineCodeBorder: 'rgba(39,39,42,0.16)',
-  link: { url: '#1447e6', file: '#3f6aa8', folder: '#93631a', image: '#2a7d4c', skill: '#3d7458', comment: '#4b5c99', message: '#0369a1', boost: '#a16207' },
+  link: {
+    url: '#1447e6',
+    file: '#3f6aa8',
+    folder: '#93631a',
+    image: '#2a7d4c',
+    skill: '#3d7458',
+    comment: '#4b5c99',
+    message: '#0369a1',
+    boost: '#a16207',
+    questionRef: '#be185d',
+    pageRef: '#0369a1',
+  },
   alert: { note: '#1447e6', tip: '#009966', important: '#9810fa', warning: '#e17100', caution: '#e7000b' },
   diff: {
     added: '#16803d',
@@ -312,6 +349,8 @@ const LIGHT: ChatRoles = {
     session: '#27272a',
     board: '#0f766e',
     boost: '#a16207',
+    questionRef: '#be185d',
+    pageRef: '#0369a1',
   },
   meterTrack: 'rgba(85,85,92,0.24)',
   meterFill: '#8b8b8b',
@@ -516,6 +555,8 @@ export function transcriptThemeFor(settings: ThemeColourSettings, light: boolean
         comment: text(roles.link.comment),
         message: text(customAccent ?? roles.link.message),
         boost: text(roles.link.boost),
+        questionRef: text(roles.link.questionRef),
+        pageRef: text(customAccent ?? roles.link.pageRef),
       },
       alert: {
         note: text(customLink ?? roles.alert.note),

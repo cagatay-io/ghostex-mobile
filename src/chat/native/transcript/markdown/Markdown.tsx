@@ -125,6 +125,9 @@ const REFERENCE_GLYPHS: { [kind: string]: GlyphName } = {
   comment: 'comment',
   message: 'quote',
   boost: 'sparkles',
+  // A question or Live page pointed at (core `transcript/item_references.rs`): drawn as a message is.
+  questionRef: 'questionRef',
+  pageRef: 'pageRef',
 };
 
 function linkColor(theme: TranscriptTheme, kind: string): string {
@@ -274,6 +277,8 @@ function renderInlines(
               ? { onLongPress: () => context.longPressLink?.(inline.href) }
               : {})}
             accessibilityRole="link"
+            // The pill's hover on the desktop (`title`: "Q4933: <label>" and its state, "Live page: <label>").
+            {...(reference !== undefined && reference.title.length > 0 ? { accessibilityHint: reference.title } : {})}
           >
             {glyph !== undefined ? (
               <Text>
