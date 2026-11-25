@@ -12,6 +12,8 @@ import { plural } from '../../../plural';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   Text,
@@ -558,6 +560,57 @@ export function CoordinatorBoardMenu(props: BoardMenuProps) {
   );
 }
 
+/**
+ * How long a jumped-to group's outline takes to blink twice (fade in and out, twice).
+ *
+ * CDXC:Coordinators 2026-11-25 DECISION:
+ * User, of the Work panel opening at In progress from a status pill: "it's shifting the layout of
+ * the in progress please lets not do this ... i just want a quick white outline that blinks twice
+ * smoothly (fade in and out) on them", then the slower speed (Q4951) and "make the outline shifted
+ * 10px from left/right/bottom please so it's not hugging items so close". The tinted box with its
+ * padding is gone; an outline overlay sits outside the group, so nothing inside moves. The
+ * desktop's `GROUP_BLINK_FOR` (native_chat/coordinator_board.rs) matches.
+ */
+const GROUP_BLINK_MS = 1800;
+/** How far the outline sits outside the group on the left, right and bottom. */
+const GROUP_BLINK_ROOM = 10;
+
+/**
+ * The outline a jumped-to group blinks with: absolute over the group (its own layout untouched),
+ * white in dark mode and near black in light mode, two smooth fades in and out, then gone.
+ */
+function GroupBlinkOutline({ light }: { light: boolean }) {
+  const blink = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const fade = (to: number) =>
+      Animated.timing(blink, {
+        toValue: to,
+        duration: GROUP_BLINK_MS / 4,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      });
+    const run = Animated.sequence([fade(0.9), fade(0), fade(0.9), fade(0)]);
+    run.start();
+    return () => run.stop();
+  }, [blink]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: -GROUP_BLINK_ROOM,
+        right: -GROUP_BLINK_ROOM,
+        bottom: -GROUP_BLINK_ROOM,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: light ? '#141414' : '#ffffff',
+        opacity: blink,
+      }}
+    />
+  );
+}
+
 function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMenuProps) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -702,29 +755,18 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
             </Text>
           </Pressable>
         ))}
-      <ScrollView ref={list} style={styles.rows} nestedScrollEnabled>
+      {/* The list reaches GROUP_BLINK_ROOM past the menu's padding on each side, and pads its
+          content back by as much, so a jumped-to group's outline has room to draw unclipped while
+          every row stays where it was. */}
+      <ScrollView ref={list} style={styles.rows} contentContainerStyle={styles.rowsContent} nestedScrollEnabled>
         {arr(board.groups).map((group) => {
           const id = str(group, 'id');
           const open = isTrue(group, 'open');
           const more = str(group, 'moreLabel');
-          const groupAccent = GROUP_COLOR[id] ?? P.foreground;
           const isGroupHighlighted = highlightedGroup === id;
           return (
             <View
               key={id}
-              style={
-                isGroupHighlighted
-                  ? {
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: tint(groupAccent, 0.45),
-                      backgroundColor: tint(groupAccent, P.light ? 0.08 : 0.12),
-                      paddingHorizontal: 6,
-                      paddingVertical: 4,
-                      marginHorizontal: -6,
-                    }
-                  : undefined
-              }
               onLayout={(event) => {
                 groupTops.current[id] = event.nativeEvent.layout.y;
                 scrollToFocus();
@@ -1152,6 +1194,9 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                   {more}
                 </Text>
               ) : null}
+              {isGroupHighlighted && focus !== null ? (
+                <GroupBlinkOutline key={`blink:${focus.seq}`} light={P.light} />
+              ) : null}
             </View>
           );
         })}
@@ -1185,6 +1230,11 @@ const useStyles = themedStyles((P) => ({
   },
   rows: {
     flexShrink: 1,
+    marginHorizontal: -GROUP_BLINK_ROOM,
+  },
+  rowsContent: {
+    paddingHorizontal: GROUP_BLINK_ROOM,
+    paddingBottom: GROUP_BLINK_ROOM,
   },
   groupLine: {
     flexDirection: 'row',
