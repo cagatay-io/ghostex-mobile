@@ -200,9 +200,13 @@ function ToolRunRows({ message, boxed = false }: { message: ProjectedMessage; bo
       </View>
     );
   }
+  // Opened, a group of one says what kind of call it was and its row says which (gx-chat-core
+  // `simple::calls_open_label`); shut, it keeps the call's own words. SEE-ALSO: the desktop's
+  // native_chat/tool_run.rs.
+  const headingLabel = (simpleOpen && str(message, 'simpleToolOpenLabel')) || str(message, 'simpleToolLabel');
   if (quiet && !showAll) {
     const running = tools.some((tool) => tool.status === 'running');
-    const label = str(message, 'simpleToolLabel');
+    const label = headingLabel;
     return shell(
       <View style={styles.column}>
         <QuietWorkLine
@@ -243,7 +247,7 @@ function ToolRunRows({ message, boxed = false }: { message: ProjectedMessage; bo
               SEE-ALSO: `boxed_card_heading` in the desktop's native_chat/tool_run.rs. */}
           <SingleLineTile glyph="tool" />
           <Text numberOfLines={1} style={[SINGLE_LINE_TITLE, styles.cardHeaderText, { color: theme.foreground }]}>
-            {str(message, 'simpleToolLabel')}
+            {headingLabel}
           </Text>
         </Pressable>
         {simpleOpen ? (
@@ -269,7 +273,7 @@ function ToolRunRows({ message, boxed = false }: { message: ProjectedMessage; bo
   if (simple && !showAll) {
     return (
       <View style={styles.column}>
-        <DisclosureHeading label={str(message, 'simpleToolLabel')} open={simpleOpen} onToggle={toggleSimple} />
+        <DisclosureHeading label={headingLabel} open={simpleOpen} onToggle={toggleSimple} />
         {simpleOpen ? (
           <DisclosureBody onCollapse={toggleSimple} label="Collapse tool calls" gap={ROW_GAP}>
             {rows(visible)}

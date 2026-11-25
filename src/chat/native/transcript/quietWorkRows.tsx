@@ -86,7 +86,8 @@ export function GroupedWorkRow({ item }: { item: GroupedWorkItem }) {
   const segments =
     titled !== null
       ? quietSegments(
-          titled.title as string,
+          // Opened, a turn of one call says what kind of call it was (gx-chat-core `QuietTurnLook::open_title`).
+          (open && titled.openTitle) || (titled.title as string),
           (item.stats ?? []).filter((stat) => stat.kind !== titled.titleKind),
           theme,
         )

@@ -421,6 +421,8 @@ export type QuietTurnLook = {
   title?: string;
   /** The `kind` of the stat `title` names, which the pills then leave out. */
   titleKind?: string;
+  /** The title while the card is open, when it differs: "Read 1 file" for a turn of one call. */
+  openTitle?: string;
   /** Its calls sit straight on the rail, with no card or line of its own. */
   flat?: boolean;
   /** "Then · 22s" before the turn whose rows start at `at` in the row's `work`. */
@@ -549,6 +551,8 @@ export type ProjectedMessage = {
   simpleFileLabel?: string;
   /** "N tool calls" in simple mode. */
   simpleToolLabel?: string;
+  /** What an opened group of tool calls says: "Read 1 file" for a group of one, else `simpleToolLabel`. */
+  simpleToolOpenLabel?: string;
   /** Tool call rows: `{name, label, glyph, preview, failed, status: 'done' | 'failed' | 'running',
    * failure, duration, description, hasCall, hasDetail, exchange, sentMessage, subagent}`; `failure`
    * is what a failed call reported, `duration` how long it ran ("14.3s"), `description` the line

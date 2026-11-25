@@ -307,7 +307,9 @@ function WorkSummary({
 }) {
   const { theme } = useTranscriptEnv();
   const titled = look !== null && (look.title ?? '').length > 0 ? look : null;
-  const label = titled !== null ? (titled.title as string) : item.label;
+  // Opened, a turn of one call says what kind of call it was and its row says which (gx-chat-core
+  // `QuietTurnLook::open_title`); shut, it keeps the call's own words.
+  const label = titled !== null ? (open && titled.openTitle) || (titled.title as string) : item.label;
   const stats = (item.stats ?? []).filter((stat) => titled === null || stat.kind !== titled.titleKind);
   const spoken = [label, ...stats.map((stat) => stat.label)].join(', ');
   // The closed card keeps the pictures its rows read in view, under its header past a hairline
