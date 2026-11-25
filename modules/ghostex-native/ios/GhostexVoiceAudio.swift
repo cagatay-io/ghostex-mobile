@@ -355,7 +355,7 @@ final class GhostexVoiceEngine {
         do {
             engine.prepare()
             try engine.start()
-            player?.play()
+            resetPlayer()
             note("the microphone started again as it was")
             return true
         } catch {
@@ -599,5 +599,25 @@ final class GhostexVoiceEngine {
         scheduledEnd = 0
         itemStart = -1
         return played * 1000 / Int64(GhostexVoiceAudio.sampleRate)
+    }
+
+    /**
+     * CDXC:VoiceMode 2026-11-25 WHY: On an iPhone on iOS 27.2.1 the agent's replies were silent from the start of a call
+     * until the first cut, then audible for the rest of the call, with CallKit and without. The phone's log showed why:
+     * after the engine that switching voice processing on had stopped was started again in place, the player said it was
+     * playing and its clock ran, but it took none of the audio queued on it and the mixer rendered silence; the first cut
+     * stops and starts the player, and from then on it played. So the restart in place now resets the player as `cut`
+     * does. Audio of a reply that was already queued when the engine stopped is dropped with it; audio of the reply that
+     * arrives later plays. A later cut of that reply counts only what played after the reset, so gxserver, which takes
+     * that count as the cut point, can treat words heard before the reset as unheard.
+     */
+    private func resetPlayer() {
+        guard let player else { return }
+        playLock.lock()
+        defer { playLock.unlock() }
+        player.stop()
+        player.play()
+        scheduledEnd = 0
+        itemStart = -1
     }
 }
