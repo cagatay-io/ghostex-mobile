@@ -19,6 +19,9 @@ import { create } from 'zustand';
 
 import { chatMachineLink, unreachableMessage } from '../chat/rust/machine-link';
 import { isDemoMachine } from '../demo/identity';
+import { useInventoryStore } from '../inventory/store';
+import { machineRecordFor } from '../screens/terminal-screen/session-lookups';
+import { useTerminalStore } from '../terminal/sessions';
 import type { MachineConnectionTarget } from './credentials';
 import { machineNameById } from './store';
 
@@ -45,7 +48,13 @@ export type AppUpdateStatus = {
    * A Linux computer's install kind, the command that updates it and its release page
    * (server/src/app_update/linux_install.rs). Absent from a gxserver that predates it, `null` off Linux.
    */
-  linuxUpdate?: { kind?: string | null; command?: string | null; releaseUrl?: string | null } | null;
+  linuxUpdate?: {
+    kind?: string | null;
+    command?: string | null;
+    /** Run in terminal's id for the command (server/src/shown_commands/); missing from an older gxserver. */
+    runInTerminal?: string | null;
+    releaseUrl?: string | null;
+  } | null;
   availableVersion?: string | null;
   progress?: number | null;
   message?: string | null;
@@ -81,8 +90,11 @@ export type AppUpdateView = {
   /** The switch's value, or `null` when this computer cannot update itself. */
   autoUpdate: boolean | null;
   updateAvailable: boolean;
-  /** A Linux computer that updates by a command the user runs there: the command (if any) and its release page. */
-  linux: { command: string | null; releaseUrl: string | null } | null;
+  /**
+   * A Linux computer that updates by a command the user runs there: the command (if any), the id Run in
+   * terminal sends (when that computer offers it) and its release page.
+   */
+  linux: { command: string | null; runInTerminal: string | null; releaseUrl: string | null } | null;
 };
 
 type AppUpdateState = {
@@ -168,7 +180,12 @@ export function appUpdateView(update: RemoteAppUpdate, computer: string): AppUpd
     tone = 'warning';
     detail = text(lastResult.message);
   } else if (available !== null && !supported) {
-    const reason = linux?.command != null ? LINUX_COMMAND_LINE : text(status.unsupportedReason);
+    const reason =
+      linux?.command == null
+        ? text(status.unsupportedReason)
+        : linux.runInTerminal !== null
+          ? linuxRunInTerminalLine(computer)
+          : LINUX_COMMAND_LINE;
     detail = reason === null ? null : `${available} is out. ${reason}`;
   } else if (available !== null) {
     detail = `Ghostex ${available} is available`;
@@ -198,7 +215,13 @@ export function appUpdateView(update: RemoteAppUpdate, computer: string): AppUpd
   };
 }
 
-const LINUX_COMMAND_LINE = "Update it in a terminal there; it needs a password, so Ghostex can't run it for you.";
+/** The line without Run in terminal (a computer whose gxserver does not offer it). */
+const LINUX_COMMAND_LINE = 'It needs a password there, so run it in a terminal on that computer.';
+
+/** The line with Run in terminal; the desktop card's twin is `LinuxUpdate::line` in settings_modal/tabs/updates/card.rs. */
+function linuxRunInTerminalLine(computer: string): string {
+  return `It needs the password on ${computer}. Run in terminal types it in, so you only press Enter.`;
+}
 
 /**
  * What to show for a Linux computer that updates by a command (a package manager) or a download page.
@@ -211,8 +234,10 @@ function linuxUpdateOf(status: AppUpdateStatus, available: string | null, suppor
   if (available === null || supported || info == null || typeof info !== 'object' || info.kind === 'appimage')
     return null;
   const releaseUrl = text(info.releaseUrl);
+  const command = text(info.command);
   return {
-    command: text(info.command),
+    command,
+    runInTerminal: command === null ? null : text(info.runInTerminal),
     releaseUrl: releaseUrl !== null && releaseUrl.startsWith('https://') ? releaseUrl : null,
   };
 }
@@ -329,4 +354,32 @@ async function followAppUpdate(machine: MachineConnectionTarget): Promise<void> 
   } finally {
     patch(machine.id, { following: false });
   }
+}
+
+/**
+ * Run in terminal: the computer opens a new Main Hub terminal with the command it shows typed in and not
+ * run (`/api/openShownCommandTerminal`, server/src/shown_commands/), and the phone attaches it as a tab,
+ * so the user types the password there and presses Enter. Answers the tab to show, or throws.
+ * SEE-ALSO: apps/desktop/src/app/gx_store/create/shown_command_terminal.rs (the desktop's twin).
+ */
+export async function openShownCommandTerminal(
+  machine: MachineConnectionTarget,
+  commandId: string,
+): Promise<{ sessionKey: string; title: string }> {
+  const link = chatMachineLink(machine);
+  const route = await link.routeOrRepair();
+  const computer = machineNameById(machine.id);
+  if (route !== 'socket') throw new Error(link.routeBusy() ? FailureCopy.channelsBusy : unreachableMessage(computer));
+  const answer = await link.rpc('openShownCommandTerminal', { commandId }, REQUEST_TIMEOUT_MS);
+  if (answer.error !== null) throw new Error(answer.error.message);
+  const result = (answer.result ?? {}) as Record<string, unknown>;
+  const sessionId = text(result.sessionId);
+  const projectId = text(result.projectId);
+  if (sessionId === null || projectId === null) throw new Error(`${computer} did not open the terminal.`);
+  const title = text(result.title) ?? 'Terminal';
+  const record = machineRecordFor(machine.id);
+  if (record !== null) await useInventoryStore.getState().refreshMachine(record);
+  const sessionKey = await useTerminalStore.getState().attachSession(machine, { sessionId, projectId, title });
+  useTerminalStore.getState().selectTab(sessionKey);
+  return { sessionKey, title };
 }

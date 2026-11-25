@@ -6,15 +6,18 @@
 
 import { readableSecondaryText } from '../../theme/sidebarAppearance';
 import { useAppearance } from '../../theme/useAppearance';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Switch, Text, View } from 'react-native';
 
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { CopyGlyph, DownloadGlyph, RefreshGlyph } from '../../components/sessions/icons';
 import { EditMachineCopy } from '../../copy';
 import {
   appUpdateView,
+  openShownCommandTerminal,
   runAppUpdateOp,
   setAppAutoUpdate,
   useAppUpdateStore,
@@ -23,6 +26,7 @@ import {
 import { SwitchRow } from '../../components/common/SwitchRow';
 import type { MachineConnectionTarget } from '../../machines/credentials';
 import { machineNameById } from '../../machines/store';
+import type { RootStackParamList } from '../../navigation/types';
 import { SetupPalette } from '../../theme/palette';
 import { useFormStyles } from './styles';
 
@@ -36,7 +40,9 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
   const appearance = useAppearance();
   const formStyles = useFormStyles();
   const update = useAppUpdateStore((state) => state.byMachineId[machine.id]);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [copied, setCopied] = useState(false);
+  const [opening, setOpening] = useState(false);
   useEffect(() => {
     if (!copied) return undefined;
     const timer = setTimeout(() => setCopied(false), 2000);
@@ -94,7 +100,7 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
           </View>
         ) : null}
         {view.linux !== null && (view.linux.command !== null || view.linux.releaseUrl !== null) ? (
-          <View style={[formStyles.row, { paddingTop: 2, borderTopWidth: 0, gap: 8 }]}>
+          <View style={[formStyles.row, { paddingTop: 2, borderTopWidth: 0, gap: 8, flexWrap: 'wrap' }]}>
             {view.linux.command !== null ? (
               <SetupButton
                 small
@@ -103,6 +109,27 @@ export default function AppUpdateSection({ machine }: { machine: MachineConnecti
                 onPress={() => {
                   const command = view.linux?.command;
                   if (command != null) void Clipboard.setStringAsync(command).then(() => setCopied(true));
+                }}
+              />
+            ) : null}
+            {view.linux.command !== null && view.linux.runInTerminal !== null ? (
+              <SetupButton
+                small
+                variant="primary"
+                label={copy.runInTerminal}
+                busy={opening}
+                onPress={() => {
+                  const commandId = view.linux?.runInTerminal;
+                  if (commandId == null) return;
+                  setOpening(true);
+                  void openShownCommandTerminal(machine, commandId)
+                    .then(({ sessionKey, title }) =>
+                      navigation.navigate('Terminal', { sessionKey, machineId: machine.id, title }),
+                    )
+                    .catch((error: unknown) =>
+                      Alert.alert(copy.runInTerminalFailed, error instanceof Error ? error.message : String(error)),
+                    )
+                    .finally(() => setOpening(false));
                 }}
               />
             ) : null}
