@@ -69,7 +69,12 @@ export type MachineSkill = {
 
 export type MachineIntegrations = {
   platform?: string;
-  ghostexCli?: { installed?: boolean; path?: string | null };
+  ghostexCli?: {
+    installed?: boolean;
+    path?: string | null;
+    /** The PATH line Repair would add, and the shell files it goes in; an older gxserver sends none. */
+    pathFix?: { files: string; command: string } | null;
+  };
   skills?: MachineSkill[];
 };
 
@@ -164,7 +169,7 @@ export function agentCliRow(agent: AgentCli): ToolRowView {
   const version = agent.version?.trim();
   let detail = version ? `Installed · ${version}` : 'Installed';
   const detectedMethod = agent.detectedMethodId
-    ? agent.methods?.find((candidate) => candidate.id === agent.detectedMethodId) ?? null
+    ? (agent.methods?.find((candidate) => candidate.id === agent.detectedMethodId) ?? null)
     : null;
   const unavailableReason = detectedMethod?.unavailableReason?.trim() || null;
   const noCommand =

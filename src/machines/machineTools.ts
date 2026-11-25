@@ -14,7 +14,7 @@
  * picker), server/src/machine_integrations.rs, server/src/managed_tools/desktop_control.rs.
  */
 
-import { FailureCopy } from '../copy';
+import { EditMachineCopy, FailureCopy } from '../copy';
 import { create } from 'zustand';
 
 import { chatMachineLink, unreachableMessage } from '../chat/rust/machine-link';
@@ -50,6 +50,8 @@ export type MachineTools = {
   starting: Record<string, true>;
   /** The last action that failed, in words, by row key. */
   failed: Record<string, string>;
+  /** What the last action did, in words, by row key (the Ghostex CLI row's Repair). */
+  done: Record<string, string>;
   following: boolean;
   refreshedAt: number | null;
 };
@@ -62,6 +64,7 @@ const EMPTY: MachineTools = {
   reading: false,
   starting: {},
   failed: {},
+  done: {},
   following: false,
   refreshedAt: null,
 };
@@ -168,6 +171,9 @@ export async function runRowAction(machine: MachineConnectionTarget, key: string
   } else if (kind === 'tool' && action.operation === 'retry') {
     // A tool that wasn't answering is checked again; the list below shows the result.
     answer = await call(machine, 'managedTools', { action: 'read', tool: id, fresh: true });
+  } else if (kind === 'cli') {
+    // CDXC:Cli 2026-11-25 DECISION: User (Q115 "yes"): the phone's Ghostex CLI row gets Repair, which adds the PATH line to that computer's shell startup file through its gxserver (server/src/machine_integrations.rs `addCliFolderToPath`), shown only when that computer offers it (`ghostexCli.pathFix`).
+    answer = await call(machine, 'machineIntegrations', { action: 'addCliFolderToPath' });
   } else if (kind === 'tool') {
     answer = await call(machine, 'managedTools', { action: 'start', tool: id, operation: action.operation });
   } else {
@@ -178,13 +184,29 @@ export async function runRowAction(machine: MachineConnectionTarget, key: string
     delete starting[key];
     const change: Partial<MachineTools> = { starting };
     if ('error' in answer) change.failed = { ...tools.failed, [key]: answer.error };
+    else if (kind === 'cli') change.done = { ...tools.done, [key]: cliRepairDone(answer.result) };
     else if (kind === 'skill') change.integrations = { data: answer.result as MachineIntegrations, error: null };
     return change;
   });
   if (kind !== 'skill') {
+    // Read everything again; for the Ghostex CLI row that is the integrations with its new PATH.
     patch(machine.id, () => ({ refreshedAt: null }));
     await refreshMachineTools(machine);
   }
+}
+
+/** Repair's answer in words: which files got the line, or which already had it. */
+function cliRepairDone(result: unknown): string {
+  const files = ((result as { files?: unknown } | null)?.files ?? []) as { path?: string; added?: boolean }[];
+  const named = (added: boolean) =>
+    files
+      .filter((file) => file.added === added && typeof file.path === 'string')
+      .map((file) => file.path)
+      .join(' and ');
+  const added = named(true);
+  return added !== ''
+    ? EditMachineCopy.machineTools.cliPathAdded(added)
+    : EditMachineCopy.machineTools.cliPathAlready(named(false));
 }
 
 function sleep(ms: number): Promise<void> {

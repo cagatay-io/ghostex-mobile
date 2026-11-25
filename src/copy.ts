@@ -260,8 +260,7 @@ export const SessionCopy = {
       : `Remove the worktrees of these ${count} threads and put them to sleep. A worktree with uncommitted changes is kept.`,
   keepWorktrees: 'Keep',
   keepWorktreesHint: "Keep these threads and their worktrees. Ghostex won't ask again for these PRs.",
-  cleanedUpWorktrees: (count: number) =>
-    count === 1 ? 'Cleaned up 1 worktree' : `Cleaned up ${count} worktrees`,
+  cleanedUpWorktrees: (count: number) => (count === 1 ? 'Cleaned up 1 worktree' : `Cleaned up ${count} worktrees`),
   /** Why the computer kept merged threads' worktrees (gx-core `CleanupKept::words`). */
   keptWorktrees: (count: number, reasons: readonly string[]): string => {
     const words: Record<string, string> = {
@@ -929,8 +928,7 @@ export const MachineNoticeCopy = {
   reconnecting: (name: string) => `Waiting for Ghostex on ${name}`,
   busy: (name: string) => `Ghostex is busy on ${name}`,
   /** Unified, more than one computer not connected. */
-  several: (count: number) =>
-    count === 1 ? "1 computer isn't connected" : `${count} computers aren't connected`,
+  several: (count: number) => (count === 1 ? "1 computer isn't connected" : `${count} computers aren't connected`),
   /** After the title while the list is the copy read before the failure. */
   staleShort: (ago: string) => `list from ${ago}`,
   justNow: 'a moment ago',
@@ -1308,6 +1306,12 @@ export const EditMachineCopy = {
     ghostexCli: 'Ghostex CLI',
     cliFound: (path: string) => `New terminals there run ${path}`,
     cliMissing: "New terminals there don't find a ghostex command",
+    /** The computer's ~/.local/bin is off PATH and Repair can add the line (gxserver `ghostexCli.pathFix`). */
+    cliOffPath: (files: string) =>
+      `~/.local/bin isn't on PATH there, so new terminals don't find ghostex. Repair adds it to ${files}.`,
+    repair: 'Repair',
+    cliPathAdded: (files: string) => `Added ~/.local/bin to PATH in ${files}. New terminals there will find ghostex.`,
+    cliPathAlready: (files: string) => `${files} already adds ~/.local/bin to PATH. Open a new terminal there.`,
   },
   errorPrefix: (name: string) => `Can't reach ${name}. `,
   whatCanICheck: 'What can I check?',
@@ -1948,8 +1952,7 @@ export const CliProxyCopy = {
   hubCount: (count: number) => (count === 1 ? '1 hub' : `${count} hubs`),
   refresh: 'Refresh CLIProxyAPI status',
   loading: (computer: string) => `Reading CLIProxyAPI status from ${computer}…`,
-  unreachable: (computer: string) =>
-    `Can't reach ${computer} right now. Come back once it is connected.`,
+  unreachable: (computer: string) => `Can't reach ${computer} right now. Come back once it is connected.`,
   tryAgain: 'Try again',
   extensionOffTitle: (computer: string) => `CLIProxyAPI is turned off on ${computer}`,
   extensionOffBody:
@@ -1972,7 +1975,8 @@ export const CliProxyCopy = {
   sessionAffinityOff: 'Session affinity off',
   noManagementKeyNote:
     'Add this hub’s management key in desktop Settings > Accounts to see its pooled Claude and Codex accounts, cooldowns, and session affinity here.',
-  noAccountsOnHub: 'No Claude or Codex accounts signed in on this hub yet. Sign them in from desktop Settings > Accounts.',
+  noAccountsOnHub:
+    'No Claude or Codex accounts signed in on this hub yet. Sign them in from desktop Settings > Accounts.',
   accountReady: 'Ready',
   coolingDown: 'Cooling down',
   disabled: 'Disabled',
@@ -2577,8 +2581,7 @@ export const AutomationsCopy = {
   resumeLabel: (name: string) => `Resume ${name}`,
   unread: 'Unread',
   unreadCount: (count: number) => `${count} unread`,
-  viewUnreadFor: (count: number, name: string) =>
-    `View ${plural(count, 'unread run', 'unread runs')} for ${name}`,
+  viewUnreadFor: (count: number, name: string) => `View ${plural(count, 'unread run', 'unread runs')} for ${name}`,
   unreadRunsFilter: (name: string) => `Unread · ${name}`,
   showAllRuns: 'Show all',
   emptyFilteredUnreadTitle: 'All caught up',

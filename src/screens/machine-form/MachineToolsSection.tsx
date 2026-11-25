@@ -73,6 +73,7 @@ function Row({
   const runInTerminal = row.busy ? null : (row.runInTerminal ?? null);
   const starting = tools.starting[row.key] === true;
   const failed = tools.failed[row.key];
+  const done = failed === undefined ? tools.done[row.key] : undefined;
   const action = row.action;
   const nativeFamily =
     sessionModes != null && row.key.startsWith('agent:')
@@ -88,15 +89,15 @@ function Row({
             style={[
               formStyles.rowDetail,
               {
-                color: readableSecondaryText(TONE_COLOR[failed ? 'warning' : row.tone], appearance.foreground, [
-                  appearance.background,
-                  appearance.card,
-                  appearance.cardActive,
-                ]),
+                color: readableSecondaryText(
+                  TONE_COLOR[failed ? 'warning' : done ? 'success' : row.tone],
+                  appearance.foreground,
+                  [appearance.background, appearance.card, appearance.cardActive],
+                ),
               },
             ]}
           >
-            {failed ?? row.detail}
+            {failed ?? done ?? row.detail}
           </Text>
         </View>
         {row.busy ? <ActivityIndicator size="small" color={appearance.muted} /> : null}
@@ -353,12 +354,19 @@ export default function MachineToolsSection({
     cli === undefined
       ? null
       : {
-          key: 'cli',
+          key: 'cli:ghostex',
           title: copy.ghostexCli,
-          detail: cli.installed === true && cli.path ? copy.cliFound(cli.path) : copy.cliMissing,
+          detail:
+            cli.installed === true && cli.path
+              ? copy.cliFound(cli.path)
+              : cli.pathFix
+                ? copy.cliOffPath(cli.pathFix.files)
+                : copy.cliMissing,
           tone: cli.installed === true ? 'success' : 'warning',
           busy: false,
-          action: null,
+          // Only a computer whose gxserver offers the fix (`pathFix`) gets Repair; older ones send none.
+          action:
+            cli.installed !== true && cli.pathFix ? { label: copy.repair, operation: 'addCliFolderToPath' } : null,
         };
   // Skills Settings doesn't list (no catalog name) stay off the phone too.
   const skillRows = (integrations?.data?.skills ?? []).filter((skill) => (skill.name ?? '') !== '').map(skillRow);
