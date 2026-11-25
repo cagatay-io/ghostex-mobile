@@ -339,3 +339,14 @@ export async function acknowledgeDraftSaves(sessionKey: string, version: DraftVe
 export function draftRetryDelayMs(failures: number): number {
   return Math.min(30_000, 1_000 * 2 ** Math.min(failures, 5));
 }
+
+/**
+ * Whether gxserver refused a save for what it holds, so sending the same row again can only be
+ * refused again: the desktop's `refused_for_good` (`apps/desktop/src/app/gx_chat/outbox.rs`).
+ *
+ * CDXC:Drafts 2026-11-25 WHY:
+ * GitHub #754: a save refused with "Two editors changed the same draft revision" was sent again every 2 to 30 seconds until the user typed. gxserver answers `badRequest` only for a write it can never take (two texts for one revision, whose newer text it already put in Recovered, or a draft too long to send), so that row is cleared like an accepted one and the next edit saves under its own revision. Any other refusal still retries.
+ */
+export function draftRefusedForGood(answer: { error: { code?: string | null } | null }): boolean {
+  return answer.error?.code === 'badRequest';
+}

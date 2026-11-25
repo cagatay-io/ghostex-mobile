@@ -46,6 +46,7 @@ import {
   acknowledgeDraftSaves,
   composerHistory,
   draftPark,
+  draftRefusedForGood,
   draftRetryDelayMs,
   draftSubmitted,
   nextDraftVersion,
@@ -1480,7 +1481,7 @@ export class RustChatHost {
     const version = this.draftSaves.get(requestId);
     this.draftSaves.delete(requestId);
     if (version === undefined) return;
-    if (answer.error !== null) {
+    if (answer.error !== null && !draftRefusedForGood(answer)) {
       this.draftRetryFailures += 1;
       this.scheduleDraftRetry(draftRetryDelayMs(this.draftRetryFailures));
       return;
@@ -1514,7 +1515,7 @@ export class RustChatHost {
         draftVersion: draft.version,
         ...(draft.clientId !== undefined ? { clientId: draft.clientId } : {}),
       });
-      if (answer.error !== null) {
+      if (answer.error !== null && !draftRefusedForGood(answer)) {
         this.draftRetryFailures += 1;
         this.scheduleDraftRetry(draftRetryDelayMs(this.draftRetryFailures));
         return;
