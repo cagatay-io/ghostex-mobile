@@ -198,7 +198,7 @@ export function appUpdateView(update: RemoteAppUpdate, computer: string): AppUpd
   };
 }
 
-const LINUX_COMMAND_LINE = 'Update it in a terminal.';
+const LINUX_COMMAND_LINE = "Update it in a terminal there; it needs a password, so Ghostex can't run it for you.";
 
 /**
  * What to show for a Linux computer that updates by a command (a package manager) or a download page.
