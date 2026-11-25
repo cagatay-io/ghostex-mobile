@@ -152,6 +152,19 @@ const GLYPHS = {
   stack: { paths: ['M12 6l-8 4l8 4l8 -4l-8 -4', 'M4 14l8 4l8 -4'] },
   /** The Stashed pill's glyph (desktop `titlebar/stack-push.svg`). */
   'stack-push': { paths: ['M6 10l-2 1l8 4l8 -4l-2 -1', 'M4 15l8 4l8 -4', 'M12 4v7', 'M15 8l-3 3l-3 -3'] },
+  /** The History pill above the chat box (desktop `titlebar/history.svg`). */
+  history: { paths: ['M12 8v4l3 2', 'M3.05 11a9 9 0 1 1 2.64 6.36', 'M3 17v-6h6'] },
+  /** A History card's Fork from here (desktop `titlebar/git-branch.svg`). */
+  'git-branch': {
+    paths: [
+      'M5 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M5 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M15 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+      'M7 8l0 8',
+      'M9 18h6a2 2 0 0 0 2 -2v-5',
+      'M14 14l3 -3l3 3',
+    ],
+  },
   /** "Back to open" on a For later row (desktop `titlebar/arrow-back-up.svg`). */
   'arrow-back-up': { paths: ['M9 14l-4 -4l4 -4', 'M5 10h11a4 4 0 1 1 0 8h-1'] },
   /** An already-opened page row's read indicator (desktop `titlebar/mail-opened.svg`). */

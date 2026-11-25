@@ -370,6 +370,14 @@ export type ActionFields = {
   filesLinksFilter: { text: string };
   filesLinksShowAll: { section: string };
   filesLinksJump: { messageId: string; timestamp?: number | null; projectId?: string; sessionId?: string };
+  /** History: the pill (opens and reads, or closes), Close, the search, a filter, the next older
+   * page, and a card's jump to its message. */
+  sentHistory: {};
+  sentHistoryClose: {};
+  sentHistoryFilter: { text: string };
+  sentHistoryKind: { filter: string };
+  sentHistoryMore: {};
+  sentHistoryJump: { messageId: string; timestamp?: number | null };
   markdownSaveOpen: { markdown: string };
   markdownSaveFolder: { [field: string]: unknown };
   markdownSaveName: { [field: string]: unknown };

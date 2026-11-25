@@ -5,7 +5,8 @@
  * (`WherePill.tsx`), the Saved draft pill (`SavedDraftPill.tsx`), view status chips ("Summary view"
  * or "Detailed view"), armed timers, the ? (a question waits), hidden page pills, panel pills
  * (Resources, Workers, Autopilot, Tasks, Subagents, Background, etc.), Boost, Links and the Session
- * details ring. The ↓ jump-to-bottom is never here: it floats over the transcript
+ * details ring. History (`SentHistorySheet.tsx`) leads the panel side, after the view chips, where
+ * the desktop draws it right of its ↓. The ↓ jump-to-bottom is never here: it floats over the transcript
  * (`LoneScrollBottom` in `WorkingCard.tsx`, layout A of 2026-11-12).
  *
  * With no pill there is no strip; it grows in and shrinks away with the chat box's own ease
@@ -44,6 +45,7 @@ import type { HiddenPage } from './hiddenPages';
 import { BoostPill, BoostSheet, registerBoostSheetOpener } from './Boosts';
 import { NativeSwitchPill } from './NativeSwitchPill';
 import { SavedDraftPill, SavedDraftSheet } from './SavedDraftPill';
+import { SentHistoryPill, SentHistorySheet } from './SentHistorySheet';
 import { WherePill, WhereSheet } from './WherePill';
 import { VISUAL, type ArmedAction } from './WorkingStrip';
 
@@ -133,6 +135,8 @@ export function pillsStripShown(
     // The Boost pill (`Boosts.tsx`) is always there while the computer has Boosts.
     (document.boosts ?? null) !== null ||
     (document.viewChips?.length ?? 0) > 0 ||
+    // History shows once the chat has a sent message (gx-chat-core `composer/sent_history.rs`).
+    document.sentHistory?.enabled === true ||
     questionWaiting(document) ||
     (document.workingCard?.pills ?? []).some((id) => !omitPills.includes(id)) ||
     (links !== null && sessionLinksChatPill(links.links, muted, false, links.showSuggested ?? true) !== null) ||
@@ -359,6 +363,12 @@ export function PillsStrip({
                   <ViewChipButton key={chip.id} chip={chip} onPress={() => chat.dispatch(chip.command)} />
                 ))
               : null}
+            {shown && document.sentHistory?.enabled === true ? (
+              <SentHistoryPill
+                open={document.sentHistory.open}
+                onPress={() => chat.dispatch({ type: 'sentHistory' })}
+              />
+            ) : null}
             {armed.map((action) => (
               <Pressable
                 key={action.id}
@@ -411,6 +421,7 @@ export function PillsStrip({
           {nativeSwitchReason}
         </Text>
       ) : null}
+      <SentHistorySheet chat={chat} document={document} />
       <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
       <BoostSheet boosts={boosts} open={boostOpen} onClose={closeBoost} dispatch={chat.dispatch} />
       <WhereSheet

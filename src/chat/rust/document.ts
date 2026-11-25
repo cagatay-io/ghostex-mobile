@@ -783,6 +783,9 @@ export type ChatDocument = {
   /** The Catch me up button and card (`composer/catch_up.rs`). Desktop: `catch_up.rs`. */
   catchUp?: CatchUpState;
   filesLinks?: FilesLinksState;
+  /** The History pill's list of the messages the user sent (`composer/sent_history.rs`). Desktop:
+   * `sent_history.rs`. Absent from an older core. */
+  sentHistory?: SentHistoryState;
   /** Timings both renderers share. Desktop: `send_control.rs`. */
   interaction: Interaction;
   /** The toast drawn in the Scroll to bottom pill's place: `notice` while a first Escape waits,
@@ -1303,6 +1306,45 @@ export type QuestionListRow = {
   /** A page the reader starred: the row shows a yellow star (Resources' Starred filter lists it). */
   starred?: boolean;
   timeTitle: string;
+};
+
+/** One sent message's card in the History list (core `composer/sent_history.rs`). */
+export type SentHistoryItem = {
+  id: string;
+  timestamp: number | null;
+  /** The words, links read as their labels, cut long. */
+  preview: string;
+  /** `{label, title}`: "14:03" and the full date. */
+  time: { label?: string; title?: string };
+  /** The pictures, as the transcript's image sources. */
+  images: Json[];
+  files: { label: string; path: string }[];
+  /** What Copy puts on the clipboard. */
+  copyText: string;
+  /** What "Put back in the chat box" puts there: the words and the pictures' markers. */
+  draft: string;
+  /** Copy reference's link, for a numbered message. */
+  referenceLink?: string | null;
+  /** Reference in chat's inline pill, for a numbered message of the main chat. */
+  referencePill?: string | null;
+};
+
+export type SentHistoryState = {
+  /** The chat has a sent message: the History pill shows. */
+  enabled: boolean;
+  open: boolean;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
+  query: string;
+  filters: { id: string; label: string; active: boolean }[];
+  /** Oldest first. */
+  items: SentHistoryItem[];
+  hasMore: boolean;
+  caption: string;
+  emptyLabel: string;
+  /** Where the transcript scrolls, once per `revision`. */
+  jump: { item: number; revision: number } | null;
 };
 
 export type FilesLinksState = {

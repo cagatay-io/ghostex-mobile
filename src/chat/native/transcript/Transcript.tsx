@@ -318,6 +318,24 @@ export function NativeTranscript({ chat, items, main = true, active = true }: Na
     }
   }, [filesJumpItem, filesJumpRevision, rows.length]);
 
+  // History: a card's jump scrolls to its message once per tap (`composer/sent_history.rs`).
+  const sentJump = main ? (document?.sentHistory?.jump ?? null) : null;
+  const sentJumpItem = sentJump?.item ?? null;
+  const sentJumpRevision = sentJump?.revision ?? null;
+  const sentJumped = useRef<number | null>(null);
+  useEffect(() => {
+    if (sentJumpRevision === null || sentJumpItem === null) {
+      sentJumped.current = null;
+      return;
+    }
+    if (sentJumpRevision === sentJumped.current) return;
+    sentJumped.current = sentJumpRevision;
+    const position = rows.length - 1 - sentJumpItem;
+    if (position >= 0 && position < rows.length) {
+      listRef.current?.scrollToIndex({ index: position, viewPosition: 0.5, animated: true });
+    }
+  }, [sentJumpItem, sentJumpRevision, rows.length]);
+
   // The Previous question pill and Q-tag links: scroll to the reply holding the question once per
   // jump with its end at the bottom of the screen, then, when that leaves the question's top above
   // the screen, bring the question's top a margin below the top (the rule on gx-chat-core's

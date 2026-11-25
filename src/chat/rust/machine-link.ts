@@ -110,6 +110,7 @@ const READ_ONLY_METHODS = new Set([
   'readSessionChatSkills',
   'readSessionChatFiles',
   'readSessionFilesLinks',
+  'readSessionChatSent',
   'readSessionChatImage',
   'readVisualPageThumbnail',
   'readVisualPageSource',
