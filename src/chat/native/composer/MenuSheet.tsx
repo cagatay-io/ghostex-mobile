@@ -1,7 +1,8 @@
 /**
  * The chat's row menus on the phone: More actions, the option pills' menus, the attach sheet. Rows
  * have the shape desktop's `show_chat_menu` draws (`option_menu/render.rs`): `heading`,
- * `separator`, `label` + `description` / `detail` / `badge` (a count circle after the label), `checked`, `disabled`, `destructive` (label and glyph in the error colour), `iconPath`, `icon` (an
+ * `separator`, `label` + `description` / `detail` / `badge` (a count circle after the label), `info` (an (i) at the
+ * row's end that shows its text on a tap without running the row), `checked`, `disabled`, `destructive` (label and glyph in the error colour), `iconPath`, `icon` (an
  * agent mark), a `command` to run, `children` for a submenu (a pushed page here), the two
  * panel rows `accounts` (the Accounts & limits panel) and `context` (the context window panel), and `tiles`, the quick
  * row of the one session menu (session-menu/layout.ts): its rows side by side, each an icon over a label of up to two
@@ -20,6 +21,7 @@ import { arr, isTrue, obj, str } from './json';
 import { themedStyles, useTranscriptTheme, type TranscriptTheme } from '../transcript/theme';
 import { Sheet } from './Sheet';
 import { sessionMenuIcon } from '../../../session-menu/glyphs';
+import { InfoHint } from '../transcript/InfoHint';
 
 export type MenuRow = { [key: string]: unknown };
 
@@ -276,6 +278,7 @@ export function MenuRowView({
   const description = str(row, 'description');
   const detail = typeof row.detail === 'string' ? row.detail : '';
   const badge = str(row, 'badge');
+  const info = str(row, 'info');
   const glyph = glyphForIconPath(row.iconPath);
   const sharedIcon = menuRowSharedIcon(row, glyph, destructive ? P.error : P.primary, 17);
   // A trigger character (`/`, `@`, `+`) in the icon's place: the key that opens the picker.
@@ -288,6 +291,8 @@ export function MenuRowView({
       accessibilityRole="menuitem"
       accessibilityState={{ disabled, checked }}
       accessibilityLabel={label}
+      // VoiceOver reads the row as one element, so its (i) text is the row's hint.
+      {...(info.length > 0 ? { accessibilityHint: info.replace(/\n/gu, ' ') } : {})}
       disabled={disabled}
       onPress={() => {
         if (children !== null) onOpen({ title: label, rows: children });
@@ -324,6 +329,7 @@ export function MenuRowView({
           </Text>
         ) : null}
       </View>
+      {info.length > 0 ? <InfoHint hint={info} style={styles.info} /> : null}
       {detail.length > 0 ? (
         <Text style={styles.detail} numberOfLines={1}>
           {detail}
@@ -492,6 +498,7 @@ const useStyles = themedStyles((P) => ({
   badgeText: { color: P.background, fontSize: 11, lineHeight: 13, fontWeight: '600' },
   description: { color: P.muted, fontSize: 12.5, lineHeight: 17 },
   detail: { color: P.muted, fontSize: 13, maxWidth: 140 },
+  info: { alignSelf: 'center' },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
   character: { width: 17, color: P.primary, fontSize: 18, lineHeight: 20, fontWeight: '600', textAlign: 'center' },
 }));

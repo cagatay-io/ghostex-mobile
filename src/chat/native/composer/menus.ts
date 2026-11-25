@@ -7,6 +7,7 @@
 import type { ChatDocument } from '../../rust/document';
 import { arr, isTrue, obj, str } from './json';
 import { rowsOf, type MenuRow } from './MenuSheet';
+import { SWITCH_TO_NATIVE_INFO, SWITCH_TO_TERMINAL_BASED_INFO } from './switchInfo';
 import { sessionDetailsRingOf } from '../cards/SessionDetailsSheet';
 import {
   assembleSessionMenu,
@@ -445,6 +446,7 @@ export function moreActionsRows({
             label: document.nonCliMode === true ? 'Switch to Terminal-based' : 'Terminal View',
             iconPath: 'titlebar/terminal-2.svg',
             ...(issue === null ? {} : { description: issue }),
+            ...(document.nonCliMode === true ? { info: SWITCH_TO_TERMINAL_BASED_INFO } : {}),
             // On a Native chat the row really switches, after the chat screen's sheet asks (`SwitchToTerminalSheet`).
             command:
               document.nonCliMode === true
@@ -471,13 +473,17 @@ export function moreActionsRows({
           ];
         }
         return [
-          layoutRow(id, {
-            type: 'host',
-            action: 'switchToNative',
-            family: offer.family,
-            agentName: offer.agentName,
-            nativeDefault: offer.nativeDefault,
-          }),
+          layoutRow(
+            id,
+            {
+              type: 'host',
+              action: 'switchToNative',
+              family: offer.family,
+              agentName: offer.agentName,
+              nativeDefault: offer.nativeDefault,
+            },
+            { info: SWITCH_TO_NATIVE_INFO },
+          ),
         ];
       }
       case 'view':

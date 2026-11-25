@@ -14,6 +14,8 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { NativeSwitchOffer } from '../../rust/document';
 import { Glyph as ComposerGlyph } from '../composer/icons';
+import { SWITCH_TO_NATIVE_INFO } from '../composer/switchInfo';
+import { InfoHint } from '../transcript/InfoHint';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 
 export function NativeSwitchPill({
@@ -70,7 +72,11 @@ export function NativeSwitchPill({
         >
           <ComposerGlyph name="info-circle" size={13} color={P.foreground} />
         </Pressable>
-      ) : null}
+      ) : queued ? null : (
+        // Not queued, the (i) explains Native and Terminal-based on a tap (CDXC:AgentProviders 2026-11-26 in
+        // packages/gx-chat-core/src/extras/native_switch.rs).
+        <InfoHint hint={SWITCH_TO_NATIVE_INFO} size={13} color={P.cardMuted} style={styles.info} />
+      )}
       <Pressable
         onPress={onDismiss}
         accessibilityRole="button"
@@ -111,6 +117,7 @@ const useStyles = themedStyles((P) => ({
     color: P.foreground,
   },
   info: {
+    alignSelf: 'center',
     width: 17,
     height: 19,
     borderRadius: 999,

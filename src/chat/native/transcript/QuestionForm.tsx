@@ -23,7 +23,6 @@ import {
 } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -33,10 +32,8 @@ import {
   type StyleProp,
   type TextInputChangeEvent,
   type TextStyle,
-  type ViewInstance,
 } from 'react-native';
 
-import { useLaptopFold } from '../../../components/common/verticalBar/laptopFold';
 import type { Json } from '../../rust/document';
 import { useChatSessionId, useOptionalNativeChatUi, useTranscriptEnv, useTranscriptFlags } from './context';
 import { useRevealFocusedField } from './fieldReveal';
@@ -47,7 +44,6 @@ import { MenuSheet, type MenuRow } from '../composer/MenuSheet';
 import { questionLink } from '../referenceLabel';
 import { AskCard, AskHead, AskOption, PrimaryButton, SoftButton, answeredColor, askColor } from '../cards/askCard';
 import { arr, obj, str, type JsonRecord } from './json';
-import { Glyph } from './icons';
 import { SingleLinePill, SingleLineTile } from './singleLineCard';
 import { MONO_FONT, useTranscriptTheme } from './theme';
 import { LinkWords } from './LinkWords';
@@ -69,74 +65,12 @@ export function useQuestionFormState(id: string): JsonRecord | null {
 /** What the footer says about the questions left blank, behind the (i) icon; desktop `SKIPPED_HINT` (ask_card.rs) says the same. */
 const SKIPPED_HINT = 'Questions you leave blank are sent as skipped.';
 
-const HINT_WIDTH = 236;
-
 /** The (i) icon's width (`styles.info`). */
 const INFO_ICON_ROOM = 20;
 
-/**
- * A small (i) icon that shows `hint` in a bubble above it on a tap; a tap anywhere else closes it. Half folded like
- * a laptop a bubble that would reach into the fold's band from below it stands under the icon instead (hints keep
- * off the knick, as menus and sheets do).
- *
- * CDXC:SessionChat 2026-10-24 DECISION: User: "remove the text about skipped (add i icon there for that)". The footer's sentence wrapped into five lines beside the buttons on the phone, so the icon takes its place and the sentence shows on a tap (a hover tooltip on the computer, desktop `ask_info_hint` in ask_card.rs). Skip all and Send answers keep their size and place.
- */
-export function InfoHint({ hint }: { hint: string }) {
-  // Rendered both in transcript forms and in NoticeCard (outside TranscriptEnvProvider), so read the theme directly.
-  const theme = useTranscriptTheme();
-  const icon = useRef<ViewInstance>(null);
-  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [bubbleHeight, setBubbleHeight] = useState<number | null>(null);
-  const screen = useWindowDimensions();
-  const fold = useLaptopFold();
-  const close = () => {
-    setAnchor(null);
-    setBubbleHeight(null);
-  };
-  const left =
-    anchor === null ? 0 : Math.max(12, Math.min(anchor.x + anchor.width / 2 - 24, screen.width - HINT_WIDTH - 12));
-  const underIcon =
-    anchor !== null &&
-    fold !== null &&
-    bubbleHeight !== null &&
-    anchor.y - 8 > fold.top &&
-    anchor.y - 8 - bubbleHeight < fold.bottom;
-  return (
-    <>
-      <Pressable
-        ref={icon}
-        collapsable={false}
-        accessibilityRole="button"
-        accessibilityLabel={hint}
-        hitSlop={12}
-        onPress={() => icon.current?.measureInWindow((x, y, width, height) => setAnchor({ x, y, width, height }))}
-        style={styles.info}
-      >
-        <Glyph name="info-circle" size={17} color={theme.muted} />
-      </Pressable>
-      {anchor === null ? null : (
-        <Modal visible transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
-          <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close the hint" />
-          <View
-            pointerEvents="none"
-            onLayout={(event) => setBubbleHeight(event.nativeEvent.layout.height)}
-            style={[
-              styles.bubble,
-              {
-                left,
-                ...(underIcon ? { top: anchor.y + anchor.height + 8 } : { bottom: screen.height - anchor.y + 8 }),
-                backgroundColor: theme.light ? '#fefefe' : '#1d1d1d',
-                borderColor: theme.light ? '#e5e5e5' : 'rgba(255,255,255,0.1)',
-              },
-            ]}
-          >
-            <Text style={[styles.bubbleText, { color: theme.foreground }]}>{hint}</Text>
-          </View>
-        </Modal>
-      )}
-    </>
-  );
-}
+import { InfoHint } from './InfoHint';
+
+export { InfoHint };
 
 /**
  * The footer's leftover room, where the (i) icon sits. The buttons take their size first; when less than the icon's
@@ -960,15 +894,5 @@ const styles = StyleSheet.create({
   },
   textAnswer: { minHeight: 70 },
   status: { flex: 1, minWidth: 0, fontSize: 12.5 },
-  info: { alignSelf: 'flex-start', width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  bubble: {
-    position: 'absolute',
-    width: HINT_WIDTH,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  bubbleText: { fontSize: 13, lineHeight: 18 },
   source: { fontFamily: MONO_FONT, fontSize: 12 },
 });
