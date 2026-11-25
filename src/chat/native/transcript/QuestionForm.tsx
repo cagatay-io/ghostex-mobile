@@ -769,13 +769,20 @@ function FormQuestion({
           runs={question?.titleRuns}
           color={theme.foreground}
           style={styles.questionTitle}
+          selectable
         />
         {tag.length > 0 ? (
           <Text style={[styles.tag, { color: theme.muted, backgroundColor: `${theme.muted}2e` }]}>{tag}</Text>
         ) : null}
       </View>
       {detail.length > 0 ? (
-        <LinkWords text={detail} runs={question?.detailRuns} color={theme.cardMuted} style={styles.detail} />
+        <LinkWords
+          text={detail}
+          runs={question?.detailRuns}
+          color={theme.cardMuted}
+          style={styles.detail}
+          selectable
+        />
       ) : null}
       {!isText && multiple ? <Text style={[styles.hint, { color: theme.muted }]}>Pick any that apply.</Text> : null}
       {!isText
