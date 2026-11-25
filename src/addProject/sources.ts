@@ -135,9 +135,13 @@ export function sortAddProjectProviderSources(
   });
 }
 
-/** Git URL first, then providers in readiness order (spec §3.4). */
+/**
+ * GitHub first, then Git URL, then the other providers in readiness order.
+ * The user asked for GitHub to be the main option and the first one, so it
+ * leads whatever its readiness (the desktop From row does the same).
+ */
 export function orderedAddProjectSources(
   readiness: Record<AddProjectSourceId, AddProjectSourceReadiness>,
 ): AddProjectSourceId[] {
-  return ['url', ...sortAddProjectProviderSources(readiness)];
+  return ['github', 'url', ...sortAddProjectProviderSources(readiness).filter((source) => source !== 'github')];
 }
