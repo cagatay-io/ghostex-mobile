@@ -18,7 +18,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { useInventoryStore } from '../inventory/store';
-import { resolveWorkspaceId, sessionWorkspaceId } from './workspaceFilter';
+import { useSpacesStore } from '../spaces/store';
+import { resolveWorkspaceId, sessionWorkspaceId, workspaceShowsSession } from './workspaceFilter';
 
 const SELECTED_WORKSPACE_STORAGE_KEY = 'workspaces.selectedIdByMachine';
 
@@ -98,10 +99,15 @@ export const useWorkspacesStore = create<WorkspacesState>()((set, get) => ({
 export function addedProjectWorkspaceId(machineId: string): string | undefined {
   const workspaces = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary?.workspaces;
   if (workspaces === null || workspaces === undefined) return undefined;
-  const resolved = resolveWorkspaceId(
-    workspaces,
-    useWorkspacesStore.getState().selectedWorkspaceIdByMachine[machineId],
-  );
+  const shown = resolveWorkspaceId(workspaces, useWorkspacesStore.getState().selectedWorkspaceIdByMachine[machineId]);
+  // With one of another workspace's Spaces open here (`showSpacesFrom`), a project lands in that workspace.
+  const summary = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary;
+  const openSpaceId = useSpacesStore.getState().selectedSpaceIdByMachine[machineId];
+  const openSpace = openSpaceId === undefined ? undefined : summary?.sidebarSpaces.spaces[openSpaceId];
+  const openSpaceWorkspace =
+    openSpace === undefined ? shown : resolveWorkspaceId(workspaces, openSpace.workspaceId);
+  const joined = workspaces.workspaces[shown]?.showSpacesFrom ?? [];
+  const resolved = joined.includes(openSpaceWorkspace) ? openSpaceWorkspace : shown;
   return resolved === workspaces.defaultWorkspaceId ? undefined : resolved;
 }
 
@@ -117,5 +123,8 @@ export function revealSessionWorkspace(machineId: string, sessionId: string): vo
   if (workspaceId === null) return;
   const store = useWorkspacesStore.getState();
   const current = resolveWorkspaceId(summary.workspaces, store.selectedWorkspaceIdByMachine[machineId]);
-  if (current !== workspaceId) store.selectWorkspace(machineId, workspaceId);
+  // A session of a Space the shown workspace shows from another one (`showSpacesFrom`) is already here.
+  if (current !== workspaceId && !workspaceShowsSession(summary, current, sessionId)) {
+    store.selectWorkspace(machineId, workspaceId);
+  }
 }

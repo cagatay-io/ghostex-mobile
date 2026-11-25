@@ -213,6 +213,11 @@ export type GhostexSidebarSpace = {
   workspaceId?: string;
   /** Hidden with the desktop's Hide Space: off the Space row, its projects still its members. */
   hidden?: boolean;
+  /**
+   * Set by `filterSummaryForWorkspace` (never on the wire) on a Space of another workspace the shown
+   * one shows (`showSpacesFrom`): that workspace's name, for the hairline before it and its labels.
+   */
+  joinedWorkspaceName?: string;
 };
 
 /** Ordered Space set for one machine. Empty `order` means the daemon has none. */
@@ -265,6 +270,13 @@ export type GhostexWorkspace = {
   icon: string;
   /** `work` or `personal`. */
   kind: string;
+  /**
+   * The other workspaces whose Spaces this one's list shows after its own (Settings > Workspaces >
+   * "Show Work's Spaces"); empty when off, and on a desktop older than the switch.
+   */
+  showSpacesFrom: string[];
+  /** Spaces of those workspaces hidden here with Hide Here (separate from the Space's own Hide Space). */
+  hiddenSpaceIds: string[];
 };
 
 /** The computer's workspaces (gx-protocol `SidebarWorkspacesState`). */

@@ -1827,13 +1827,24 @@ export default function SessionsScreen({ navigation }: Props) {
                 selectSpace(machine.id, spaceMenu.spaceId);
               },
             },
+            ...(spaceMenu.joinedWorkspaceName === undefined
+              ? []
+              : [
+                  {
+                    kind: 'note' as const,
+                    key: 'joined-workspace',
+                    label: `From the ${spaceMenu.joinedWorkspaceName} workspace. Its sessions keep ${spaceMenu.joinedWorkspaceName}'s accounts and sign-ins.`,
+                  },
+                ]),
             {
               kind: 'note',
               key: 'computer-side',
               label:
                 spaceMenu.spaceId === OTHER_SIDEBAR_SPACE_ID
                   ? 'Other shows the projects no Space claims. New Space and Sleep Inactive are on the computer.'
-                  : 'Edit Space, New Space and Sleep Inactive are on the computer.',
+                  : spaceMenu.joinedWorkspaceName === undefined
+                    ? 'Edit Space, New Space and Sleep Inactive are on the computer.'
+                    : 'Edit Space, Hide Here and Sleep Inactive are on the computer.',
             },
           ]}
           onClose={() => setSpaceMenu(null)}

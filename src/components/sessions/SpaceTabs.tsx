@@ -22,9 +22,14 @@
  * small dot inside the tile's top-right corner as on the desktop since 2026-11-21, the icon dimmed
  * to 80% while it shows.
  * The long-press menu lists the counts under the Space's name.
+ *
+ * CDXC:Workspaces 2026-11-26 SEE-ALSO: the DECISION at `SidebarWorkspace::show_spaces_from` in
+ * packages/gx-protocol/src/side_state.rs. Another workspace's Spaces this one shows follow Other
+ * after a hairline, as on the desktop; their tiles carry no label, and their accessibility label
+ * and long-press menu name the workspace.
  */
 
-import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -78,9 +83,14 @@ export function spaceMenuIcon(item: SpaceRowItem, ink: SidebarInk): ReactElement
   return <Icon size={14} color={spaceIconColor(item.color, ink)} />;
 }
 
-/** The row's tiles in order: the star (while on), the machine's Spaces, then Other. A swipe on the list steps through it (SpaceSwipe.tsx). */
+/**
+ * The row's tiles in order: the star (while on), the workspace's own Spaces, Other, then the Spaces
+ * of the other workspaces it shows. A swipe on the list steps through it (SpaceSwipe.tsx).
+ */
 export function spaceRowOrder(spaces: readonly SpaceRowItem[], activeProjects: boolean): SpaceRowItem[] {
-  return activeProjects ? [ACTIVE_ROW_ITEM, ...spaces, OTHER_ROW_ITEM] : [...spaces, OTHER_ROW_ITEM];
+  const own = spaces.filter((space) => space.joinedWorkspaceName === undefined);
+  const joined = spaces.filter((space) => space.joinedWorkspaceName !== undefined);
+  return [...(activeProjects ? [ACTIVE_ROW_ITEM] : []), ...own, OTHER_ROW_ITEM, ...joined];
 }
 
 export default function SpaceTabs({
@@ -146,16 +156,22 @@ export default function SpaceTabs({
     >
       {leading}
       {leading !== undefined && items.length > 0 ? <View style={styles.divider} /> : null}
-      {items.map((item) => {
+      {items.map((item, index) => {
         const selected = item.spaceId === selectedSpaceId;
+        // The hairline before the first of another workspace's Spaces (the desktop's 1x16 between the groups).
+        const joinedStart = item.joinedWorkspaceName !== undefined && items[index - 1]?.joinedWorkspaceName === undefined;
         const star = item.spaceId === ACTIVE_SPACE_ID;
         const Icon = COMMAND_ICONS[item.icon] ?? COMMAND_ICONS.stack;
         const sessionCounts = countsBySpaceId[item.spaceId];
         // The Space being shown has its sessions on screen, so only the other tiles carry a status dot (desktop `assemble.rs`).
         const counts = sessionCounts === undefined || selected ? undefined : sessionCounts;
         const hasStatus = counts !== undefined && tileStatusColor(counts) !== null;
-        const name = star ? item.name : `Space ${item.name}`;
-        return (
+        const name = star
+          ? item.name
+          : item.joinedWorkspaceName === undefined
+            ? `Space ${item.name}`
+            : `Space ${item.name}, ${item.joinedWorkspaceName} workspace`;
+        const tile = (
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel={hasStatus ? [name, ...tileStatusLines(counts)].join(', ') : name}
@@ -185,6 +201,14 @@ export default function SpaceTabs({
               <TileCornerDot counts={counts} ringColor={ink.light ? '#FFFFFF' : SIDEBAR_BACKGROUND} border={GhostexStrokeWidth} />
             ) : null}
           </Pressable>
+        );
+        return joinedStart ? (
+          <Fragment key={item.spaceId}>
+            <View style={styles.divider} />
+            {tile}
+          </Fragment>
+        ) : (
+          tile
         );
       })}
     </ScrollView>
@@ -250,7 +274,7 @@ const spaceStyles = inkStyleSheets((ink) =>
     tilePressed: {
       backgroundColor: ink.light ? 'rgba(38,38,38,0.08)' : 'rgba(200,205,213,0.08)',
     },
-    /** The hairline after the workspace tile (the desktop's 1×16 at the sidebar's foreground 12%). */
+    /** The hairline after the workspace tile and before another workspace's Spaces (the desktop's 1×16 at the sidebar's foreground 12%). */
     divider: {
       width: 1,
       height: 18,

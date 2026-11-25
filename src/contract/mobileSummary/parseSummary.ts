@@ -416,6 +416,16 @@ export function workspaceIconId(icon: string, kind: string): string {
   return kind === 'work' ? 'briefcase' : 'user';
 }
 
+/** The non-empty strings of an optional id list, each once; anything else reads as none. */
+function stringIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry === 'string' && entry.trim().length > 0 && !ids.includes(entry)) ids.push(entry);
+  }
+  return ids;
+}
+
 /**
  * Parse the `sidebarWorkspaces` wire key (gx-protocol `SidebarWorkspacesState`). Null when the
  * daemon has no workspaces, which is also what leaves the phone's list unfiltered. The default
@@ -437,6 +447,8 @@ export function parseWorkspaces(value: unknown): GhostexWorkspaces | null {
       letter: firstNonEmpty(trimmedValue(entry, 'letter')) || name.slice(0, 1).toUpperCase(),
       icon: workspaceIconId(trimmedValue(entry, 'icon'), trimmedValue(entry, 'kind')),
       kind: trimmedValue(entry, 'kind'),
+      showSpacesFrom: stringIds(entry.showSpacesFrom),
+      hiddenSpaceIds: stringIds(entry.hiddenSpaceIds),
     };
   }
   if (Object.keys(workspaces).length === 0) return null;

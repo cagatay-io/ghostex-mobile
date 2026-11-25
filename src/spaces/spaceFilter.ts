@@ -20,6 +20,8 @@ export type SpaceRowItem = {
   /** COMMAND_ICONS glyph name. */
   icon: string;
   color: string;
+  /** Another workspace's Space this workspace shows (`showSpacesFrom`): that workspace's name. */
+  joinedWorkspaceName?: string;
 };
 
 /** Spaces in `order`, ignoring ids the daemon no longer knows. */
@@ -181,6 +183,7 @@ export function spaceRowItems(spaces: GhostexSidebarSpaces): SpaceRowItem[] {
     name: space.name,
     icon: space.icon,
     color: space.color,
+    ...(space.joinedWorkspaceName === undefined ? {} : { joinedWorkspaceName: space.joinedWorkspaceName }),
   }));
 }
 
