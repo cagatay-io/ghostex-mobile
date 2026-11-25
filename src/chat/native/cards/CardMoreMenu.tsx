@@ -10,6 +10,13 @@
  * first, and a starred page's row in Chat Resources shows a yellow star. The rest of the decision
  * is on gx-chat-core questions/later.rs `starred_page_ids`.
  *
+ * CDXC:SessionChat 2026-11-25 DECISION:
+ * The desktop page window's ⋯ menu took the user's pick "A (but bit darker bg in darkmode pls) + D + G"
+ * (apps/desktop/src/app/window/visual_page_modal/more_menu_panel.rs). Asked whether the phone gets D's
+ * section headings too, the user answered yes: a page's ⋯ sheet groups its rows under "This page" (Snooze,
+ * Star) and "Share" (Share link, Export page, Import answers), with the sheet's own headings
+ * (`pageMenuRows`). No title row (the page sheet's bar already shows the title) and no glass.
+ *
  * CDXC:SessionChat 2026-11-13 DECISION:
  * User, asked whether the phone gets Snooze for forms and pages (Q2940): "on phone just a clock icon under the 3 dots". So no Snooze button on the card: a ⋯ on the form card, the page card and the page sheet's bar holds Snooze (a clock), which opens the three lengths; the page sheet closes once the page is snoozed. Export page and Import answers moved into the page's ⋯ too, as on the desktop (apps/desktop/src/app/window/visual_page_modal/more_menu.rs). A snoozed form or page leaves the dock and the unanswered counts until it comes back, and the agent is told nothing.
  */
@@ -58,6 +65,25 @@ export function pageRows(pageId: string): MenuRow[] {
   return [
     { label: 'Export page', iconPath: 'titlebar/file-down.svg', command: { type: 'exportPage', pageId } },
     { label: 'Import answers', iconPath: 'titlebar/file-up.svg', command: { local: 'importAnswers' } },
+  ];
+}
+
+/**
+ * A page's ⋯ rows under their headings: "This page" (Snooze while the page waits, then Star) and
+ * "Share" (Share link when the computer offers links, Export page, Import answers). `shared` is
+ * whether the page already has a link, `null` when Share link is not offered.
+ */
+export function pageMenuRows(
+  pageId: string,
+  { snooze, starred, shared }: { snooze: boolean; starred: boolean; shared: boolean | null },
+): MenuRow[] {
+  return [
+    { heading: true, label: 'This page' },
+    ...(snooze ? [snoozeRow(pageId)] : []),
+    starRow(pageId, starred),
+    { heading: true, label: 'Share' },
+    ...(shared !== null ? [shareLinkRow(shared)] : []),
+    ...pageRows(pageId),
   ];
 }
 

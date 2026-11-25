@@ -19,7 +19,8 @@ import { arr, isTrue, str, type JsonRecord, obj } from './json';
 import { CARD_TEXT_SIZE } from './primitives';
 import { ToneButton, ToneCard } from './ToneCard';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { useOptionalNativeChatUi } from '../transcript/context';
+import { TranscriptEnvProvider, useOptionalNativeChatUi, type TranscriptEnv } from '../transcript/context';
+import { Markdown } from '../transcript/markdown/Markdown';
 import type { SecretField } from '../composer/dictationTarget';
 
 /**
@@ -81,9 +82,7 @@ function SecretRequestCard({ chat, card }: { chat: RustChat; card: JsonRecord })
       title={str(card, 'label')}
       detail={str(card, 'title')}
       body={[
-        <Text key="reason" selectable style={styles.reason}>
-          {str(card, 'reason')}
-        </Text>,
+        <SecretReason key="reason" dispatch={chat.dispatch} reason={str(card, 'reason')} />,
         <TextInput
           key="field"
           style={styles.field}
@@ -132,12 +131,36 @@ function SecretRequestCard({ chat, card }: { chat: RustChat; card: JsonRecord })
   );
 }
 
+/**
+ * The card's reason as a message's text (`Markdown`): selectable, with its web addresses opening on a tap.
+ *
+ * CDXC:Secrets 2026-11-25 WHY:
+ * #752: the reason was plain text, so a web address in it could not be opened. It is drawn by the chat's own message
+ * text view, the way the side question card draws its answer; the secure field is unchanged. Desktop:
+ * `secret_request_card` in `apps/desktop/src/app/native_chat/secret_request.rs`.
+ */
+function SecretReason({ dispatch, reason }: { dispatch: RustChat['dispatch']; reason: string }) {
+  const P = useTranscriptTheme();
+  const env = useMemo<TranscriptEnv>(
+    () => ({
+      dispatch,
+      theme: P,
+      simple: false,
+      workOpen: false,
+      filePreviews: false,
+      mutedThinking: false,
+      main: false,
+    }),
+    [dispatch, P],
+  );
+  return (
+    <TranscriptEnvProvider value={env}>
+      <Markdown text={reason} color={P.foreground} />
+    </TranscriptEnvProvider>
+  );
+}
+
 const useStyles = themedStyles((P) => ({
-  reason: {
-    color: P.foreground,
-    fontSize: CARD_TEXT_SIZE,
-    lineHeight: 20,
-  },
   field: {
     color: P.foreground,
     fontSize: CARD_TEXT_SIZE,

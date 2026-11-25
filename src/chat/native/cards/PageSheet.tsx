@@ -55,7 +55,7 @@ import type { RustChat } from '../../rust/useRustChat';
 import { chatIsLightNow, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Glyph } from './icons';
 import { ImageViewerModal, type ImageViewerList } from './ImageViewer';
-import { CardMoreMenu, pageRows, shareLinkRow, snoozeRow, starRow } from './CardMoreMenu';
+import { CardMoreMenu, pageMenuRows } from './CardMoreMenu';
 import { useMachineShares, useShareLinksSupported } from '../../../sharing/api';
 import { ShareLinkSheet } from '../../../sharing/ShareLinkSheet';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
@@ -564,14 +564,14 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
             </Pressable>
           ) : null}
           {pageId !== null ? (
-            // Snooze, Star, optional Share link, Export page and Import answers (`CardMoreMenu.tsx`); a snoozed page's sheet closes.
+            // This page: Snooze and Star; Share: optional Share link, Export page and Import answers
+            // (`CardMoreMenu.tsx` `pageMenuRows`); a snoozed page's sheet closes.
             <CardMoreMenu
-              rows={[
-                snoozeRow(pageId),
-                starRow(pageId, starredPages?.includes(pageId) ?? false),
-                ...(canShare ? [shareLinkRow(sharedPages.has(pageId))] : []),
-                ...pageRows(pageId),
-              ]}
+              rows={pageMenuRows(pageId, {
+                snooze: true,
+                starred: starredPages?.includes(pageId) ?? false,
+                shared: canShare ? sharedPages.has(pageId) : null,
+              })}
               dispatch={chat.dispatch}
               color={P.primary}
               onSnoozed={close}
