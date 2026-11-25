@@ -717,6 +717,7 @@ export const ActionCopy = {
  * menu, and there is no in-app source-control settings screen to deep-link to.
  */
 export const AddProjectCopy = {
+  githubSignInNextStep: 'Signed out of GitHub here. Sign in on the next step to list your repositories.',
   sourceTitle: 'Add Project',
   localTitle: 'Local folder',
   destinationTitle: 'Clone destination',
@@ -782,6 +783,29 @@ export const AddProjectCopy = {
   newFolderCreateButton: 'Create',
   newFolderCancelButton: 'Cancel',
   newFolderEmptyError: 'Enter a folder name.',
+  repositoryGroupPersonal: 'Personal',
+  repositoryGroupOrganisation: 'Organisation',
+  repositoryGroupShared: 'Shared with you',
+  repositoryListLoading: 'Loading your GitHub repositories…',
+  repositoryListUpdating: 'Updating from GitHub…',
+  repositoryListNoMatches: 'None of your repositories match. Lookup repository still uses what you typed.',
+  repositoryListTruncated: 'Showing your most recently pushed repositories.',
+  repositoryListFailed: "Couldn't list your GitHub repositories.",
+  repositoryListRetry: 'Retry',
+  repositoryPrivate: 'Private',
+  repositoryFork: 'Fork',
+  repositoryPushedAgo: (age: string) => `pushed ${age} ago`,
+  githubCliMissing: (machine: string) => `The GitHub CLI isn't installed on ${machine}.`,
+  githubSignInTitle: (machine: string) => `Sign in to GitHub on ${machine}`,
+  githubSignInButton: 'Sign in',
+  githubSignInCodeHint: 'Enter this code on github.com',
+  githubSignInCopyButton: 'Copy',
+  githubSignInCopiedButton: 'Copied',
+  githubSignInOpenButton: 'Open github.com',
+  githubSignInWaiting: 'Waiting for GitHub…',
+  githubSignInFailed: 'GitHub sign-in did not finish.',
+  githubSignInUnanswered: "The computer didn't answer the sign-in request.",
+  githubSignInTryAgain: 'Try again',
 } as const;
 
 /** Rename prompt copy, sessions-drawer.md §2. */

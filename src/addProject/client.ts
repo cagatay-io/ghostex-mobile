@@ -31,7 +31,7 @@ import {
 } from '../commands/ghostexCli';
 import { runGhostexCli } from '../components/sessions/cli';
 import { scanJsonObjects } from '../contract/mobileSummary';
-import { FailureCopy } from '../copy';
+import { AddProjectCopy, FailureCopy } from '../copy';
 import { isDemoMachine } from '../demo/identity';
 import {
   ensureConnected,
@@ -564,6 +564,151 @@ export async function lookupRepository(
     nameWithOwner: raw === null ? repository : readString(raw.nameWithOwner),
     url,
     sshUrl,
+  };
+}
+
+/** A cached list answers from gxserver's memory; a refresh asks `gh` and can take a while. */
+const LIST_REPOSITORIES_CACHED_TIMEOUT_MS = 15000;
+const LIST_REPOSITORIES_REFRESH_TIMEOUT_MS = 130000;
+const GITHUB_SIGN_IN_START_TIMEOUT_MS = 30000;
+const GITHUB_SIGN_IN_TIMEOUT_MS = 15000;
+
+export type AddProjectListedRepository = {
+  owner: string;
+  ownerKind: 'user' | 'organization';
+  name: string;
+  private: boolean;
+  fork: boolean;
+  /** ISO time of the last push, when GitHub reported one. */
+  pushedAt?: string;
+  url?: string;
+  sshUrl?: string;
+};
+
+export type AddProjectRepositoryList =
+  | {
+      status: 'ready';
+      /** The signed-in login, when gxserver knows it. */
+      viewer?: string;
+      repositories: AddProjectListedRepository[];
+      fetchedAt: string;
+      fromCache: boolean;
+      truncated: boolean;
+    }
+  | { status: 'signedOut'; detail: string }
+  | { status: 'missing'; detail: string }
+  | { status: 'failed'; detail: string };
+
+function parseListedRepository(value: unknown): AddProjectListedRepository | null {
+  if (!isObject(value)) return null;
+  const owner = readOptionalNonEmptyString(value.owner);
+  const name = readOptionalNonEmptyString(value.name);
+  if (owner === undefined || name === undefined) return null;
+  const pushedAt = readOptionalNonEmptyString(value.pushedAt);
+  const url = readOptionalNonEmptyString(value.url);
+  const sshUrl = readOptionalNonEmptyString(value.sshUrl);
+  return {
+    owner,
+    ownerKind: value.ownerKind === 'organization' ? 'organization' : 'user',
+    name,
+    private: value.private === true,
+    fork: value.fork === true,
+    ...(pushedAt !== undefined ? { pushedAt } : {}),
+    ...(url !== undefined ? { url } : {}),
+    ...(sshUrl !== undefined ? { sshUrl } : {}),
+  };
+}
+
+function parseRepositoryList(value: unknown): AddProjectRepositoryList | null {
+  if (!isObject(value)) return null;
+  const detail = readString(value.detail).trim();
+  switch (value.status) {
+    case 'ready': {
+      const repositories: AddProjectListedRepository[] = [];
+      if (Array.isArray(value.repositories)) {
+        for (const raw of value.repositories) {
+          const parsed = parseListedRepository(raw);
+          if (parsed !== null) repositories.push(parsed);
+        }
+      }
+      const viewer = readOptionalNonEmptyString(value.viewer);
+      return {
+        status: 'ready',
+        ...(viewer !== undefined ? { viewer } : {}),
+        repositories,
+        fetchedAt: readString(value.fetchedAt),
+        fromCache: value.fromCache === true,
+        truncated: value.truncated === true,
+      };
+    }
+    case 'signedOut':
+      return { status: 'signedOut', detail };
+    case 'missing':
+      return { status: 'missing', detail };
+    case 'failed':
+      return { status: 'failed', detail };
+    default:
+      return null;
+  }
+}
+
+/**
+ * The signed-in account's GitHub repositories through gxserver's `listRepositories`.
+ * `null` means the computer did not answer it (older gxserver, SSH-only, unreachable,
+ * or an answer without a `status`): the caller shows nothing new.
+ */
+export async function listGithubRepositories(
+  machine: MachineConnectionTarget,
+  options: { refresh: boolean },
+): Promise<AddProjectRepositoryList | null> {
+  const rpc = await tryAddProjectHttpRpc(
+    machine,
+    'listRepositories',
+    { provider: 'github', refresh: options.refresh },
+    options.refresh ? LIST_REPOSITORIES_REFRESH_TIMEOUT_MS : LIST_REPOSITORIES_CACHED_TIMEOUT_MS,
+  );
+  if (rpc.kind !== 'answered' || rpc.answer.error !== null) return null;
+  return parseRepositoryList(rpc.answer.result);
+}
+
+export type GithubSignInState = 'idle' | 'waiting' | 'done' | 'failed';
+
+export type GithubSignInAnswer = {
+  state: GithubSignInState;
+  /** One-time device code (action `start`). */
+  code: string | null;
+  /** Where to enter the code (action `start`). */
+  url: string;
+  detail: string;
+};
+
+/**
+ * gxserver's `githubSignIn` (`gh auth login --web` on the computer). Throws with the
+ * server's message when the request fails or is not answered.
+ */
+export async function githubSignIn(
+  machine: MachineConnectionTarget,
+  action: 'start' | 'status' | 'cancel',
+): Promise<GithubSignInAnswer> {
+  const rpc = await tryAddProjectHttpRpc(
+    machine,
+    'githubSignIn',
+    { action },
+    action === 'start' ? GITHUB_SIGN_IN_START_TIMEOUT_MS : GITHUB_SIGN_IN_TIMEOUT_MS,
+  );
+  if (rpc.kind !== 'answered') throw new Error(AddProjectCopy.githubSignInUnanswered);
+  if (rpc.answer.error !== null) throw new Error(rpc.answer.error.message);
+  const result = isObject(rpc.answer.result) ? rpc.answer.result : null;
+  const state = result === null ? '' : readString(result.state);
+  if (state !== 'idle' && state !== 'waiting' && state !== 'done' && state !== 'failed') {
+    throw new Error('The machine returned an unexpected answer to the GitHub sign-in.');
+  }
+  const code = result === null ? undefined : readOptionalNonEmptyString(result.code);
+  return {
+    state,
+    code: code ?? null,
+    url: result === null ? '' : readString(result.url).trim(),
+    detail: result === null ? '' : readString(result.detail).trim(),
   };
 }
 

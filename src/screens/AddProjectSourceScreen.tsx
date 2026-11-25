@@ -80,6 +80,12 @@ function suggestionSourceLabel(suggestion: AddProjectSuggestion): string | null 
   return null;
 }
 
+/** GitHub's CLI is on the computer but signed out. */
+function githubSignedOut(discovery: AddProjectSourceControlDiscovery | null): boolean {
+  const github = discovery?.providers.find((provider) => provider.provider === 'github');
+  return github !== undefined && github.status === 'available' && github.auth.status === 'unauthenticated';
+}
+
 export default function AddProjectSourceScreen({ navigation, route }: Props): ReactElement {
   const appearance = useAppearance();
   const { machineId } = route.params;
@@ -303,13 +309,22 @@ export default function AddProjectSourceScreen({ navigation, route }: Props): Re
           // gxserver can only resolve GitHub and GitLab repositories; the other
           // provider rows exist so the machine's readiness is visible, and they
           // are never enabled.
-          const enabled = state.ready && (source === 'url' || isLookupProvider(source));
+          // A computer whose GitHub CLI is installed but signed out is signed in from
+          // the repository list on the next step (its `gh auth login`, one-time code).
+          const signsInFromList = source === 'github' && githubSignedOut(discovery);
+          const enabled = (state.ready || signsInFromList) && (source === 'url' || isLookupProvider(source));
           return (
             <ListRow
               key={source}
               testID={`add-project-source-${source}`}
               title={addProjectSourceRowTitle(source)}
-              description={enabled ? addProjectSourceRowDescription(source) : state.hint}
+              description={
+                signsInFromList
+                  ? AddProjectCopy.githubSignInNextStep
+                  : enabled
+                    ? addProjectSourceRowDescription(source)
+                    : state.hint
+              }
               icon={sourceIcon(source, appearance.muted)}
               disabled={!enabled}
               trailing={enabled ? undefined : <SetupRequiredBadge label={AddProjectCopy.setupRequired} />}
