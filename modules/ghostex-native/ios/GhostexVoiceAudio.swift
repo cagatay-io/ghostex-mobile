@@ -233,6 +233,8 @@ final class GhostexVoiceEngine {
     /// Player samples up to which audio is scheduled, and where the current reply started (-1: not yet).
     private var scheduledEnd: Int64 = 0
     private var itemStart: Int64 = -1
+    /// The buffers queued on the current player that it has not taken yet; a new player gets a new count.
+    private var playQueue = GhostexPlayQueue()
     private(set) var itemId: String?
     private(set) var running = false
 
@@ -355,8 +357,12 @@ final class GhostexVoiceEngine {
         do {
             engine.prepare()
             try engine.start()
-            resetPlayer()
-            note("the microphone started again as it was")
+            if let player, !resetPlayerIfIdle() {
+                player.play()
+                note("the microphone started again as it was; audio was still queued for the speaker, so the player kept it")
+            } else {
+                note("the microphone started again as it was")
+            }
             return true
         } catch {
             note("the microphone did not start again as it was: \(error.localizedDescription)")
@@ -388,6 +394,7 @@ final class GhostexVoiceEngine {
             engine.connect(timePitch, to: engine.mainMixerNode, format: GhostexVoiceAudio.playFormat)
             self.player = player
             self.timePitch = timePitch
+            playQueue = GhostexPlayQueue()
         } else {
             // A record-only engine still needs its output side wired (the main mixer to the
             // speaker, silent), or its I/O unit stops right after starting.
@@ -563,7 +570,10 @@ final class GhostexVoiceEngine {
         let start = max(scheduledEnd, nowSample())
         if itemStart < 0 { itemStart = start }
         scheduledEnd = start + Int64(frames)
-        player.scheduleBuffer(buffer, completionHandler: nil)
+        let queue = playQueue
+        queue.added()
+        // Called once the player has taken the buffer or dropped it on a stop.
+        player.scheduleBuffer(buffer) { queue.taken() }
         playLock.unlock()
     }
 
@@ -607,17 +617,48 @@ final class GhostexVoiceEngine {
      * after the engine that switching voice processing on had stopped was started again in place, the player said it was
      * playing and its clock ran, but it took none of the audio queued on it and the mixer rendered silence; the first cut
      * stops and starts the player, and from then on it played. So the restart in place now resets the player as `cut`
-     * does. Audio of a reply that was already queued when the engine stopped is dropped with it; audio of the reply that
-     * arrives later plays. A later cut of that reply counts only what played after the reset, so gxserver, which takes
-     * that count as the cut point, can treat words heard before the reset as unheard.
+     * does, the way it ran on that iPhone at the start of a call, when nothing was queued yet.
+     *
+     * CDXC:VoiceMode 2026-11-26 WHY: The engine is also started again in place in the middle of a call (headphones,
+     * Bluetooth or CarPlay connecting can stop it), and a reset then would drop the rest of a reply already queued and
+     * make a later cut count words heard before it as unheard. So the player is reset only while it holds no buffer it
+     * has not taken; with audio still queued the restart keeps playing as before (`player.play()`), which is what it did
+     * before the silence fix. Counted in buffers, not on the player's clock, because in the silence the clock ran while
+     * no buffer was taken. Answers whether it reset.
      */
-    private func resetPlayer() {
-        guard let player else { return }
+    private func resetPlayerIfIdle() -> Bool {
+        guard let player else { return false }
         playLock.lock()
         defer { playLock.unlock() }
+        guard playQueue.empty else { return false }
         player.stop()
         player.play()
         scheduledEnd = 0
         itemStart = -1
+        return true
+    }
+}
+
+/// How many buffers a player node was given and has not taken or dropped yet; its completion handlers run off the socket's queue.
+private final class GhostexPlayQueue {
+    private let lock = NSLock()
+    private var buffers = 0
+
+    func added() {
+        lock.lock()
+        buffers += 1
+        lock.unlock()
+    }
+
+    func taken() {
+        lock.lock()
+        buffers = max(0, buffers - 1)
+        lock.unlock()
+    }
+
+    var empty: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return buffers == 0
     }
 }
