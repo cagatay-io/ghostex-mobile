@@ -46,7 +46,6 @@ import { CommandPadCopy } from '../../copy';
 import type { CommandPadPlacement } from '../../settings/commandPad';
 import type { ExtraKeyModifier } from '../../settings/extraKeys';
 import { colorOver, colorWithOpacity, CommandPadPalette } from '../../theme/palette';
-import { KEYBOARD_HIDE_MOTION, KEYBOARD_SHOW_MOTION } from '../common/keyboard/keyboardMotion';
 import { useReduceMotion } from '../common/reduceMotion';
 import { useReduceTransparency } from '../common/reduceTransparency';
 import CommandPadKeyFace from './CommandPadKeyFace';
@@ -69,6 +68,7 @@ import {
   padToggleLeft,
   type PadAnchor,
   type PadArea,
+  type PadGaps,
   type PadOffset,
 } from './commandPadLayout';
 import type { CommandPadKey } from './commandPadKeys';
@@ -113,6 +113,11 @@ export type CommandPadProps = {
   cover: number;
   /** The toggle's lowest place above the area's bottom while nothing covers it (`padAnchor`'s `floor`). */
   floor: number;
+  /**
+   * The gap above the cover and the margin below the room's top the pad keeps (`padGaps`; narrower only where the
+   * open pad would not fit otherwise); the anchor was placed with them, and a drag snaps with them.
+   */
+  gaps: PadGaps;
   /** The user's place in this layout (undefined: the default); the accessibility moves keep its height. */
   placement: CommandPadPlacement | undefined;
   /** Stores a new place. */
@@ -145,6 +150,7 @@ function CommandPad({
   reach,
   cover,
   floor,
+  gaps,
   placement,
   onMove,
   onHold,
@@ -196,32 +202,6 @@ function CommandPad({
     setRingHint(null);
   }, [open]);
   useEffect(() => () => clearTimeout(ringHintTimer.current ?? undefined), []);
-
-  // The keyboard button's symbol crossfades over the keyboard's own motion (`keyboardMotion.ts`), so it changes as
-  // the keyboard moves rather than at its start; at once with Reduce Motion on (also when that is turned on during
-  // the fade). 1: the keyboard is up.
-  const [{ keyboardUp, keyboardDown }] = useState(() => {
-    const value = new Animated.Value(keyboardVisible ? 1 : 0);
-    return { keyboardUp: value, keyboardDown: value.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) };
-  });
-  const symbolShownFor = useRef(keyboardVisible);
-  useEffect(() => {
-    const toValue = keyboardVisible ? 1 : 0;
-    const keyboardMoved = symbolShownFor.current !== keyboardVisible;
-    symbolShownFor.current = keyboardVisible;
-    if (!keyboardMoved || reduceMotion) {
-      keyboardUp.setValue(toValue);
-      return;
-    }
-    const motion = Animated.timing(keyboardUp, {
-      toValue,
-      duration: (keyboardVisible ? KEYBOARD_SHOW_MOTION : KEYBOARD_HIDE_MOTION).duration,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    });
-    motion.start();
-    return () => motion.stop();
-  }, [keyboardVisible, reduceMotion, keyboardUp]);
 
   // The whole pad's offset from its anchor: the finger's while it is lifted, then the snap back to zero.
   const [{ drag, dragTransform }] = useState(() => {
@@ -351,8 +331,8 @@ function CommandPad({
       return;
     }
     const at = { left: padToggleLeft(anchor.side, area.width) + current.dx, bottom: anchor.bottom - current.dy };
-    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover, floor);
-    const target = padAnchor(next, area, cover, floor);
+    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover, floor, gaps);
+    const target = padAnchor(next, area, cover, floor, gaps);
     onMove(next);
     if (target.side === anchor.side && target.bottom === anchor.bottom) springHome(drag, from, reduceMotion);
     else released.current = at;
@@ -414,14 +394,17 @@ function CommandPad({
       key: 'keyboard',
       label: keyboardVisible ? CommandPadCopy.hideKeyboard : CommandPadCopy.showKeyboard,
       selected: false,
+      // The symbol changes in the render that moves the pad with the keyboard, so the keyboard's own layout animation
+      // (`keyboardMotion.ts`) crossfades it over that same motion; at once with Reduce Motion on, which requests none.
+      // Each symbol keeps a view of its own (`collapsable`), so the change is an opacity update that animation carries.
       icon: (
         <View style={styles.symbols}>
-          <Animated.View style={[StyleSheet.absoluteFill, { opacity: keyboardDown }]}>
+          <View collapsable={false} style={[StyleSheet.absoluteFill, { opacity: keyboardVisible ? 0 : 1 }]}>
             <KeyboardIcon size={18} color={appearance.foreground} />
-          </Animated.View>
-          <Animated.View style={[StyleSheet.absoluteFill, { opacity: keyboardUp }]}>
+          </View>
+          <View collapsable={false} style={[StyleSheet.absoluteFill, { opacity: keyboardVisible ? 1 : 0 }]}>
             <KeyboardDismissIcon size={18} color={appearance.foreground} />
-          </Animated.View>
+          </View>
         </View>
       ),
       onPress: onKeyboard,
@@ -469,19 +452,31 @@ function CommandPad({
               accessibilityHint={button.hint}
               accessibilityState={{ selected: button.selected, disabled: button.disabled === true }}
               // An unavailable button stays tappable (announced unavailable above), so a tap can show why.
-              style={({ pressed }) => [
-                styles.ringButton,
-                placeAt(anchor, PAD_RING_OFFSETS[index]),
-                button.selected && styles.active,
-                opaque && styles.opaque,
-                pressed && (opaque ? styles.opaquePressed : styles.pressed),
-                // Opaque (Reduce Transparency): the backplate stays solid and only the icon dims.
-                button.disabled === true && !opaque && styles.disabled,
-              ]}
+              // CDXC:Terminal 2026-11-25 WHY:
+              // Every pad key and the keyboard button move with the keyboard like the pad itself. On the folded Duo
+              // upright the keyboard button trailed the rest of the pad while the keyboard moved, when its press look
+              // sat on this view and its symbol crossfaded on the native driver; with the look on the backplate inside
+              // and the crossfade in the pad's render it moved with the rest. Which of the two caused it was not
+              // isolated. So the Pressable's own view only stands at the button's place: a press, which shows for at
+              // least 130 ms and can end while the keyboard moves the pad, changes only the backplate.
+              style={[styles.ringSlot, placeAt(anchor, PAD_RING_OFFSETS[index])]}
               onPress={button.onPress}
             >
-              <Frost radius={PAD_RING_BUTTON / 2} opaque={opaque} />
-              {button.icon}
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.ringButton,
+                    button.selected && styles.active,
+                    opaque && styles.opaque,
+                    pressed && (opaque ? styles.opaquePressed : styles.pressed),
+                    // Opaque (Reduce Transparency): the backplate stays solid and only the icon dims.
+                    button.disabled === true && !opaque && styles.disabled,
+                  ]}
+                >
+                  <Frost radius={PAD_RING_BUTTON / 2} opaque={opaque} />
+                  {button.icon}
+                </View>
+              )}
             </Pressable>
           ))}
         </Animated.View>
@@ -703,9 +698,14 @@ const createStyles = (appearance: Appearance) => {
     backgroundColor: CommandPadPalette.MODIFIER_LOCKED,
     borderColor: appearance.border,
   },
+  // A ring button's place; its look is the backplate inside (`ringButton`).
+  ringSlot: {
+    position: 'absolute',
+    width: PAD_RING_BUTTON,
+    height: PAD_RING_BUTTON,
+  },
   ringButton: {
     ...glass,
-    position: 'absolute',
     width: PAD_RING_BUTTON,
     height: PAD_RING_BUTTON,
     borderRadius: PAD_RING_BUTTON / 2,
