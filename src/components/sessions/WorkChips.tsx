@@ -5,6 +5,8 @@
  *
  * CDXC:WorkMode 2026-10-09 DECISION:
  * User: in work mode a session linked to a PR, issue or Linear project gets a second line of borderless chips (PR with state and checks, issue with status); clicking one opens it; sessions with no links stay one line. On the phone a tap opens the link, a long press copies it (the phone has no hover, so a pressed chip underlines instead), and the merged-PR offer's Clean up / Keep chips answer it.
+ * Since 2026-11-25 (option D, CDXC:WorkMode in MergedPrSheet.tsx) the offer draws no chips: the row's merge badge opens
+ * MergedPrSheet, whose Keep and Clean up call `WorkChipActions.answerCleanup`.
  */
 
 import { useState, type ReactElement } from 'react';

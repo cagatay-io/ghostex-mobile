@@ -98,7 +98,8 @@ function joinParts(parts: readonly string[]): string {
 /**
  * The chips a session's card draws, in the desktop's order; empty keeps the card one line. `cleanupInBanner`: its
  * coordinator's banner answers the merged-PR offer (coordinatorTree.ts `RowNesting.cleanupInBanner`), so the card
- * draws no Clean up / Keep of its own.
+ * draws no Clean up / Keep of its own. No session row draws these chips since 2026-11-25 (option D): the offer is the
+ * row's merge badge and MergedPrSheet.tsx.
  */
 export function workChips(work: GhostexSessionWork | undefined, cleanupInBanner = false): WorkChip[] {
   if (work === undefined) return [];

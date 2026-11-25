@@ -46,6 +46,10 @@
       "icon": "external-link",
       "label": "claude.ai"
     },
+    "cleanUpWorktree": {
+      "icon": "archive",
+      "label": "Clean Up Worktree"
+    },
     "cloneOn": {
       "icon": "copy-plus",
       "label": "Clone on…"
@@ -143,6 +147,10 @@
     "history": {
       "icon": "history",
       "label": "History"
+    },
+    "keepWorktree": {
+      "icon": "x",
+      "label": "Keep Worktree"
     },
     "killSession": {
       "danger": true,
@@ -321,6 +329,10 @@
       "icon": "switch-horizontal",
       "label": "Switch Account"
     },
+    "switchToNative": {
+      "icon": "bolt",
+      "label": "Switch to Native"
+    },
     "tagAs": {
       "icon": "tag",
       "label": "Tag As"
@@ -359,6 +371,9 @@
       },
       {
         "row": "chatToolbar"
+      },
+      {
+        "row": "switchToNative"
       },
       {
         "row": "view"
@@ -453,6 +468,9 @@
       },
       {
         "row": "chatToolbar"
+      },
+      {
+        "row": "switchToNative"
       },
       {
         "row": "view"
@@ -626,6 +644,12 @@
           "pin",
           "voiceCall"
         ]
+      },
+      {
+        "row": "cleanUpWorktree"
+      },
+      {
+        "row": "keepWorktree"
       },
       {
         "row": "snooze"
@@ -922,6 +946,12 @@
           "pin",
           "popout"
         ]
+      },
+      {
+        "row": "cleanUpWorktree"
+      },
+      {
+        "row": "keepWorktree"
       },
       {
         "row": "snooze"

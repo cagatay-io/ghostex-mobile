@@ -276,6 +276,17 @@ export const SessionCopy = {
   undoCleanupHint: 'Put the worktrees back on their branches and keep them.',
   dismissCleanupHint: 'Hide this line. The threads stay asleep under the coordinator.',
   cleaningUp: 'Cleaning up…',
+  /**
+   * A row's merged-PR offer: its line-1 badge and the sheet the badge opens (MergedPrSheet.tsx, the desktop's
+   * merged-PR popup). `prNumber` is null when the computer did not send the number.
+   */
+  mergedPrTitle: (prNumber: number | null) => (prNumber === null ? 'PR is merged' : `PR #${prNumber} is merged`),
+  mergedPrBadgeHint: 'Opens Clean up and Keep for this worktree',
+  mergedPrBody:
+    "Clean up removes this session's worktree and parks the session. Keep leaves both and won't ask again for this PR.",
+  mergedPrOpen: 'Open PR',
+  mergedPrKeep: 'Keep',
+  mergedPrCleanUp: 'Clean up',
   /** Desktop reference sidebar section label. */
   projectsSectionTitle: 'Projects',
   /**

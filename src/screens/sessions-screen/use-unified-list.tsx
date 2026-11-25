@@ -475,6 +475,8 @@ export function useUnifiedList(deps: UnifiedListDeps) {
             session,
             sessionLinksDisplay(summary?.sidebarSessionLinks),
             workChipActions(machines.find((machine) => machine.id === line.row.machine) ?? null, session) !== undefined,
+            // The Unified list never folds worktrees into a project, so its rows draw no branch line.
+            undefined,
             line.nesting.cleanupInBanner,
           );
         } else {

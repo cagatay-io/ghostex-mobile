@@ -24,6 +24,7 @@ import { isSessionChatSupportedAgent } from '../../chat/session-chat-helpers';
 import { runGhostexCli } from '../../components/sessions/cli';
 import { loadCoordinatorPlaybook as loadPlaybook } from './CoordinatorPlaybookSheet';
 import { type ContextMenuItem } from '../../components/sessions/ContextMenu';
+import type { WorkChipActions } from '../../components/sessions/WorkChips';
 import { NewSessionProjectRow } from '../../components/sessions/NewSessionPlace';
 import { blockedDetail } from '../../components/sessions/sessionStatus';
 import { noteNewSessionIn, projectChoicesNow, repoKeyOfProject } from './new-session-place';
@@ -257,6 +258,8 @@ export type SessionsScreenMenusDeps = {
   setTransientStatus: (message: string | null, options?: { title?: string }) => void;
   /** The Unified list's Snooze (a wake time) and Unsnooze (`null`), through gxserver. */
   snoozeSession?: (target: MachineRecord, session: GhostexSession, wakeAt: Date | null) => Promise<void>;
+  /** What a row's work chips do; Clean Up Worktree and Keep Worktree run its `answerCleanup`, as the row's sheet does. */
+  workChipActions: (target: MachineRecord | null, session: GhostexSession) => WorkChipActions | undefined;
 };
 
 export function useSessionsScreenMenus({
@@ -281,6 +284,7 @@ export function useSessionsScreenMenus({
   setOverlay,
   setTransientStatus,
   snoozeSession,
+  workChipActions,
 }: SessionsScreenMenusDeps) {
   // The one session menu's layout (session-menu/layout.ts): the chat core's, or the bundled copy until it answers.
   const sessionMenuLayout = useSessionMenuLayout();
@@ -760,6 +764,13 @@ export function useSessionsScreenMenus({
           setOverlay(NONE);
           const wakeAt = menuCommand.type === 'snooze' ? snoozeWakeAt(menuCommand.preset, new Date()) : null;
           void snoozeSession(machine, ctx.item.session, wakeAt);
+          return;
+        }
+        case 'answerWorkCleanup': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Clean up needs a session.');
+          setOverlay(NONE);
+          workChipActions(machine, ctx.item.session)?.answerCleanup(menuCommand.answer);
           return;
         }
         case 'sessionLinks': {

@@ -972,6 +972,7 @@ export default function SessionsScreen({ navigation }: Props) {
     sessionsForProject,
     setOverlay,
     setTransientStatus,
+    workChipActions,
   });
   // A pick in an agent menu that never reported its dismissal (iOS) must not run when this one closes.
   const agentMenuOpen = overlay.kind === 'agentMenu';

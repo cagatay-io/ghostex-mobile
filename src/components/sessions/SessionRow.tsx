@@ -25,7 +25,7 @@
  */
 
 import { plural } from '../../plural';
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 
 import { AGENT_ICONS } from '../../assets/agentIcons.generated';
@@ -71,8 +71,14 @@ import {
   ServerGlyph,
 } from './icons';
 import { ComputerIconGlyph } from './ComputerIconGlyph';
-import WorkChips, { ChipGlyph, WORK_SESSION_ROW_HEIGHT, type WorkChipActions } from './WorkChips';
-import { workChips, type WorkChip } from './workChipModel';
+import WorkChips, {
+  ChipGlyph,
+  WORK_CHIP_LINE_HEIGHT,
+  WORK_SESSION_ROW_HEIGHT,
+  type WorkChipActions,
+} from './WorkChips';
+import type { WorkChip } from './workChipModel';
+import MergedPrSheet from './MergedPrSheet';
 import {
   linkBadgeColor,
   sessionLinkChecksMark,
@@ -297,6 +303,7 @@ function AgentboxBadge({ agentbox }: { agentbox: NonNullable<GhostexSession['age
 /**
  * native_sidebar/threads.rs `worktree_badge`: the branch of a worktree session its parent project
  * lists (CDXC:Worktrees 2026-11-06 in gx-core sidebar_view/worktree_fold.rs), in the agentbox badge's muted text.
+ * A Session Wall tile draws it; a list row draws the branch on its own line under the title (option D, 2026-11-25).
  */
 export function WorktreeBadge({ label }: { label: string }) {
   const ink = useSidebarInk();
@@ -346,41 +353,63 @@ function QuestionIndicator({ activity, ringColor }: { activity: string; ringColo
   );
 }
 
-/** A row's height: one line, or two while it draws its chip line (`sessionRowHasChipLine`). */
-function sessionRowHeight(chipLine: boolean): number {
-  return TOUCH_ROW_HEIGHT + (chipLine ? ds(WORK_SESSION_ROW_HEIGHT - 34) : 0);
+/**
+ * A row's height: its first line, then each line under it (`sessionRowLinesUnder`) 16dp tall, with 2dp left below the
+ * last (desktop session_list.rs `WORK_SESSION_HEIGHT` for one).
+ */
+function sessionRowHeight(linesUnder: number): number {
+  return (
+    TOUCH_ROW_HEIGHT +
+    (linesUnder > 0 ? ds(WORK_SESSION_ROW_HEIGHT - 34 + (linesUnder - 1) * WORK_CHIP_LINE_HEIGHT) : 0)
+  );
 }
 
 /**
- * Whether a row draws its second line: a merged PR's Clean up / Keep offer (unless its coordinator's banner answers it,
- * `cleanupInBanner`), or its links under "Session links in the sidebar: Line", once its caller wires the chips'
- * actions. SessionRow draws it from the same facts.
+ * Whether a row draws its links line: its links under "Session links in the sidebar: Line", once its caller wires the
+ * chips' actions, unless the merged PR's offer is on the row (not in its coordinator's banner, `cleanupInBanner`):
+ * its merge badge already names the PR, as on the desktop.
  */
-export function sessionRowHasChipLine(
+function sessionRowHasLinksLine(
   session: GhostexSession,
   display: SessionLinksDisplay,
   hasActions: boolean,
-  cleanupInBanner = false,
+  cleanupInBanner: boolean,
 ): boolean {
-  if (!hasActions) return false;
-  if (session.work?.offerCleanup === true && !cleanupInBanner) {
-    return workChips(session.work).some((chip) => chip.key === 'pr' || chip.key === 'cleanup' || chip.key === 'keep');
-  }
+  if (!hasActions || (session.work?.offerCleanup === true && !cleanupInBanner)) return false;
   return sessionLinksRow(session.links, display, session.isFocused).line.length > 0;
 }
 
 /**
+ * How many lines a row draws under its first: the worktree's branch (`worktree`), then its links line. SessionRow
+ * draws them from the same facts. A merged PR's Clean up / Keep offer draws no line of its own (its badge on the
+ * first line opens MergedPrSheet).
+ */
+export function sessionRowLinesUnder(
+  session: GhostexSession,
+  display: SessionLinksDisplay,
+  hasActions: boolean,
+  worktree?: string,
+  cleanupInBanner = false,
+): number {
+  return (
+    (worktree !== undefined && worktree.length > 0 ? 1 : 0) +
+    (sessionRowHasLinksLine(session, display, hasActions, cleanupInBanner) ? 1 : 0)
+  );
+}
+
+/**
  * The `treeAnchor` of a thread drawn right under a row: from the centre of that row's icon (in its first line) down
- * to the thread's top, so the tree line meets a two-line row's icon too.
+ * to the thread's top, so the tree line meets a row with lines under its first too.
  */
 export function treeAnchorBelowRow(
   session: GhostexSession,
   display: SessionLinksDisplay,
   hasActions: boolean,
+  worktree?: string,
   cleanupInBanner = false,
 ): number {
   return (
-    sessionRowHeight(sessionRowHasChipLine(session, display, hasActions, cleanupInBanner)) -
+    sessionRowHeight(sessionRowLinesUnder(session, display, hasActions, worktree, cleanupInBanner)) -
     TOUCH_ROW_HEIGHT / 2 +
     ROW_SPACING
   );
@@ -416,7 +445,7 @@ export type SessionRowProps = {
    * under a session row (half a row and the gap); the first thread under a Unified card passes the card's hat.
    */
   treeAnchor?: number;
-  /** What a card's chips do (its links line and a Work mode card's Clean up / Keep offer). */
+  /** What a card's chips do (its links line, and the merged-PR badge's sheet: Open PR, Clean up and Keep). */
   workActions?: WorkChipActions;
   /** The computer's "Session links in the sidebar" setting (sessionLinks.ts). */
   sessionLinksDisplay?: SessionLinksDisplay;
@@ -424,7 +453,10 @@ export type SessionRowProps = {
   dimSleeping?: boolean;
   /** A voice call on the phone is about this session. */
   voiceCall?: boolean;
-  /** The worktree's branch, on a worktree session its parent project lists (grouping.ts). */
+  /**
+   * The worktree's branch, on a worktree session its parent project lists (grouping.ts): drawn on its own line under
+   * the title (a thread under the row takes `treeAnchorBelowRow` with the same value).
+   */
   worktree?: string;
   /** A small muted word after the title: "Chief" on a GBot chat Chief of Staff opened (contract/gbots.ts). */
   openerTag?: string;
@@ -540,11 +572,19 @@ export default function SessionRow({
   // The desktop's hover fill (appearance.rs `session_hover`) is the phone's pressed state: the chrome ink at 6%.
   const pressedBackground = mixHexColors(ink.light ? '#000000' : '#FFFFFF', expandedGroupSurface, 6);
   /*
-   * CDXC:SessionLinks 2026-10-24 SEE-ALSO: `SessionLinks::row` in packages/gx-core/src/sidebar_view/links.rs. A row draws its links as the computer's "Session links in the sidebar" says (a line, a badge or nothing); a Work mode card's own chip line is gone except for the merged-PR Clean up / Keep offer, which takes the line while it waits.
+   * CDXC:SessionLinks 2026-10-24 SEE-ALSO: `SessionLinks::row` in packages/gx-core/src/sidebar_view/links.rs. A row draws its links as the computer's "Session links in the sidebar" says (a line, a badge or nothing); a Work mode card's own chip line is gone.
+   * CDXC:WorkMode 2026-11-25 DECISION: the user picked option D: a merged PR's Clean up / Keep offer no longer takes a line. The links badge's spot on the first line shows a merge icon and the PR's number instead (whatever the links setting, it is the offer's only mark), and a tap on it opens MergedPrSheet.tsx. As on the desktop, such a row draws no links line, which would name the PR twice. A worktree's branch moved from the first line to its own line under the title, above the links line.
    */
   // A thread whose coordinator's banner answers its offer draws none of its own (CleanupBanner.tsx).
   const cleanupInBanner = nesting?.cleanupInBanner === true;
   const offerCleanup = session.work?.offerCleanup === true && !cleanupInBanner;
+  // The badge needs the chips' actions to answer the offer, as the old Clean up / Keep chips did.
+  const mergeBadge = offerCleanup && workActions !== undefined;
+  const [mergeSheetOpen, setMergeSheetOpen] = useState(false);
+  // Mounted from the first open on, so the sheet still slides away when the answer takes the offer (and the badge) away.
+  const [mergeSheetUsed, setMergeSheetUsed] = useState(false);
+  const prNumber = session.work?.pullRequestNumber ?? null;
+  const branchLine = worktree !== undefined && worktree.length > 0 ? worktree : null;
   // CDXC:SessionLinks 2026-11-24 DECISION: hide automatic suggested-link badges on coordinator
   // rows and coordinator thread rows; manual linking stays available in the row's menu.
   const showSuggestedBadge =
@@ -553,35 +593,32 @@ export default function SessionRow({
     () => sessionLinksRow(session.links, sessionLinksDisplay, session.isFocused, showSuggestedBadge),
     [session.links, sessionLinksDisplay, session.isFocused, showSuggestedBadge],
   );
-  const chips = useMemo((): WorkChip[] => {
-    if (offerCleanup) {
-      return workChips(session.work, cleanupInBanner)
-        .filter((chip) => chip.key === 'pr' || chip.key === 'cleanup' || chip.key === 'keep')
-        .map((chip) => (chip.key === 'pr' ? { ...chip, trailing: undefined } : chip));
-    }
-    return linksRow.line.map((link) => {
-      const look = sessionLinkLook(link);
-      const checks = sessionLinkChecksMark(link);
-      return {
-        key: link.key,
-        glyph: look.glyph,
-        // The badge's muted colours (`linkBadgeColor`; desktop link_chips.rs has the user's words).
-        glyphColor: linkBadgeColor(look.color),
-        label: link.label,
-        trailing: checks !== null ? { ...checks, color: linkBadgeColor(checks.color) } : undefined,
-        url: link.url,
-        description: sessionLinkSummary(link),
-      };
-    });
-  }, [offerCleanup, cleanupInBanner, session.work, linksRow]);
+  const chips = useMemo(
+    (): WorkChip[] =>
+      linksRow.line.map((link) => {
+        const look = sessionLinkLook(link);
+        const checks = sessionLinkChecksMark(link);
+        return {
+          key: link.key,
+          glyph: look.glyph,
+          // The badge's muted colours (`linkBadgeColor`; desktop link_chips.rs has the user's words).
+          glyphColor: linkBadgeColor(look.color),
+          label: link.label,
+          trailing: checks !== null ? { ...checks, color: linkBadgeColor(checks.color) } : undefined,
+          url: link.url,
+          description: sessionLinkSummary(link),
+        };
+      }),
+    [linksRow],
+  );
   // The line fits what it can to its width (WorkChips); the links it never lists count into "+N".
   // Under Badge there is no line: the title row's badge names a link and counts the rest.
-  const linksNeverShown = offerCleanup
-    ? null
-    : linksRow.badge !== null && !linksRow.badge.suggested
+  const linksNeverShown =
+    linksRow.badge !== null && !linksRow.badge.suggested
       ? 0
       : (session.links?.items.length ?? 0) - linksRow.line.length;
-  const showChips = chips.length > 0 && workActions !== undefined;
+  // A row whose offer is on it draws no links line: its merge badge already names the PR (`sessionRowHasLinksLine`).
+  const showChips = chips.length > 0 && workActions !== undefined && !offerCleanup;
   /*
    * CDXC:SessionLinks 2026-10-27 DECISION:
    * User: "i see the links tag is shown on 2nd row, this is wrong it should always be on same row as
@@ -590,10 +627,20 @@ export default function SessionRow({
    * `render_native_session_links_badge`). Supersedes the 2026-10-24 line under the name.
    */
   const showLinkLine = showChips;
+  // The merge badge takes the links badge's spot while the offer stands.
   const linksBadge = offerCleanup ? null : linksRow.badge;
   // An idle coordinator draws no crew badge (threads.rs `coordinator_badge`).
   const shownCoordinatorBadge = coordinatorBadge?.tone === 'idle' ? undefined : coordinatorBadge;
-  const rowHeight = sessionRowHeight(showLinkLine);
+  const rowHeight = sessionRowHeight((branchLine !== null ? 1 : 0) + (showLinkLine ? 1 : 0));
+
+  const openMergeSheet = (): void => {
+    setMergeSheetUsed(true);
+    setMergeSheetOpen(true);
+  };
+  const answerFromSheet = (answer: 'cleanUp' | 'keep'): void => {
+    workActions?.answerCleanup(answer);
+    setMergeSheetOpen(false);
+  };
   const linePaddingLeft = (inCard ? ds(26) : ds(47)) + titleIndent;
 
   const openMenuFromRow = (): void => {
@@ -742,6 +789,7 @@ export default function SessionRow({
           timeLabel !== null ||
           shownCoordinatorBadge !== undefined ||
           linksBadge !== null ||
+          mergeBadge ||
           voiceCall ||
           foldLead !== null ||
           showTrailingComputerIcon ||
@@ -778,9 +826,27 @@ export default function SessionRow({
                   </Text>
                 </View>
               ) : null}
+              {/* The merged PR's badge in the links badge's spot, size and muted merged purple; its own button, so a tap never opens the row. */}
+              {mergeBadge ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={SessionCopy.mergedPrTitle(prNumber)}
+                  accessibilityHint={SessionCopy.mergedPrBadgeHint}
+                  hitSlop={{ top: ds(8), bottom: ds(8), left: ds(6), right: ds(6) }}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    openMergeSheet();
+                  }}
+                  style={({ pressed }) => [styles.mergeBadge, pressed ? styles.mergeBadgePressed : null]}
+                >
+                  <ChipGlyph glyph="merged" color={MERGE_BADGE_COLOR} size={ds(12)} />
+                  {prNumber !== null ? (
+                    <Text style={[styles.linksBadgeText, { color: MERGE_BADGE_COLOR }]}>{`#${prNumber}`}</Text>
+                  ) : null}
+                </Pressable>
+              ) : null}
               {shownCoordinatorBadge !== undefined ? <CoordinatorBadgeView badge={shownCoordinatorBadge} /> : null}
               {voiceCall ? <VoiceCallBadge /> : null}
-              {worktree !== undefined && worktree.length > 0 ? <WorktreeBadge label={worktree} /> : null}
               {openerTag !== undefined && openerTag.length > 0 ? (
                 <Text style={[styles.agentboxLabel, inkStyle.agentboxLabel]} numberOfLines={1}>
                   {openerTag}
@@ -853,18 +919,50 @@ export default function SessionRow({
             </View>
           ) : null}
         </View>
+        {/* Under line 1: the worktree's branch, then the links line, each starting under the title. */}
+        {branchLine !== null ? (
+          <View
+            accessible
+            accessibilityLabel={SessionCopy.inWorktree(branchLine)}
+            style={[styles.branchLine, { paddingLeft: linePaddingLeft }]}
+          >
+            <BranchGlyph size={ds(12)} color={ink.muted} />
+            <Text style={[styles.branchLineLabel, inkStyle.agentboxLabel]} numberOfLines={1} ellipsizeMode="tail">
+              {branchLine}
+            </Text>
+          </View>
+        ) : null}
         {showChips ? (
           <WorkChips
             chips={chips}
             paddingLeft={linePaddingLeft}
             actions={workActions}
-            fitLinks={linksNeverShown === null ? undefined : { neverShown: linksNeverShown }}
+            fitLinks={{ neverShown: linksNeverShown }}
           />
         ) : null}
       </Pressable>
+      {mergeSheetUsed && workActions !== undefined ? (
+        <MergedPrSheet
+          visible={mergeSheetOpen && mergeBadge}
+          prNumber={prNumber}
+          prUrl={session.work?.pullRequestUrl ?? ''}
+          branch={(session.work?.branch ?? '').length > 0 ? (session.work?.branch ?? '') : (worktree ?? '')}
+          onOpenPr={() => {
+            const url = session.work?.pullRequestUrl ?? '';
+            if (url.length > 0) workActions.openLink(url);
+            setMergeSheetOpen(false);
+          }}
+          onKeep={() => answerFromSheet('keep')}
+          onCleanUp={() => answerFromSheet('cleanUp')}
+          onClose={() => setMergeSheetOpen(false)}
+        />
+      ) : null}
     </Animated.View>
   );
 }
+
+/** The merged tone of the links badge (`linkBadgeColor`), which the merge badge keeps. */
+const MERGE_BADGE_COLOR = linkBadgeColor(SidebarPalette.WORK_MERGED);
 
 const styles = StyleSheet.create({
   /** A linked badge: bare text in the crew count's size (`coordinatorBadgeCount`, desktop `session_links_badge_body`). */
@@ -889,6 +987,29 @@ const styles = StyleSheet.create({
   },
   linksBadgeSuggestedText: {
     fontSize: ds(10.5),
+  },
+  /** A merged PR's badge: the merge glyph and the PR's number, as bare as a linked badge. */
+  mergeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(3),
+  },
+  mergeBadgePressed: {
+    opacity: 0.6,
+  },
+  /** A worktree's branch under the title, in the links line's height and the agentbox badge's muted text. */
+  branchLine: {
+    height: ds(WORK_CHIP_LINE_HEIGHT),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ds(3),
+    paddingRight: ds(6),
+  },
+  branchLineLabel: {
+    flexShrink: 1,
+    fontSize: ds(11.5),
+    fontWeight: '300',
+    lineHeight: ds(WORK_CHIP_LINE_HEIGHT),
   },
   rowGap: {
     marginBottom: ROW_SPACING,

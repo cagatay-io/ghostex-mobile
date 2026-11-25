@@ -39,7 +39,7 @@ import { SessionKindLabelRow } from '../../components/sessions/SectionKindLabelR
 import { ChiefPlaceholderRow } from '../../components/sessions/ChiefRow';
 import GbotsRows from '../../components/sessions/GbotsRows';
 import { MessagePlusGlyph } from '../../components/sessions/icons';
-import SessionRow from '../../components/sessions/SessionRow';
+import SessionRow, { treeAnchorBelowRow } from '../../components/sessions/SessionRow';
 import type { WorkChipActions } from '../../components/sessions/WorkChips';
 import { sessionLinksDisplay } from '../../chat/native/sessionLinks';
 import type {
@@ -162,7 +162,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
       : [header.actionTarget.machineId, { ...header, projectId: header.actionTarget.projectId }];
 
   // A row of the one list of every computer acts on its own computer (contract/mergedComputers.ts).
-  const sessionRow = (item: SessionItem, tag?: string): ReactElement => {
+  const sessionRow = (item: SessionItem, tag?: string, treeAnchor?: number): ReactElement => {
     const rowMachineId = item.machineId;
     const key = sessionKey(rowMachineId, item.session.sessionId);
     const foldContainsActive = item.machineFold?.role === 'lead' && item.machineFold.containsActive;
@@ -178,6 +178,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
         inCard
         customSessionTags={summary?.customSessionTags}
         nesting={item.nesting}
+        treeAnchor={treeAnchor}
         coordinatorBadge={item.coordinatorBadge}
         worktree={item.worktree}
         onToggleThreads={() => actions.toggleCoordinator(machineId, item)}
@@ -195,7 +196,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
     );
   };
 
-  const childRow = (child: DrawerItem, header: ProjectHeaderItem): ReactElement | null => {
+  const childRow = (child: DrawerItem, header: ProjectHeaderItem, treeAnchor?: number): ReactElement | null => {
     switch (child.type) {
       case 'PROJECT_EMPTY':
         return (
@@ -232,7 +233,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
         );
       }
       case 'SESSION':
-        return sessionRow(child);
+        return sessionRow(child, undefined, treeAnchor);
       case 'SESSION_KIND_LABEL':
         return (
           <SessionKindLabelRow
@@ -294,11 +295,28 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
 
   /** A fold's rows as units: each a row, or on the session wall each run of sessions as rows of tiles. */
   const foldUnits = (items: readonly DrawerItem[], header: ProjectHeaderItem): ReactElement[] => {
-    const asRow = (child: DrawerItem): ReactElement[] => {
-      const row = childRow(child, header);
+    const asRow = (child: DrawerItem, treeAnchor?: number): ReactElement[] => {
+      const row = childRow(child, header, treeAnchor);
       return row === null ? [] : [row];
     };
-    if (tileColumns === null) return items.flatMap(asRow);
+    if (tileColumns === null) {
+      // A thread's tree line rises to the icon of the row above it, past the lines under that row's first (its
+      // worktree's branch, its links line).
+      return items.flatMap((child, index) => {
+        const above = index > 0 ? items[index - 1] : undefined;
+        const treeAnchor =
+          child.type === 'SESSION' && above?.type === 'SESSION'
+            ? treeAnchorBelowRow(
+                above.session,
+                linksDisplay,
+                actions.workChipActions(above.machineId, above) !== undefined,
+                above.worktree,
+                above.nesting?.cleanupInBanner === true,
+              )
+            : undefined;
+        return asRow(child, treeAnchor);
+      });
+    }
     return tileRuns(items, tileColumns).flatMap((run) =>
       run.kind === 'tiles' ? [tileRow(run.key, run.items, tileColumns)] : asRow(run.item),
     );

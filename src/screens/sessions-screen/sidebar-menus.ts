@@ -92,6 +92,8 @@ export type SidebarMenuCommand =
   | { type: 'snooze'; sessionId: string; preset: SnoozePreset }
   /** The Unified list's Unsnooze row: gxserver's `/api/unsnoozeSession`. */
   | { type: 'unsnooze'; sessionId: string }
+  /** Clean Up Worktree / Keep Worktree: answers the merged PR's offer as the row's sheet does (`WorkChipActions.answerCleanup`). */
+  | { type: 'answerWorkCleanup'; sessionId: string; answer: 'cleanUp' | 'keep' }
   /** The phone's own row: the session's links sheet (`src/chat/native/SessionLinksSheet.tsx`). */
   | { type: 'sessionLinks'; sessionId: string }
   /** The phone's own row: the session's project's Changes screen (`src/screens/ChangesScreen.tsx`). */
@@ -866,6 +868,15 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
 
   return (place: string): SidebarMenuItem[] => {
     switch (place) {
+      // CDXC:WorkMode 2026-11-25 (gx-core layout.rs): while the merged PR's offer stands, also on a thread whose coordinator's banner answers it.
+      case 'cleanUpWorktree':
+        return session.work?.offerCleanup === true
+          ? [layoutRow(layout, place, { type: 'answerWorkCleanup', sessionId: id, answer: 'cleanUp' })]
+          : [];
+      case 'keepWorktree':
+        return session.work?.offerCleanup === true
+          ? [layoutRow(layout, place, { type: 'answerWorkCleanup', sessionId: id, answer: 'keep' })]
+          : [];
       case 'rename':
         return caps.canRename && shown('rename')
           ? [layoutRow(layout, 'rename', { type: 'sessionAction', sessionId: id, action: 'rename' })]
