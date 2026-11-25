@@ -327,12 +327,14 @@ function useUserActionItems(message: ProjectedMessage): ActionItem[] {
   const queued = message.queued === true && (delivery === undefined || delivery === null);
   const items: ActionItem[] = [];
   // A message the user wrote has an ID (core `transcript/message_numbers.rs`, CDXC:SessionChat 2026-11-20 there):
-  // Copy message ID copies its full form (`G9jt7.M12`), Reference in chat puts its pill in the chat box. Desktop
-  // `user_menu_rows` in native_chat/message_actions.rs.
+  // Copy message ID copies it as a link that pastes as its pill, short words and the full ID in the link
+  // (`[M12](message:G9jt7.M12)`, core `copied_message_link`, CDXC:SessionChat 2026-11-25 there), Reference in chat
+  // puts its pill in the chat box. Desktop `user_menu_rows` in native_chat/message_actions.rs.
   const messageRef = typeof message.messageRef === 'string' ? message.messageRef : '';
   if (messageRef.length > 0 && typeof message.messageNumber === 'number') {
     const pill = `M${message.messageNumber}`;
-    items.push({ label: 'Copy message ID', icon: 'hash', run: () => void Clipboard.setStringAsync(messageRef) });
+    const copied = `[${pill}](message:${messageRef})`;
+    items.push({ label: 'Copy message ID', icon: 'hash', run: () => void Clipboard.setStringAsync(copied) });
     if (main) {
       items.push({
         label: 'Reference in chat',
