@@ -171,7 +171,6 @@ function SinglePageAnswersCard({
         : answeredCount === 0
           ? `${skippedRows.length} skipped`
           : `${answeredCount} of ${questions.length}`;
-  const notesCount = rows.filter((row) => row.extra).length;
   const answeredRows = rows.filter((row) => !row.extra && !row.skipped);
   const [skippedOpen, toggleSkipped] = useDisclosure(disclosures, `${cardKey}:skipped`, false);
   const page = obj(answers?.page);
@@ -180,29 +179,9 @@ function SinglePageAnswersCard({
   const body = (
     <View style={[styles.rows, bodyOnly ? styles.rowsBodyOnly : null]}>
       {open
-        ? rows
-            .filter((row) => row.extra)
-            .map((row) => {
-              const index = rows.indexOf(row);
-              const drawn = rows.filter((other) => other.extra).indexOf(row);
-              return (
-                <View
-                  key={`note:${index}`}
-                  style={[
-                    styles.row,
-                    drawn > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline } : null,
-                  ]}
-                >
-                  <Text style={[styles.noteLabel, { color: theme.muted }]}>{noteLabel}</Text>
-                  <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.value} lead />
-                </View>
-              );
-            })
-        : null}
-      {open
         ? answeredRows.map((row, at) => {
             const index = rows.indexOf(row);
-            const drawn = notesCount + at;
+            const drawn = at;
             const picks = Array.isArray(obj(row.row)?.picks)
               ? arr(obj(row.row)?.picks).map((pick) => String(pick))
               : null;
@@ -252,7 +231,7 @@ function SinglePageAnswersCard({
       {open && skippedRows.length > 0 ? (
         <View
           style={
-            notesCount + answeredRows.length > 0
+            answeredRows.length > 0
               ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline }
               : null
           }
@@ -278,6 +257,28 @@ function SinglePageAnswersCard({
         </View>
       ) : null}
       {open && more > 0 ? <Text style={[styles.more, { color: theme.muted }]}>and {more} more</Text> : null}
+      {/* The reader's own note comes last, as on the page itself. */}
+      {open
+        ? rows
+            .filter((row) => row.extra)
+            .map((row) => {
+              const index = rows.indexOf(row);
+              const drawn = rows.filter((other) => other.extra).indexOf(row);
+              const before = answeredRows.length + (skippedRows.length > 0 ? 1 : 0);
+              return (
+                <View
+                  key={`note:${index}`}
+                  style={[
+                    styles.row,
+                    drawn > 0 || before > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: hairline } : null,
+                  ]}
+                >
+                  <Text style={[styles.noteLabel, { color: theme.muted }]}>{noteLabel}</Text>
+                  <AnswerNote disclosureKey={`${cardKey}:note:${index}`} note={row.value} lead />
+                </View>
+              );
+            })
+        : null}
       {unconfirmed ? (
         <View style={styles.delivery} accessibilityRole="text">
           <Text style={[styles.deliveryText, { color: theme.muted }]}>{delivery?.waitReason ?? ''}</Text>
