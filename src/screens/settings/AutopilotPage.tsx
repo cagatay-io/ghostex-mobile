@@ -22,6 +22,7 @@ import {
   type MachineRecord,
 } from '../../machines/store';
 import { useAppearance } from '../../theme/useAppearance';
+import { AutopilotSupervisorRows, type SupervisorLabels } from './AutopilotSupervisorRows';
 import { SettingsSection } from './SectionBoundary';
 import {
   Caption,
@@ -56,7 +57,8 @@ type Config = {
    * so the computer lets it turn the switch on.
    */
   useLimitResets?: boolean;
-  supervisor: 'opusMedium' | 'solHigh';
+  /** The old two choices, still saved alongside `supervisorPick` (`custom` for any other pick). */
+  supervisor: 'opusMedium' | 'solHigh' | 'custom';
   sweepSeconds: number;
   /** Supervisor check-up period in minutes, 0 is Off; absent from a computer whose Ghostex predates it. */
   checkupMinutes?: number;
@@ -83,6 +85,8 @@ type View_ = {
   watching: { covered: number };
   /** The supervisor (`supervisor_view`, server/src/server/autopilot_judge.rs); its session once one exists. */
   supervisor?: { projectId?: string; sessionId?: string } | null;
+  /** The two supervisor rows' picks; absent on a computer whose Ghostex predates any-model picks (#765). */
+  supervisorLabels?: SupervisorLabels;
 };
 
 /** The check-up's choices, as the desktop lists them (server/src/autopilot/config.rs, `CHECKUP_MINUTES`). */
@@ -312,6 +316,11 @@ export default function AutopilotPage() {
           view={view}
           set={set}
           send={send}
+          onView={(next) => {
+            setView(next as View_);
+            setError(null);
+          }}
+          onError={setError}
           onMore={() => setLogLimit((limit) => limit + LOG_PAGE)}
           logLimit={logLimit}
         />
@@ -325,6 +334,8 @@ function AutopilotBody({
   view,
   set,
   send,
+  onView,
+  onError,
   onMore,
   logLimit,
 }: {
@@ -332,6 +343,8 @@ function AutopilotBody({
   view: View_;
   set: (patch: Partial<Config>) => void;
   send: (params: Record<string, unknown>) => Promise<void>;
+  onView: (view: unknown) => void;
+  onError: (message: string) => void;
   onMore: () => void;
   logLimit: number;
 }) {
@@ -540,16 +553,28 @@ function AutopilotBody({
           />
           {advancedOpen ? (
             <>
-              <ChoiceRow
-                label="Claude Opus 5.5 · Medium"
-                selected={config.supervisor === 'opusMedium'}
-                onPress={() => set({ supervisor: 'opusMedium' })}
-              />
-              <ChoiceRow
-                label="Codex GPT 6.1 Sol · High"
-                selected={config.supervisor === 'solHigh'}
-                onPress={() => set({ supervisor: 'solHigh' })}
-              />
+              {view.supervisorLabels !== undefined ? (
+                <AutopilotSupervisorRows
+                  machine={machine}
+                  labels={view.supervisorLabels}
+                  limit={logLimit}
+                  onView={onView}
+                  onError={onError}
+                />
+              ) : (
+                <>
+                  <ChoiceRow
+                    label="Claude Opus 5.5 · Medium"
+                    selected={config.supervisor === 'opusMedium'}
+                    onPress={() => set({ supervisor: 'opusMedium' })}
+                  />
+                  <ChoiceRow
+                    label="Codex GPT 6.1 Sol · High"
+                    selected={config.supervisor === 'solHigh'}
+                    onPress={() => set({ supervisor: 'solHigh' })}
+                  />
+                </>
+              )}
               <Caption>The supervisor wakes only for judgment calls, on whichever of your accounts has room.</Caption>
               {/* Only a computer that sends checkupMinutes has the check-up. */}
               {config.checkupMinutes !== undefined ? (

@@ -12,7 +12,7 @@
  * visit, and the open choice list.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -76,6 +76,8 @@ export function ModelMenuSheet({
   onClose,
   dispatch,
   mode,
+  header,
+  applyLabel,
 }: {
   menu: JsonRecord | null;
   visible: boolean;
@@ -90,6 +92,13 @@ export function ModelMenuSheet({
   dispatch: (action: UserAction) => void;
   /** The permission mode, when the model pill carries it; absent, no Mode row. */
   mode?: ModelSheetMode | null;
+  /**
+   * Drawn above the agent tabs, and the one button's label in place of Apply / Switch / Hand off:
+   * Settings › Autopilot's supervisor rows (`AutopilotSupervisorRows.tsx`), where a pick names the
+   * model a later start uses, with an "Automatic" row on top of the fallback's sheet.
+   */
+  header?: ReactNode;
+  applyLabel?: string;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -316,6 +325,7 @@ export function ModelMenuSheet({
             <Glyph name="chevron-right" size={16} color={P.ink(0.64)} />
           </Pressable>
         ) : null}
+        {header ?? null}
         <View style={styles.tabs} accessibilityRole="tablist">
           {tabs.map((entry) => {
             const id = str(entry, 'id');
@@ -512,6 +522,7 @@ export function ModelMenuSheet({
           disabled={disabled}
           note={degradedNote}
           onApply={apply}
+          {...(applyLabel !== undefined ? { label: applyLabel } : {})}
         />
       </View>
     </Sheet>
@@ -602,6 +613,7 @@ function ApplyBar({
   disabled,
   note,
   onApply,
+  label,
 }: {
   menu: JsonRecord | null;
   row: JsonRecord | null;
@@ -611,6 +623,8 @@ function ApplyBar({
   /** A coordinator's quiet note on a low-end pick (`degradedNoteFor`), or ''. */
   note: string;
   onApply: (secondary: boolean) => void;
+  /** One button with this label, whatever the row's agent (the sheet's `applyLabel`). */
+  label?: string;
 }) {
   const styles = useStyles();
   if (row === null) return null;
@@ -646,7 +660,9 @@ function ApplyBar({
       ) : null}
       {hint.length > 0 ? <Text style={styles.hint}>{hint}</Text> : null}
       <View style={styles.applyRow}>
-        {!own ? (
+        {label !== undefined ? (
+          button(label, false, true)
+        ) : !own ? (
           button(handoff ? `Hand off to ${agent}` : `Switch to ${agent}`, true, true)
         ) : isTrue(menu, 'sessionScope') ? (
           <>
