@@ -16,7 +16,7 @@
  */
 
 import { FOLD_CLEARANCE, LAPTOP_CLEAR, LAPTOP_CONTROL_CLEAR, type LaptopFold } from '../common/verticalBar/layout';
-import { padHeaderReach, padRequiredHeight } from './commandPadLayout';
+import { PAD_MARGIN, padHeaderReach, padRequiredHeight } from './commandPadLayout';
 
 /** A rectangle in the window: the terminal area, or the pad's room in it. */
 export type LaptopRect = { x: number; y: number; width: number; height: number };
@@ -49,12 +49,13 @@ export function laptopPadRoomBelowFold(upperHalf: LaptopRect, headerRoom: number
 /**
  * How far the open pad in its room below the fold (`laptopPadRoomBelowFold`) reaches over the header: all of
  * `headerRoom`, as the room is made for that; null where a Keys or Agent layer in the keyboard's place (its top edge
- * `layerTop` in the window, null while none is shown) comes up into the room further than the pad's gap above what
- * covers it allows, as the two would overlap then.
+ * `layerTop` in the window, null while none is shown) comes up into the room further than the pad's usual gap above
+ * what covers it allows, as the two would overlap then. The usual gap, not a narrowed one (`padGaps`): the layer does
+ * not move the pad in this room, so narrowing would only let the layer come closer to the toggle than the gap it keeps.
  */
 export function laptopPadReachBelowFold(room: LaptopRect, headerRoom: number, layerTop: number | null): number | null {
   const layerCover = layerTop === null ? 0 : room.y + room.height - layerTop;
-  return layerCover > 0 && padHeaderReach(room, layerCover, headerRoom) === null ? null : headerRoom;
+  return layerCover > 0 && padHeaderReach(room, layerCover, headerRoom, PAD_MARGIN, false) === null ? null : headerRoom;
 }
 
 /** The text editor's bottom edge above the window's bottom edge: `LAPTOP_CLEAR` above the fold's top. */

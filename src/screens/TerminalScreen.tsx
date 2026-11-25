@@ -85,7 +85,14 @@ import {
   PanesIcon,
   TerminalPromptIcon,
 } from '../components/terminal/icons';
-import { PAD_MARGIN, PAD_TOGGLE, padAnchor, padHeaderReach } from '../components/terminal/commandPadLayout';
+import {
+  PAD_GAPS,
+  PAD_MARGIN,
+  PAD_TOGGLE,
+  padAnchor,
+  padGaps,
+  padHeaderReach,
+} from '../components/terminal/commandPadLayout';
 import {
   laptopEditorInset,
   laptopFloatingBottom,
@@ -797,10 +804,18 @@ export default function TerminalScreen({ navigation, route }: Props) {
   // What covers the pad room's bottom: the pad and the floating controls stay above it, the terminal area does not
   // shrink. In the laptop pose the room ends at the fold and only the editor lies in it.
   const padCover = laptopFold !== null ? padCoverWithKeyboard(editorShown) : obstruction;
+  // The gap above that cover and the margin below the room's top the pad keeps: the usual ones, narrowed only where
+  // the open pad would otherwise not fit above the cover, even over the header (`padGaps`, the same judgement as
+  // `padReach` below). Its place and a drag use them, so the drawn pad lies in the room it was judged in. Memoized
+  // because a narrowed value is a new object and `padAt` below depends on it.
+  const padRoomGaps = useMemo(
+    () => (padArea === null ? PAD_GAPS : padGaps(padArea, padCover, headerRoom, padFloor)),
+    [padArea, padCover, headerRoom, padFloor],
+  );
   // The pad keeps the user's place unless it would stand under what covers its room or below its lowest place.
   const padAt = useMemo(
-    () => padAnchor(pad.placement, padArea, padCover, padFloor),
-    [pad.placement, padArea, padCover, padFloor],
+    () => padAnchor(pad.placement, padArea, padCover, padFloor, padRoomGaps),
+    [pad.placement, padArea, padCover, padFloor, padRoomGaps],
   );
   // In the laptop pose without the text editor, where the upper half is too short for the open pad even over the
   // header: the open pad's room, reaching below the fold by what is missing. With the editor open the pad is closed
@@ -1783,6 +1798,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
             reach={padReach ?? 0}
             cover={padCover}
             floor={padFloor}
+            gaps={padRoomGaps}
             placement={pad.placement}
             onMove={pad.movePad}
             onHold={setPadHeld}

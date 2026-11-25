@@ -69,6 +69,7 @@ import {
   padToggleLeft,
   type PadAnchor,
   type PadArea,
+  type PadGaps,
   type PadOffset,
 } from './commandPadLayout';
 import type { CommandPadKey } from './commandPadKeys';
@@ -113,6 +114,11 @@ export type CommandPadProps = {
   cover: number;
   /** The toggle's lowest place above the area's bottom while nothing covers it (`padAnchor`'s `floor`). */
   floor: number;
+  /**
+   * The gap above the cover and the margin below the room's top the pad keeps (`padGaps`; narrower only where the
+   * open pad would not fit otherwise); the anchor was placed with them, and a drag snaps with them.
+   */
+  gaps: PadGaps;
   /** The user's place in this layout (undefined: the default); the accessibility moves keep its height. */
   placement: CommandPadPlacement | undefined;
   /** Stores a new place. */
@@ -145,6 +151,7 @@ function CommandPad({
   reach,
   cover,
   floor,
+  gaps,
   placement,
   onMove,
   onHold,
@@ -351,8 +358,8 @@ function CommandPad({
       return;
     }
     const at = { left: padToggleLeft(anchor.side, area.width) + current.dx, bottom: anchor.bottom - current.dy };
-    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover, floor);
-    const target = padAnchor(next, area, cover, floor);
+    const next = padPlacementAt({ side: anchor.side, ...at }, area, cover, floor, gaps);
+    const target = padAnchor(next, area, cover, floor, gaps);
     onMove(next);
     if (target.side === anchor.side && target.bottom === anchor.bottom) springHome(drag, from, reduceMotion);
     else released.current = at;
