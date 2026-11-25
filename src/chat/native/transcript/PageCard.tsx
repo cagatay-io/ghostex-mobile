@@ -25,7 +25,7 @@ import { Glyph } from './icons';
 import { str, type JsonRecord } from './json';
 import { answeredColor } from './PageAnswersCard';
 import { askColor } from '../cards/askCard';
-import { CardMoreMenu, pageRows, shareLinkRow, snoozeRow, starRow } from '../cards/CardMoreMenu';
+import { CardMoreMenu, pageMenuRows } from '../cards/CardMoreMenu';
 import {
   askedPageThumbnail,
   pageThumbnailKey,
@@ -361,14 +361,14 @@ function PageCardBody({
             </Pressable>
           ) : null}
           {pageId.length > 0 ? (
-            // While it waits Snooze, then Star, optional Share link, Export page and Import answers (`cards/CardMoreMenu.tsx`).
+            // This page: Snooze while it waits, then Star; Share: optional Share link, Export page and
+            // Import answers (`cards/CardMoreMenu.tsx` `pageMenuRows`).
             <CardMoreMenu
-              rows={[
-                ...(waiting ? [snoozeRow(pageId)] : []),
-                starRow(pageId, flags.starredPages.has(pageId)),
-                ...(canShare ? [shareLinkRow(sharedPages.has(pageId))] : []),
-                ...pageRows(pageId),
-              ]}
+              rows={pageMenuRows(pageId, {
+                snooze: waiting,
+                starred: flags.starredPages.has(pageId),
+                shared: canShare ? sharedPages.has(pageId) : null,
+              })}
               dispatch={dispatch}
               color={theme.foreground}
               onShare={canShare ? () => setShareOpen(true) : undefined}
