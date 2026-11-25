@@ -4,6 +4,12 @@
  * Latest request wins in place, auto-dismisses after 8 seconds with a hairline countdown bar,
  * and shows an extra "Open external" button for browser-open requests. JS-only so it ships
  * over the air without changing native runtimes.
+ *
+ * CDXC:SwitchRequests 2026-11-26 DECISION: User (Q5021-Q5022, #762): a page-open toast also has
+ * Always, after Open. It opens the page as Open does and turns on that computer's "Let agents
+ * open and switch pages without asking" (Settings > Browser), so its agents' page opens show on
+ * the computer's screen from then on without a toast. The phone is an owner device, so gxserver
+ * takes this setting from it; agents can't set it.
  */
 import { BlurView } from 'expo-blur';
 import { useEffect, useMemo, useRef } from 'react';
@@ -11,6 +17,7 @@ import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navigationRef, openDeepLink, tapOpens } from '../../app/deepLinks';
+import { chatMachineLink } from '../../chat/rust/machine-link';
 import { machineDisplayLabel, useMachinesStore } from '../../machines/store';
 import {
   dismissSwitchRequest,
@@ -80,6 +87,28 @@ export default function SwitchRequestToast() {
     }
   };
 
+  const pageOpen = request.action === 'openBrowser' || request.action === 'openBrowserPane';
+
+  const alwaysAccept = () => {
+    if (record !== undefined) {
+      const link = chatMachineLink(record);
+      void link
+        .route()
+        .then(() =>
+          link.rpc(
+            'dispatchRendererCommand',
+            {
+              action: 'updateSettingsPatch',
+              payload: { patch: { agentPagesOpenWithoutAsking: true }, source: 'mobile:toast-always' },
+            },
+            15_000,
+          ),
+        )
+        .catch(() => undefined);
+    }
+    accept();
+  };
+
   const progressWidth = progress.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
@@ -137,6 +166,17 @@ export default function SwitchRequestToast() {
           >
             <Text style={styles.primaryLabel}>{request.primaryLabel}</Text>
           </Pressable>
+          {pageOpen && record !== undefined ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint="Opens it, and opens this computer's agent pages without asking from now on"
+              onPress={alwaysAccept}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
+              testID="switch-request-always"
+            >
+              <Text style={styles.secondaryLabel}>Always</Text>
+            </Pressable>
+          ) : null}
         </View>
         <View style={styles.progressTrack} pointerEvents="none">
           <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
