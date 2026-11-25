@@ -86,7 +86,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "autopilotSupervisor": {
     "title": "Supervisor model",
-    "subtitle": "The agent that wakes for judgment calls: Claude Opus 5.5 at medium, or Codex GPT 6.1 Sol at high. It starts on an account with room.",
+    "subtitle": "The agent that wakes for judgment calls: any agent, model and effort from the new session's model picker (Claude Opus 5.5 at medium by default). It runs commands without asking and starts on an account with room.",
     "options": [],
     "keywords": []
   },
