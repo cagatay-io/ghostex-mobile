@@ -19,7 +19,15 @@ import { successTone } from './quietWork';
 import { highlightLabel, useRowFind } from './searchHighlight';
 import { useDisclosure } from './state';
 import { MONO_FONT, PROSE_SIZE, type TranscriptTheme } from './theme';
-import { SingleLineTile } from './singleLineCard';
+import {
+  SINGLE_LINE_CARD,
+  SINGLE_LINE_HEADER_HEIGHT,
+  SINGLE_LINE_TITLE,
+  SingleLineTile,
+  TITLE_ROW_GAP,
+  singleLinePressed,
+  singleLineShell,
+} from './singleLineCard';
 import { openTranscriptMenu } from './transcriptMenuStore';
 import { FoldChevron } from './foldChevron';
 
@@ -139,7 +147,16 @@ export function hasCompletedFiles(files: unknown, deferred?: unknown): boolean {
  * The "Edited N files" fold row styled like the tool and thought rows around it (desktop
  * `files_fold_row` in `file_change_card.rs`, CDXC:SessionChat 2026-11-24): 22pt neutral pencil
  * tile, 8pt inset, prose size at 80% opacity, +/- counts and right-side check or error mark,
- * expanding on a rail into per-file rows in the same style.
+ * expanding on a rail into per-file rows in the same style. `boxed` draws it as an opened Quiet
+ * View line's one-line card instead.
+ *
+ * CDXC:SessionChat 2026-11-25 DECISION: User, of an opened Working line where the thoughts and a
+ * background command were one-line cards and the "Edited 1 file" rows between them were bare tool
+ * rows: "file editing looks different from the others pls fix". Inside an opened Quiet View line
+ * the fold is the same one-line card as the "N tool calls" and thought cards there: its shell,
+ * height, inset and title type, the pencil in the card's tile, the +N −N counts and the check
+ * where those cards keep their pill; opened, its files sit under the card's hairline with no rail.
+ * SEE-ALSO: the desktop's `files_fold_row` in native_chat/file_change_card.rs.
  */
 export function FilesFold({
   foldKey,
@@ -151,6 +168,7 @@ export function FilesFold({
   onToggle,
   unread = false,
   notice,
+  boxed = false,
 }: {
   foldKey: string;
   stackId: string;
@@ -161,6 +179,7 @@ export function FilesFold({
   onToggle(): void;
   unread?: boolean;
   notice?: ReactNode;
+  boxed?: boolean;
 }) {
   const { theme } = useTranscriptEnv();
   const find = useRowFind();
@@ -171,6 +190,49 @@ export function FilesFold({
   const removed = num(summary, 'removed') ?? 0;
   const anyFailed = rows.some((file) => file.failed === true);
   const allFailed = rows.length > 0 && rows.every((file) => file.failed === true);
+  const ends = (
+    <>
+      {added + removed > 0 ? <Counts added={added} removed={removed} /> : null}
+      <Glyph name={anyFailed ? 'x' : 'check'} size={13} color={anyFailed ? theme.error : successTone(theme.light)} />
+    </>
+  );
+  if (boxed) {
+    return (
+      <View style={singleLineShell(theme)}>
+        <Pressable
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityState={{ expanded: open }}
+          style={({ pressed }) => [
+            styles.cardHeader,
+            allFailed && { backgroundColor: errorWash(theme.error) },
+            pressed && singleLinePressed(theme),
+          ]}
+        >
+          <SingleLineTile glyph="pencil" />
+          <Text
+            numberOfLines={1}
+            style={[SINGLE_LINE_TITLE, styles.cardTitle, { color: allFailed ? theme.error : theme.foreground }]}
+          >
+            {highlightLabel(label, find, foldKey)}
+          </Text>
+          {ends}
+        </Pressable>
+        {open ? (
+          unread ? (
+            (notice ?? null)
+          ) : (
+            <View style={[styles.cardBody, { borderTopColor: theme.ink(SINGLE_LINE_CARD.borderAlpha) }]}>
+              {rows.map((file, index) => (
+                <FileFoldEntryRow key={index} stackId={stackId} index={index} file={file} colors={colors} />
+              ))}
+            </View>
+          )
+        ) : null}
+      </View>
+    );
+  }
   return (
     <View style={styles.fold}>
       <Pressable
@@ -196,12 +258,7 @@ export function FilesFold({
         >
           {highlightLabel(label, find, foldKey)}
         </Text>
-        {added + removed > 0 ? <Counts added={added} removed={removed} /> : null}
-        <Glyph
-          name={anyFailed ? 'x' : 'check'}
-          size={13}
-          color={anyFailed ? theme.error : successTone(theme.light)}
-        />
+        {ends}
       </Pressable>
       {open ? (
         unread ? (
@@ -556,6 +613,17 @@ const styles = StyleSheet.create({
   foldLabel: { flex: 1, minWidth: 0, fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400' },
   foldFileName: { fontSize: PROSE_SIZE, lineHeight: 20, fontWeight: '400', flexShrink: 0, maxWidth: '50%' },
   foldInset: { paddingLeft: ROW_PAD_X + TILE / 2 - 10 },
+  // The boxed fold: the "N tool calls" card's header and body (`ToolRows.tsx`).
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: TITLE_ROW_GAP,
+    paddingHorizontal: SINGLE_LINE_CARD.paddingX,
+    height: SINGLE_LINE_HEADER_HEIGHT,
+    minWidth: 0,
+  },
+  cardTitle: { flex: 1, minWidth: 0 },
+  cardBody: { borderTopWidth: StyleSheet.hairlineWidth, padding: 4, gap: 2, minWidth: 0 },
   framedDiff: { borderRadius: 8, borderWidth: 1, overflow: 'hidden', minWidth: 0 },
   card: { borderRadius: 14, borderWidth: 1, overflow: 'hidden', minWidth: 0 },
   header: {

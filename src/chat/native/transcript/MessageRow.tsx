@@ -452,6 +452,9 @@ function MessageFiles({ message }: { message: ProjectedMessage }) {
   const { simple, workOpen } = useTranscriptEnv();
   const { disclosures } = useNativeChatUi();
   const { chatLook } = useTranscriptFlags();
+  const { inWorkFold, quietSteps } = useFoldPlace();
+  // Inside an opened Quiet View line the fold is a one-line card like the rows beside it.
+  const boxed = useContext(BoxedToolCards) && !inWorkFold && quietSteps !== true;
   // Agent work Reduced or Quiet: the edits are one live edit line in every view, open in
   // Detailed (`quietWork.tsx`, desktop `file_change_card.rs`).
   const quiet = quietStyle(chatLook);
@@ -485,6 +488,7 @@ function MessageFiles({ message }: { message: ProjectedMessage }) {
       label={str(message, 'simpleFileLabel')}
       open={open}
       onToggle={toggle}
+      boxed={boxed}
     />
   );
 }
