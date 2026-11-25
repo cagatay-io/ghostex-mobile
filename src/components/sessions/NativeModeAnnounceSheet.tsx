@@ -272,7 +272,7 @@ export function NativeModeAnnounceSheet({
           <Text style={styles.title}>Meet Native mode</Text>
         </View>
         <Text style={styles.body}>
-          Claude Code, Codex and Antigravity now run natively for faster mobile chat and live approvals.
+          Claude Code, Codex, Antigravity, OpenCode, Pi, OMP, Hermes Agent, Cursor CLI and Grok Build now run natively for faster mobile chat and live approvals.
         </Text>
         <View style={styles.actions}>
           <Pressable
