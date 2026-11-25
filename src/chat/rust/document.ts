@@ -1176,6 +1176,9 @@ export type NativeSwitchOffer = {
   agentName: string;
   showChip: boolean;
   queued: boolean;
+  /** While queued: what the switch waits on and how to cancel it (two lines), shown when the
+   * chip's (i) is tapped (gx-chat-core `extras/native_switch.rs`). Absent from older cores. */
+  queuedTooltip?: string;
   nativeDefault: boolean;
   showMenuItem: boolean;
 };

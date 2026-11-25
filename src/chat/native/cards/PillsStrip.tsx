@@ -221,6 +221,14 @@ export function PillsStrip({
   useEffect(() => {
     if (boosts === null) setBoostOpen(false);
   }, [boosts]);
+  // Whether the queued "Switching to Native" chip's reason shows under the strip
+  // (`NativeSwitchPill.tsx`); it goes with the queued state.
+  const nativeSwitchQueued = document.nativeSwitch?.showChip === true && document.nativeSwitch.queued;
+  const [nativeSwitchInfoShown, setNativeSwitchInfoShown] = useState(false);
+  useEffect(() => {
+    if (!nativeSwitchQueued) setNativeSwitchInfoShown(false);
+  }, [nativeSwitchQueued]);
+  const nativeSwitchReason = nativeSwitchQueued ? (document.nativeSwitch?.queuedTooltip ?? '') : '';
   const [whereOpen, setWhereOpen] = useState(false);
   const closeWhere = useCallback(() => setWhereOpen(false), []);
   useEffect(() => {
@@ -334,6 +342,8 @@ export function PillsStrip({
                   if (offer.queued) onCancelSwitchToNative?.();
                   else onDismissNativeSwitch?.(offer.family);
                 }}
+                infoShown={nativeSwitchInfoShown}
+                onInfoPress={(hold) => setNativeSwitchInfoShown((current) => hold || !current)}
               />
             ) : null}
             {shown && savedDraft !== null ? (
@@ -395,6 +405,11 @@ export function PillsStrip({
           </ScrollView>
           <View style={styles.hairline} />
         </Animated.View>
+      ) : null}
+      {drawn && nativeSwitchInfoShown && nativeSwitchReason.length > 0 ? (
+        <Text style={styles.nativeSwitchReason} accessibilityRole="text">
+          {nativeSwitchReason}
+        </Text>
       ) : null}
       <SavedDraftSheet pill={savedDraft} open={draftOpen} onClose={closeDraft} dispatch={chat.dispatch} />
       <BoostSheet boosts={boosts} open={boostOpen} onClose={closeBoost} dispatch={chat.dispatch} />
@@ -631,6 +646,8 @@ const useStyles = themedStyles((P) => ({
     height: 1,
     backgroundColor: P.composerBorder,
   },
+  // The queue chip's sentence under its list (`QueueList.tsx` `waitReason`).
+  nativeSwitchReason: { color: P.muted, fontSize: 11.5, paddingHorizontal: 14, paddingTop: 6 },
   armed: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,7 +4,9 @@
  * Mirrors desktop `apps/desktop/src/app/native_chat/native_switch_chip.rs`: shown beside the Where
  * pill on Terminal chats of Antigravity, Claude Code, and Codex for chat-first users until dismissed
  * per agent or Native is enabled for that agent. Clicking mid-reply shifts it to a cancelable
- * "Switching when done…" pill.
+ * "Switching to Native (i)" pill. A phone has no hover, so tapping or holding the (i) shows what the
+ * switch waits on (`queuedTooltip`) under the strip, as the queued message status chip does
+ * (`QueueList.tsx`); the strip draws that line (`PillsStrip.tsx`).
  */
 
 import { useState } from 'react';
@@ -18,18 +20,25 @@ export function NativeSwitchPill({
   offer,
   onPress,
   onDismiss,
+  infoShown,
+  onInfoPress,
 }: {
   offer: NativeSwitchOffer;
   onPress: () => void;
   onDismiss: () => void;
+  /** Whether the queued chip's reason shows under the strip. */
+  infoShown: boolean;
+  /** A tap on the (i) toggles the reason; a hold (`hold`) shows it. */
+  onInfoPress: (hold: boolean) => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   const [bodyPressed, setBodyPressed] = useState(false);
   const queued = offer.queued === true;
-  const label = queued ? 'Switches to Native when this reply ends' : 'Switch to Native';
+  const reason = queued ? (offer.queuedTooltip ?? '') : '';
+  const label = queued ? 'Switching to Native' : 'Switch to Native';
   const accessibilityLabel = queued
-    ? `Switches ${offer.agentName} to Native when this reply ends`
+    ? `Switching ${offer.agentName} to Native. ${reason.replace('\n', ' ')}`.trim()
     : `Switch ${offer.agentName} to Native mode`;
   const dismissLabel = queued ? 'Cancel Switch to Native' : `Hide Switch to Native for ${offer.agentName}`;
 
@@ -49,6 +58,19 @@ export function NativeSwitchPill({
           {label}
         </Text>
       </Pressable>
+      {reason.length > 0 ? (
+        <Pressable
+          onPress={() => onInfoPress(false)}
+          onLongPress={() => onInfoPress(true)}
+          accessibilityRole="button"
+          accessibilityLabel={reason.replace('\n', ' ')}
+          accessibilityState={{ expanded: infoShown }}
+          hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
+          style={({ pressed }) => [styles.info, pressed ? styles.dismissPressed : null]}
+        >
+          <ComposerGlyph name="info-circle" size={13} color={P.foreground} />
+        </Pressable>
+      ) : null}
       <Pressable
         onPress={onDismiss}
         accessibilityRole="button"
@@ -87,6 +109,13 @@ const useStyles = themedStyles((P) => ({
     fontSize: 12.5,
     fontWeight: '500',
     color: P.foreground,
+  },
+  info: {
+    width: 17,
+    height: 19,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dismiss: {
     width: 19,
