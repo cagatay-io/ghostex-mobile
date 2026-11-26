@@ -126,7 +126,7 @@ import {
 import WorkspaceTile, { workspaceMenuItems } from '../components/sessions/WorkspaceTile';
 import { agentChoicePlace, parseAgentChoiceScope, type AgentChoiceContext } from '../components/sessions/agentChoice';
 import { useLauncherStore } from '../components/sessions/launcherStore';
-import { expandedGroupBackground, inkWash, sidebarInk } from '../components/sessions/rows';
+import { ProjectMachineIcons, expandedGroupBackground, inkWash, sidebarInk } from '../components/sessions/rows';
 import SessionSearchSheet, { type ProjectHistoryScope } from '../components/sessions/SessionSearchSheet';
 import DelayedSendDialog from '../components/sessions/DelayedSendDialog';
 import NewCoordinatorSheet from './sessions-screen/NewCoordinatorSheet';
@@ -2219,6 +2219,11 @@ export default function SessionsScreen({ navigation }: Props) {
         <ContextMenu
           visible
           title={overlay.ctx.header.title}
+          headerAccessory={
+            overlay.menuPath.length === 0 ? (
+              <ProjectMachineIcons machineIds={overlay.ctx.header.machineIds ?? [overlay.ctx.machine.id]} />
+            ) : undefined
+          }
           {...projectMenuView(overlay.ctx, overlay.menuPath)}
           onClose={() => setOverlay(NONE)}
         />

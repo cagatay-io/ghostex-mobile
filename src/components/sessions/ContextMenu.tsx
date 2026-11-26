@@ -125,6 +125,8 @@ export type ContextMenuProps = {
   title: string;
   /** Optional second header line, e.g. the current submenu. */
   subtitle?: string;
+  /** Drawn on the second header line when there is no subtitle (the project menu's computer icons). */
+  headerAccessory?: ReactNode;
   items: ContextMenuItem[];
   onClose: () => void;
   /**
@@ -226,6 +228,7 @@ export default function ContextMenu({
   visible,
   title,
   subtitle,
+  headerAccessory,
   items,
   onClose,
   onDismissed,
@@ -367,6 +370,8 @@ export default function ContextMenu({
             <Text style={styles.headerSubtitle} numberOfLines={1}>
               {subtitle}
             </Text>
+          ) : headerAccessory !== undefined && headerAccessory !== null ? (
+            <View style={{ flexDirection: 'row' }}>{headerAccessory}</View>
           ) : null}
         </View>
         <ScrollView style={styles.menuScroll} contentContainerStyle={styles.menuContent} bounces={false}>

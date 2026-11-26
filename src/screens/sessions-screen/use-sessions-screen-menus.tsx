@@ -1033,7 +1033,7 @@ export function useSessionsScreenMenus({
   const projectMenuView = (
     ctx: ProjectContext,
     menuPath: readonly string[],
-  ): { subtitle: string; items: ContextMenuItem[] } => {
+  ): { subtitle?: string; items: ContextMenuItem[] } => {
     const { header } = ctx;
     const summary = summaryFor(ctx.machine.id);
     const order = projectOrderOf(ctx);
@@ -1069,7 +1069,8 @@ export function useSessionsScreenMenus({
       },
       appearance.foreground,
     );
-    return { subtitle: view.openedLabel ?? 'Project', items: view.items };
+    // CDXC:ProjectHeader 2026-11-26: no "Project" under the name; the root shows the project's computer icons there.
+    return view.openedLabel !== null ? { subtitle: view.openedLabel, items: view.items } : { items: view.items };
   };
 
   /** COLLECTION header menu root — desktop project-collection menu. */

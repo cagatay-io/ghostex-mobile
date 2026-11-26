@@ -427,7 +427,6 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
           backgroundWorkCount={header.backgroundWorkCount}
           awakeCount={header.awakeCount}
           primaryAgent={primaryAgent}
-          machineIds={header.machineIds}
           folderProblem={header.folderProblem}
           onFolderMark={() => actions.folderMark(machineId, header)}
           onToggle={() => actions.toggleProject(machineId, header)}

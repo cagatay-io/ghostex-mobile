@@ -1112,7 +1112,6 @@ export function ProjectHeaderRow({
   onOpenAgentMenu,
   onMenu,
   home,
-  machineIds,
   folderProblem,
   onFolderMark,
 }: {
@@ -1123,8 +1122,6 @@ export function ProjectHeaderRow({
    */
   folderProblem?: FolderProblemView;
   onFolderMark?: () => void;
-  /** The computers a project of the one list of every computer is on, when more than one: their icons follow the title. */
-  machineIds?: readonly string[];
   /** Project identity, ranked by ProjectIcon like the desktop header does. */
   icon: GhostexProjectIcon;
   collapsed: boolean;
@@ -1178,7 +1175,6 @@ export function ProjectHeaderRow({
           <LaptopOffGlyph size={ds(14)} color={folderProblem.quiet ? ink.muted : folderMarkAmber(lightTheme)} />
         </HeaderButton>
       ) : null}
-      {machineIds !== undefined && machineIds.length > 1 ? <ProjectMachineIcons machineIds={machineIds} /> : null}
       {collapsed ? (
         <ProjectStatusCounts
           workingCount={workingCount}
@@ -1214,8 +1210,13 @@ function folderMarkAmber(light: boolean): string {
   return light ? '#b8650a' : '#e8a33d';
 }
 
-/** The icons of a merged project's computers (desktop native_sidebar/project_header.rs machine chips). */
-function ProjectMachineIcons({ machineIds }: { machineIds: readonly string[] }) {
+/**
+ * The icons of a project's computers, shown in the header of the project's ⋯ menu where "Project" stood.
+ *
+ * CDXC:ProjectHeader 2026-11-26: The user asked to take the computer icons off the phone's project header row so the
+ * name gets the room, and to show them only inside the project's ⋯ menu; session rows keep their own computer icon.
+ */
+export function ProjectMachineIcons({ machineIds }: { machineIds: readonly string[] }) {
   const ink = useSidebarInk();
   const drawings = useComputerIconsStore(
     useShallow((state) =>
