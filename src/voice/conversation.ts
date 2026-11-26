@@ -46,6 +46,7 @@ import {
   stopClipTalk,
 } from './clipTalk';
 import { saveGbotVoice } from './gbotVoice';
+import { parseCallSessions, type CallSessions } from './callSessions';
 import { captionParagraphs, toolLineFrame } from './lines';
 import { microphoneAllowed, microphoneDeniedMessage } from './microphone';
 
@@ -112,6 +113,8 @@ type VoiceState = {
   focus: VoiceFocus | null;
   /** The session a call being started was asked to be about, until gxserver's `ready` names it. */
   requestedFocus: VoiceFocusTarget | null;
+  /** The sessions of this call (gxserver's `sessions` frame, `callSessions.ts`); null until one came, and always from an older computer. */
+  callSessions: CallSessions | null;
   /** The call microphone kept stopping, so each turn is recorded while Talk is held (`clipTalk.ts`). */
   clipTalk: boolean;
 };
@@ -181,6 +184,7 @@ const INITIAL: VoiceState = {
   shownSession: null,
   focus: null,
   requestedFocus: null,
+  callSessions: null,
   clipTalk: false,
 };
 
@@ -556,6 +560,14 @@ function onFrame(json: string): void {
       // In a call about one session the Open chip stays on that session (`shownFromFocus`).
       const shown = finished && useVoiceStore.getState().focus === null ? parseShownSession(frame.session) : null;
       if (shown !== null) set({ shownSession: shown });
+      return;
+    }
+    case 'sessions': {
+      // The call's session list; the log names how many, never the titles.
+      const list = parseCallSessions(frame);
+      if (list === null) return;
+      if (useVoiceStore.getState().callSessions === null) voiceLog(`the computer listed ${list.sessions.length + list.more} sessions for the call`);
+      set({ callSessions: list });
       return;
     }
     case 'announcement':
