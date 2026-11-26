@@ -487,7 +487,12 @@ function VoiceSessionsSheet({ visible, onClose }: { visible: boolean; onClose: (
       {list !== null && list.more > 0 ? (
         <Text style={styles.sheetNote}>{list.more === 1 ? '1 more session is not listed.' : `${list.more} more sessions are not listed.`}</Text>
       ) : null}
-      {list !== null && list.sessions.length === 0 && list.more === 0 ? (
+      {(list?.unavailable ?? []).map((computer) => (
+        <Text key={`unavailable-${computer}`} style={styles.sheetNote}>
+          {`Sessions on ${computer} are not listed: it can't be reached right now.`}
+        </Text>
+      ))}
+      {list !== null && list.sessions.length === 0 && list.more === 0 && list.unavailable.length === 0 ? (
         <Text style={styles.sheetNote}>No sessions are open.</Text>
       ) : null}
     </BottomSheet>

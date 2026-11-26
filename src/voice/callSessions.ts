@@ -55,8 +55,11 @@ export type CallSession = {
   subThreads: number | null;
 };
 
-/** The frame's list, with how many rows it left out (gxserver sends at most 40). */
-export type CallSessions = { sessions: CallSession[]; more: number };
+/**
+ * The frame's list, with how many rows it left out (gxserver sends at most 40) and the connected
+ * computers it could not read (their sessions are missing from the list, not closed).
+ */
+export type CallSessions = { sessions: CallSession[]; more: number; unavailable: string[] };
 
 const STATES: readonly CallSessionState[] = ['working', 'waitingOnQuestion', 'waitingOnApproval', 'idle', 'sleeping'];
 
@@ -92,7 +95,11 @@ export function parseCallSessions(frame: Record<string, unknown>): CallSessions 
     });
   }
   const more = typeof frame.more === 'number' && frame.more > 0 ? Math.floor(frame.more) : 0;
-  return { sessions, more };
+  // Optional: a computer from before it sends none.
+  const unavailable = Array.isArray(frame.unavailable)
+    ? frame.unavailable.filter((name): name is string => typeof name === 'string' && name.length > 0)
+    : [];
+  return { sessions, more, unavailable };
 }
 
 /** The state in the row's words. */
@@ -119,16 +126,24 @@ export function callSessionDetail(session: CallSession): string {
   return parts.join(' · ');
 }
 
-/** The strip's summary: "2 waiting · 3 working", or how many sessions there are when none waits or works. */
+/**
+ * The strip's summary of the rows it got: "2 waiting · 3 working", or how many sessions there are
+ * when none waits or works. A list that is not the whole says so: "40 working · 40 of 41 listed",
+ * "1 computer unreachable".
+ */
 export function callSessionsSummary(list: CallSessions): string {
   const waiting = list.sessions.filter((s) => s.state === 'waitingOnQuestion' || s.state === 'waitingOnApproval').length;
   const working = list.sessions.filter((s) => s.state === 'working').length;
+  const shown = list.sessions.length;
+  const total = shown + list.more;
   const parts: string[] = [];
   if (waiting > 0) parts.push(`${waiting} waiting`);
   if (working > 0) parts.push(`${working} working`);
-  if (parts.length > 0) return parts.join(' · ');
-  const total = list.sessions.length + list.more;
-  return total === 1 ? '1 session' : `${total} sessions`;
+  if (list.more > 0) parts.push(parts.length > 0 ? `${shown} of ${total} listed` : `${shown} of ${total} sessions listed`);
+  else if (parts.length === 0) parts.push(total === 1 ? '1 session' : `${total} sessions`);
+  const unreachable = list.unavailable.length;
+  if (unreachable > 0) parts.push(unreachable === 1 ? '1 computer unreachable' : `${unreachable} computers unreachable`);
+  return parts.join(' · ');
 }
 
 /**
