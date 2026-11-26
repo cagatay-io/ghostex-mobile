@@ -167,6 +167,15 @@ function MachineFormBody({ navigation, route }: Props) {
   const [publicKey, setPublicKeyText] = useState<string | null>(null);
   const [keyPassphrase, setKeyPassphrase] = useState('');
   const [generatingKey, setGeneratingKey] = useState(false);
+  /**
+   * CDXC:MachineCredentials 2026-11-27 WHY:
+   * Brief: "saving any one field never touches stored credentials". The key, its passphrase and
+   * public key are read from the secure store after the form opens; Save used to write them back
+   * from that state every time, so a Save before the read ended (or after a read that failed)
+   * deleted a saved key. They are written only once the person generated a key or edited the
+   * passphrase here; otherwise Save leaves the secure store's key entries as they are.
+   */
+  const keyEdits = useRef({ generated: false, passphrase: false });
   const [testState, setTestState, resetTest] = useTestState();
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<MachineValidationErrors | null>(null);
@@ -198,9 +207,13 @@ function MachineFormBody({ navigation, route }: Props) {
       ]);
       if (cancelled) return;
       if (storedToken !== null && storedToken.length > 0) setTailcatToken(storedToken);
-      if (key !== null && key.length > 0) setPrivateKey(key);
-      if (storedPassphrase !== null && storedPassphrase.length > 0) setKeyPassphrase(storedPassphrase);
-      if (storedPublicKey !== null && storedPublicKey.length > 0) setPublicKeyText(storedPublicKey);
+      // A key generated or a passphrase typed before the read ended is the one the person wants.
+      const edits = keyEdits.current;
+      if (!edits.generated && key !== null && key.length > 0) setPrivateKey(key);
+      if (!edits.generated && !edits.passphrase && storedPassphrase !== null && storedPassphrase.length > 0) {
+        setKeyPassphrase(storedPassphrase);
+      }
+      if (!edits.generated && storedPublicKey !== null && storedPublicKey.length > 0) setPublicKeyText(storedPublicKey);
     })();
     return () => {
       cancelled = true;
@@ -284,6 +297,7 @@ function MachineFormBody({ navigation, route }: Props) {
     setGeneratingKey(true);
     try {
       const generated = await GhostexNative.generateSshKey('ed25519', 'ghostex-phone');
+      keyEdits.current.generated = true;
       setPrivateKey(generated.privateKey);
       setPublicKeyText(generated.publicKey);
       resetTest();
@@ -327,12 +341,16 @@ function MachineFormBody({ navigation, route }: Props) {
       return;
     }
     const id = result.machine.id;
-    // The passphrase state was seeded from the store, so an untouched one is written back unchanged.
-    await Promise.all([
-      setSshKey(id, privateKey),
-      setPassphrase(id, privateKey.length > 0 ? keyPassphrase : ''),
-      setPublicKey(id, publicKey ?? ''),
-    ]);
+    // An edit writes the key entries only when this form changed them (keyEdits above).
+    if (existing === null || keyEdits.current.generated) {
+      await Promise.all([
+        setSshKey(id, privateKey),
+        setPassphrase(id, privateKey.length > 0 ? keyPassphrase : ''),
+        setPublicKey(id, publicKey ?? ''),
+      ]);
+    } else if (keyEdits.current.passphrase) {
+      await setPassphrase(id, keyPassphrase);
+    }
     if (existing === null) {
       openSessions(id);
       return;
@@ -444,7 +462,10 @@ function MachineFormBody({ navigation, route }: Props) {
         sshPortError={errors?.port}
         publicKey={publicKey}
         keyPassphrase={keyPassphrase}
-        onKeyPassphraseChange={editField(setKeyPassphrase)}
+        onKeyPassphraseChange={editField((value: string) => {
+          keyEdits.current.passphrase = true;
+          setKeyPassphrase(value);
+        })}
         onGenerateKey={() => void generateKey()}
         generatingKey={generatingKey}
         tailscaleSsh={tailscaleSsh}
