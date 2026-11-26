@@ -364,7 +364,8 @@ internal object GhostexVoice {
       conversationId?.let { query.append("&conversationId=").append(Uri.encode(it)) }
       if (conversationMode) provider?.let { query.append("&provider=").append(Uri.encode(it)) }
       if (conversationMode && conversationId == null) startFocus?.let { query.append("&focus=").append(Uri.encode(it)) }
-      if (!conversationMode) language?.let { query.append("&language=").append(Uri.encode(it)) }
+      // CDXC:VoiceMode 2026-11-25 WHY: a call sends the phone's language too; gxserver speaks it while its language setting is "device", and an older gxserver ignores it for calls.
+      language?.let { query.append("&language=").append(Uri.encode(it)) }
       val request = Request.Builder()
         .url("ws://127.0.0.1:$localPort/api/voice?$query")
         .header("Authorization", "Bearer $authToken")

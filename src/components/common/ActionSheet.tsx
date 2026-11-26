@@ -21,6 +21,8 @@ export type ActionSheetItem = {
   detail?: string;
   destructive?: boolean;
   disabled?: boolean;
+  /** Set on every row of a sheet that picks one choice: the row is a radio button, on when true. */
+  selected?: boolean;
   onPress: () => void;
 };
 
@@ -56,7 +58,8 @@ export default function ActionSheet({ visible, title, subtitle, items, onClose }
             {items.map((item) => (
               <Pressable
                 key={item.key}
-                accessibilityRole="button"
+                accessibilityRole={item.selected === undefined ? 'button' : 'radio'}
+                accessibilityState={item.selected === undefined ? undefined : { selected: item.selected }}
                 disabled={item.disabled === true}
                 style={({ pressed }) => [
                   styles.row,
