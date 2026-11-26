@@ -375,7 +375,7 @@ export type VoiceStartOptions = {
   /** The computer's name, shown in the "Voice mode on" notification (iOS: the CallKit call). */
   title: string;
   provider?: 'xai' | 'openai';
-  /** Dictation only: a BCP-47 hint for the recognizer. */
+  /** The phone's language as a primary subtag (`de`): dictation's recognizer hint, and the language a call speaks while the computer's setting is "device". */
   language?: string;
   /** Conversation only: `<projectId>:<sessionId>` for a call about one session (gxserver's `focus` query). */
   focus?: string;

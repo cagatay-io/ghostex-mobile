@@ -1858,6 +1858,18 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     ],
     "keywords": []
   },
+  "voiceAgentLanguage": {
+    "title": "Language",
+    "subtitle": "The language the voice agent speaks and listens for. Same as the calling device follows the language of the phone or computer that starts the call, and English when that language isn't one the agent speaks. A change applies to your next call.",
+    "options": [],
+    "keywords": []
+  },
+  "voiceAgentTurnWords": {
+    "title": "Turn words",
+    "subtitle": "The words that end your turn, separated by commas, for one language at a time: English \"reply\" and \"go ahead\", German \"fertig\" and \"antworte\", and the English ones for any other language until you set some. Up to 8, each up to 40 characters. Reset to defaults puts that language's own words back.",
+    "options": [],
+    "keywords": []
+  },
   "workspaceBackgroundColor": {
     "title": "Terminal background color",
     "subtitle": "Custom terminal background, painted behind terminal text in dark and light mode.",

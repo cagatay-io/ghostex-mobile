@@ -11,9 +11,10 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, PermissionsAndroid, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import ActionSheet from '../../components/common/ActionSheet';
+import { PlusGlyph, XGlyph } from '../../components/sessions/icons';
 import { useInventoryStore } from '../../inventory/store';
 import { jobActive, runRowAction, useMachineToolsStore } from '../../machines/machineTools';
 import { machineDisplayLabel, machineName, type MachineRecord } from '../../machines/store';
@@ -23,10 +24,21 @@ import { useAppearance } from '../../theme/useAppearance';
 import {
   readComputerCallMode,
   saveComputerCallMode,
-  saveComputerWaitForReply,
+  saveComputerVoiceAgent,
   callModeSwitchesLive,
+  sameTurnWord,
+  turnWordsPhrase,
+  voiceAgentCallLanguage,
+  voiceAgentDefaultTurnWords,
+  voiceAgentTurnWords,
   voiceCallModeNote,
+  waitForReplyText,
+  TURN_WORD_MAX_LENGTH,
+  TURN_WORDS_MAX,
+  VOICE_AGENT_DEVICE_LANGUAGE,
   VOICE_CALL_MODES,
+  type VoiceAgentLanguage,
+  type VoiceAgentSettingsChange,
   type VoiceCallMode,
 } from '../../voice/conversation';
 import {
@@ -44,6 +56,18 @@ import {
   useDictateStore,
 } from '../../voice/dictateSettings';
 import { voiceAgentOnIn } from '../../voice/featureSwitch';
+import {
+  closeVoiceAgentNotice,
+  startVoiceAgentRead,
+  startVoiceAgentSave,
+  voiceAgentOperation,
+  voiceAgentUnclearChange,
+  voiceAgentUnsettledWrite,
+  type UnclearChange,
+  type VoiceAgentRead,
+  type VoiceAgentReadOutcome,
+  type VoiceAgentSaveOutcome,
+} from '../../voice/voiceAgentSaves';
 import {
   changeWaitingMusic,
   loadWaitingMusic,
@@ -78,6 +102,8 @@ export default function VoicePage() {
   const { machine, machines } = useVoiceComputer();
   const loadedFor = useDictateStore((state) => state.loadedFor);
   const machineId = machine?.id ?? null;
+  // Whether the voice agent section has a read or a save in flight for the shown computer; the picker is locked meanwhile.
+  const [voiceAgentBusy, setVoiceAgentBusy] = useState(false);
 
   // Read fresh each time the page opens or another computer is picked (not when the record's
   // other fields change, such as its last connection time).
@@ -100,24 +126,38 @@ export default function VoicePage() {
   if (isDemoMachine(machine)) {
     return (
       <SettingsScreenLayout>
-        {machines.length > 1 ? <ComputerPicker machine={machine} machines={machines} /> : null}
+        {machines.length > 1 ? <ComputerPicker machine={machine} machines={machines} locked={false} /> : null}
         <Caption>{DemoCopy.voiceNote}</Caption>
       </SettingsScreenLayout>
     );
   }
   return (
     <SettingsScreenLayout>
-      <ComputerPicker machine={machine} machines={machines} />
+      <ComputerPicker machine={machine} machines={machines} locked={voiceAgentBusy} />
       {loadedFor === machine.id ? <DictateSection machine={machine} /> : null}
-      <CallModeSection machine={machine} />
+      <CallModeSection machine={machine} onBusyChange={setVoiceAgentBusy} />
       <WaitingMusicSection />
       <PhoneSection />
     </SettingsScreenLayout>
   );
 }
 
-/** The card at the top: which computer the settings below are saved on; a tap picks another. */
-function ComputerPicker({ machine, machines }: { machine: MachineRecord; machines: MachineRecord[] }) {
+/**
+ * The card at the top: which computer the settings below are saved on; a tap picks another.
+ *
+ * CDXC:VoiceMode 2026-11-26 DECISION: User: while a save or a read of the voice agent settings is in flight for the shown computer, the computer picker is locked too, so nobody can switch away and back during an operation. The lock ends as soon as the operation ends: a success, a refusal once the read after it answered, that read failing for good, or the request running out of time. After a failed or timed-out read, switching to another computer works again at once, and on the page itself only Try again works.
+ * WHY: switching away and back while a save was in flight started a second operation on that computer, so the page could show and then edit the language the save was replacing.
+ */
+function ComputerPicker({
+  machine,
+  machines,
+  locked,
+}: {
+  machine: MachineRecord;
+  machines: MachineRecord[];
+  /** A read or save of the voice agent section is in flight: no other computer can be picked. */
+  locked: boolean;
+}) {
   const styles = useSettingsStyles();
   const appearance = useAppearance();
   const [open, setOpen] = useState(false);
@@ -148,10 +188,11 @@ function ComputerPicker({ machine, machines }: { machine: MachineRecord; machine
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Voice settings for ${machineDisplayLabel(machine)}`}
-          accessibilityHint={several ? 'Picks another computer' : undefined}
-          disabled={!several}
+          accessibilityHint={several ? (locked ? 'Waiting for the voice agent settings' : 'Picks another computer') : undefined}
+          accessibilityState={{ disabled: !several || locked, busy: locked }}
+          disabled={!several || locked}
           onPress={() => setOpen(true)}
-          style={({ pressed }) => [styles.row, local.computer, pressed && styles.rowPressed]}
+          style={({ pressed }) => [styles.row, local.computer, pressed && styles.rowPressed, locked && styles.rowDisabled]}
         >
           <View style={styles.linkText}>
             <Text style={styles.linkTitle}>{machineDisplayLabel(machine)}</Text>
@@ -170,6 +211,7 @@ function ComputerPicker({ machine, machines }: { machine: MachineRecord; machine
           detail: engines[entry.id] ?? 'Dictate: asking…',
           onPress: () => {
             setOpen(false);
+            if (locked) return;
             chooseVoiceComputer(entry.id);
           },
         }))}
@@ -292,55 +334,300 @@ function HexBlock({ machine }: { machine: MachineRecord }) {
   );
 }
 
+/**
+ * What the voice agent section is doing with its computer: reading its settings, showing why a read failed, saving
+ * one change, showing that a save's outcome is unclear (`saveUnclear`: no answer within the deadline, or an answer
+ * that is not the computer's refusal), waiting for such a save to end before reading again (`awaitingSave`), or
+ * nothing (`idle`, the only phase in which a control works). Whether the computer has a read or save in flight is
+ * voice/voiceAgentSaves.ts's to say (`voiceAgentOperation`); while it has one, the section shows that one.
+ */
+type CallModePhase = 'reading' | 'readFailed' | 'saving' | 'saveUnclear' | 'awaitingSave' | 'idle';
+
+/**
+ * The unclear change's notice below its first line, once the computer has been read again, built from that read
+ * (`savedNow`): for the save's target language and the language calls speak now, the list read now (`Saved now`) and
+ * the list read before the save (`Last read`), each the words in effect, named "default words" when they are the
+ * defaults; then how to fix them, and how to show the turn words' editor when that read hides it. `shown` is the read
+ * the controls below show (`null` while they show none). Only while it is `savedNow` are the lists current and the
+ * notice says how to fix them; otherwise (the page was opened again, or a save was confirmed, and the computer is
+ * being read again or that read failed) the lists are labelled as read before the last change, and with `tryAgain`
+ * (only Try again works) the notice says to use it first. It says nothing about where the change landed.
+ */
+function unclearChangeDetail(change: UnclearChange, shown: VoiceAgentRead | null, tryAgain: boolean): string | undefined {
+  const now = change.savedNow;
+  const read = now?.agentLanguage ?? null;
+  if (now === null || read === null) return undefined;
+  const callLanguage = voiceAgentCallLanguage(read);
+  const label = (code: string): string =>
+    (read.languages.find((entry) => entry.code === code) ?? change.lastRead.languages.find((entry) => entry.code === code))
+      ?.label ?? code;
+  const words = (settings: VoiceAgentLanguage, code: string): string => {
+    const list = voiceAgentTurnWords(settings, code);
+    const defaults = voiceAgentDefaultTurnWords(settings, code);
+    const atDefaults = list.length === defaults.length && list.every((word, index) => word === defaults[index]);
+    return `${turnWordsPhrase(list)}${atDefaults ? ' (default words)' : ''}`;
+  };
+  const languages = change.target === callLanguage ? [callLanguage] : [change.target, callLanguage];
+  if (shown !== now) {
+    // The controls below do not show this read: until the computer has been read again nothing here is current.
+    return [
+      ...languages.map(
+        (code) =>
+          `${label(code)}\nRead before your last change: ${words(read, code)}\nLast read: ${words(change.lastRead, code)}`,
+      ),
+      ...(tryAgain
+        ? ['Tap Try again below first. Once the settings have been read again, this notice says how to fix the turn words.']
+        : []),
+    ].join('\n\n');
+  }
+  const regular = VOICE_CALL_MODES.find((choice) => choice.mode === 'regular')?.label ?? 'Regular';
+  const steps = [
+    ...(now.mode !== 'regular' ? [`choose ${regular}`] : []),
+    ...(now.waitForReply !== true ? ['turn on "Answer when I say …"'] : []),
+  ];
+  return [
+    ...languages.map(
+      (code) =>
+        `${label(code)}${code === callLanguage ? ' (calls speak it now)' : ''}\nSaved now: ${words(read, code)}\nLast read: ${words(change.lastRead, code)}`,
+    ),
+    `For ${label(callLanguage)}, edit the turn words below. For another language, set Language to it for a moment, enter the words or tap Reset to default, then set Language back.`,
+    ...(steps.length > 0
+      ? [
+          `The turn words show only for ${regular} calls with "Answer when I say …" on: ${steps.join(' and ')} to see them. You can change ${steps.length > 1 ? 'them' : 'it'} back afterwards.`,
+        ]
+      : []),
+  ].join('\n\n');
+}
+
 /** The voice agent's call mode on the picked computer (the old Settings › Voice agent). */
-function CallModeSection({ machine }: { machine: MachineRecord }) {
+function CallModeSection({
+  machine,
+  onBusyChange,
+}: {
+  machine: MachineRecord;
+  /** Whether a read or a save is in flight (the page locks the computer picker meanwhile). */
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const styles = useSettingsStyles();
   // The computer's voice agent switch (Settings > Extensions there); its call mode means nothing while it is off.
   const switchedOn = useInventoryStore((state) => voiceAgentOnIn(state.inventoriesByMachineId[machine.id]?.summary));
   const [mode, setMode] = useState<VoiceCallMode | null>(null);
   const [waitForReply, setWaitForReply] = useState<boolean | null>(null);
+  // `null`: a computer too old to have a language setting and turn words per language (the rows stay hidden).
+  const [agentLanguage, setAgentLanguage] = useState<VoiceAgentLanguage | null>(null);
+  // The read the controls show, until they are cleared for another read or show a value the computer confirmed; the
+  // notice presents its lists as current only while they come from this read (see `unclearChangeDetail`).
+  const [shownRead, setShownRead] = useState<VoiceAgentRead | null>(null);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [shownPhase, setPhase] = useState<CallModePhase>('reading');
+  // The turn word typed but not added yet, per computer id. It is kept here rather than in the turn words' editor,
+  // which is hidden while the settings are read again, so the word outlasts the lock, a refusal and the read after it;
+  // only adding it or clearing the field empties it.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // This computer's unclear change, read from voice/voiceAgentSaves.ts while drawing, so another computer never shows
+  // it; closing it draws the page again through `redraw`.
+  const unclear = voiceAgentUnclearChange(machine.id);
+  const inFlight = voiceAgentOperation(machine.id);
+  const [, redraw] = useState(0);
   const name = computerName(machine);
+  // CDXC:VoiceMode 2026-11-26 DECISION: User: per computer at most one operation is in flight, a save or the read that confirms or replaces it. A save of the call mode, "Answer when I say …", the language or the turn words locks all of these controls from the moment it starts until the page shows a value the computer confirmed: the saved value after a success, or, after a refusal, what the computer answers when it is read again. Nothing is shown before the computer confirmed it. If that read fails, only Try again works until a read succeeds; the page's first read locks the controls the same way. Switching computers during an operation is no longer possible: the computer picker is locked while a read or save is in flight (see `ComputerPicker`), which replaces dropping the answer of an operation left behind on another computer.
+  // CDXC:VoiceMode 2026-11-26 DECISION: User: a save that runs out of the deadline has an unclear outcome: every edit for that computer stays locked and only Try again works, and Try again reads only once that save has really ended (answered or failed); until then it waits and says so. Switching to another computer stays free at once.
+  // WHY: optimistic saves running beside re-reads let an older answer overtake a newer one, so the page showed (and the next turn-word edit used) a value the computer did not have; a read sent while a timed-out save is still running can be overtaken by that save the same way.
+  // CDXC:VoiceMode 2026-11-26 DECISION: User: a save whose answer is not the computer's refusal (a timeout or a lost request) has an unclear outcome too, like one that runs out of the deadline. When it saved the language or turn words, a notice above the controls says "The last change on <computer> is unclear. Please check the turn words." and, once the computer has been read again, shows for the save's language and the language calls speak now the list read now ("Saved now") beside the one read before the save ("Last read"), and how to fix them. It never says where a word landed, and it stays until the user closes it, also when the page is closed and opened again.
+  // WHY: a turn word save writes the whole list of every language, so a save the computer may still carry out can overwrite another language's words, and the phone cannot tell where it landed.
+  // CDXC:VoiceMode 2026-11-26 DECISION: User: the notice and the turn words' editor are built from the same read: while the notice is open, a confirmed save is followed by a read of the computer, and the editor and the notice show what that read returned. "Last read" shows only lists the phone read from the computer, never what it sent. When that read hides the editor, the notice says how to show it (Regular calls with "Answer when I say …" on) and that the user can change those back afterwards.
+  // WHY: after the recovery's language change the notice still named the language read before it while the editor below edited another one, and "Last read" could show words the phone had sent but never read.
+  // CDXC:VoiceMode 2026-11-26 DECISION: User: while the notice is open and the controls below do not show the read its lists come from (the page was opened again or a save was confirmed, and the new read is pending or failed), the notice labels those lists "Read before your last change", not "Saved now", and says nothing about fixing them; after a failed read it says to use Try again first. Once the new read answers, the notice shows "Saved now" from that read and how to fix the turn words.
+  // WHY: a page opened again with an earlier read showed that read as "Saved now" and pointed to the turn words below while the page was still reading or the read had failed, so the editor it named was not there.
+  // `phase` is what the page waits for; `operation.current.phase` mirrors it so a second tap before the next render sends nothing. Every operation the page waits for takes the next generation, and unmounting or a new computer takes one too, so an answer changes the page only while the page still waits for it. That guard drops only what the page shows: voice/voiceAgentSaves.ts records every outcome for its computer whatever the page does meanwhile.
+  const operation = useRef<{ generation: number; phase: CallModePhase }>({ generation: 0, phase: 'reading' });
+  const phase: CallModePhase = inFlight === undefined ? shownPhase : inFlight.kind === 'save' ? 'saving' : 'reading';
+  const locked = phase !== 'idle';
+  const lateAnswer = `Ghostex on ${name} didn't answer in time.`;
 
-  useEffect(() => {
-    let live = true;
+  const enter = (next: CallModePhase) => {
+    operation.current.phase = next;
+    setPhase(next);
+    // Waiting for a timed-out save to end is not an operation of the page: switching computers stays free.
+    onBusyChange(next === 'reading' || next === 'saving');
+  };
+
+  /** Shows the read `outcome` while the page still waits for it (`generation`); `refusal` as in `load`. */
+  const showRead = (generation: number, refusal: string | null, outcome: Promise<VoiceAgentReadOutcome>) => {
+    void outcome.then((answer) => {
+      if (operation.current.generation !== generation) return;
+      if ('read' in answer) {
+        setMode(answer.read.mode);
+        setWaitForReply(answer.read.waitForReply);
+        setAgentLanguage(answer.read.agentLanguage);
+        setShownRead(answer.read);
+        enter('idle');
+      } else {
+        const error = answer.error ?? lateAnswer;
+        setProblem(refusal === null ? error : `${refusal} Couldn't read the settings again: ${error}`);
+        enter('readFailed');
+      }
+    });
+  };
+
+  /**
+   * Shows the save `outcome` while the page still waits for it (`generation`): a success shows the saved value through
+   * `confirmed`, or, while the notice is open or the value is unknown (a save started before the page opened), what
+   * the computer answers when it is read again; a refusal shows why and reads the computer again; an unclear outcome
+   * leaves only Try again (see `load`).
+   */
+  const showSave = (generation: number, outcome: Promise<VoiceAgentSaveOutcome>, confirmed?: () => void) => {
+    void outcome.then((answer) => {
+      if (operation.current.generation !== generation) return;
+      if (answer.kind === 'unclear') {
+        setProblem(
+          answer.answer === null
+            ? `Couldn't save it on your computer: ${lateAnswer} The change may still arrive; Try again reads the settings once ${name} has answered it.`
+            : `Couldn't save it on your computer: ${answer.answer} The change may still arrive; Try again reads the settings again.`,
+        );
+        enter('saveUnclear');
+      } else if (answer.kind === 'refused') {
+        load(`Couldn't save it on your computer: ${answer.error}`);
+      } else if (confirmed === undefined || voiceAgentUnclearChange(machine.id) !== undefined) {
+        load(null);
+      } else {
+        setShownRead(null);
+        confirmed();
+        enter('idle');
+      }
+    });
+  };
+
+  /**
+   * Reads the computer's settings; `refusal` is the reason shown meanwhile and kept after the read. While a save of
+   * this computer is still unanswered, it waits for that save to end first.
+   */
+  const load = (refusal: string | null) => {
+    const generation = ++operation.current.generation;
     setMode(null);
     setWaitForReply(null);
+    setAgentLanguage(null);
+    setShownRead(null);
+    setProblem(refusal);
+    const unsettled = voiceAgentUnsettledWrite(machine.id);
+    if (unsettled !== undefined) {
+      enter('awaitingSave');
+      void unsettled.then(() => {
+        if (operation.current.generation === generation) load(refusal);
+      });
+      return;
+    }
+    const outcome = startVoiceAgentRead(machine.id, () => readComputerCallMode(machine));
+    enter('reading');
+    showRead(generation, refusal, outcome);
+  };
+
+  /**
+   * Sends `save` only while nothing else is in flight, with every control locked until it is answered (see
+   * `showSave`). `language` is the language whose turn words a save of the language or of turn words concerns; for
+   * such a save an unclear outcome also opens the notice to check the turn words.
+   */
+  const saveThen = (save: () => Promise<string | null>, confirmed: () => void, language?: string) => {
+    if (operation.current.phase !== 'idle' || voiceAgentOperation(machine.id) !== undefined) return;
+    const generation = ++operation.current.generation;
     setProblem(null);
-    void readComputerCallMode(machine).then((answer) => {
-      if (!live) return;
-      if ('mode' in answer) {
-        setMode(answer.mode);
-        setWaitForReply(answer.waitForReply);
-      } else setProblem(answer.error);
-    });
+    const outcome = startVoiceAgentSave(machine.id, save, language);
+    enter('saving');
+    showSave(generation, outcome, confirmed);
+  };
+
+  useEffect(() => {
+    // A read or save still in flight from before the page opened (or before it showed another computer) keeps the
+    // page and the picker locked until it is answered or runs out; otherwise the page reads.
+    const pending = voiceAgentOperation(machine.id);
+    if (pending === undefined) {
+      load(null);
+    } else {
+      const generation = ++operation.current.generation;
+      setMode(null);
+      setWaitForReply(null);
+      setAgentLanguage(null);
+      setShownRead(null);
+      setProblem(null);
+      enter(pending.kind === 'save' ? 'saving' : 'reading');
+      if (pending.kind === 'save') showSave(generation, pending.outcome);
+      else showRead(generation, null, pending.outcome);
+    }
     return () => {
-      live = false;
+      // Reads and saves of this computer no longer change the page, and the picker is free again.
+      operation.current.generation += 1;
+      onBusyChange(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [machine.id]);
 
   const choose = (next: VoiceCallMode) => {
     if (next === mode) return;
-    const previous = mode;
-    setMode(next);
-    setProblem(null);
-    void saveComputerCallMode(machine, next).then((error) => {
-      if (error === null) return;
-      setMode(previous);
-      setProblem(`Couldn't save it on your computer: ${error}`);
-    });
+    saveThen(
+      () => saveComputerCallMode(machine, next),
+      () => setMode(next),
+    );
   };
 
   const chooseWait = (next: boolean) => {
-    const previous = waitForReply;
-    setWaitForReply(next);
-    setProblem(null);
-    void saveComputerWaitForReply(machine, next).then((error) => {
-      if (error === null) return;
-      setWaitForReply(previous);
-      setProblem(`Couldn't save it on your computer: ${error}`);
-    });
+    saveThen(
+      () => saveComputerVoiceAgent(machine, { waitForReply: next }),
+      () => setWaitForReply(next),
+    );
   };
+
+  /** Saves `change`, which concerns `language`'s turn words; once the computer took it, the page shows `next`. */
+  const saveLanguageSetting = (change: VoiceAgentSettingsChange, next: VoiceAgentLanguage, language: string) => {
+    saveThen(
+      () => saveComputerVoiceAgent(machine, change),
+      () => setAgentLanguage(next),
+      language,
+    );
+  };
+
+  // The language a call from this phone speaks, whose turn words the switch names and the editor changes.
+  const callLanguage = agentLanguage === null ? null : voiceAgentCallLanguage(agentLanguage);
+  const words = agentLanguage === null || callLanguage === null ? null : voiceAgentTurnWords(agentLanguage, callLanguage);
+  const waitText = waitForReplyText(words);
+  const languageName = (code: string): string =>
+    agentLanguage?.languages.find((entry) => entry.code === code)?.label ?? code;
+
+  const chooseLanguage = (language: string) => {
+    setLanguageOpen(false);
+    if (agentLanguage === null || language === agentLanguage.language) return;
+    // Calls speak the chosen language's code, or for "Same as this phone" the phone's language when offered.
+    const next = { ...agentLanguage, language };
+    saveLanguageSetting({ language }, next, voiceAgentCallLanguage(next));
+  };
+
+  /** Saves the call language's turn words; an empty list brings back its defaults. */
+  const saveTurnWords = (next: string[]) => {
+    if (agentLanguage === null || callLanguage === null) return;
+    const effective = next.length === 0 ? voiceAgentDefaultTurnWords(agentLanguage, callLanguage) : next;
+    saveLanguageSetting(
+      { turnWordsLanguage: callLanguage, turnWords: next },
+      { ...agentLanguage, turnWords: { ...agentLanguage.turnWords, [callLanguage]: effective } },
+      callLanguage,
+    );
+  };
+
+  const status =
+    phase === 'saving'
+      ? `Saving on ${name}…`
+      : phase === 'reading'
+        ? 'Reading the setting from your computer…'
+        : phase === 'awaitingSave'
+          ? `Waiting for ${name} to answer the last change before reading the settings again…`
+          : phase === 'readFailed'
+            ? `Couldn't read the settings from ${name}. Try again below.`
+            : phase === 'saveUnclear'
+              ? `${name} hasn't answered the last change. Try again below.`
+              : null;
+  const waiting = phase === 'saving' || phase === 'reading' || phase === 'awaitingSave';
+  // A failed read (the first one, or the one after a refusal) or a save without an answer: only Try again works, and
+  // it reads once no save of this computer is unanswered any more.
+  const tryAgain = phase === 'readFailed' || phase === 'saveUnclear';
 
   return (
     <SettingsSection name="settings:voice:call-mode">
@@ -351,25 +638,103 @@ function CallModeSection({ machine }: { machine: MachineRecord }) {
         </Caption>
       ) : (
         <>
-          {VOICE_CALL_MODES.map((choice) => (
-            <ChoiceRow
-              key={choice.mode}
-              label={choice.label}
-              selected={mode === choice.mode}
-              onPress={() => choose(choice.mode)}
-            />
-          ))}
-          {/* CDXC:VoiceMode 2026-11-12 DECISION: User (Q2749): the phone gets the desktop's "Answer when I say "reply"" switch, saved on the computer like the call mode, and shown only for Regular calls (Q2748); server/src/voice_agent/keys.rs holds the decision. A computer too old to have it shows no row. */}
-          {mode === 'regular' && waitForReply !== null ? (
-            <ToggleRow
-              label={'Answer when I say "reply"'}
-              detail={
-                'The voice agent keeps listening until you end with "reply", "over" or "go ahead", then answers. Each Regular call starts with it saying "Hey, I hear you. Please say reply after you finish speaking so I can reply to you." Off: it answers when you pause.'
-              }
-              value={waitForReply}
-              onValueChange={chooseWait}
+          {/* Outside the controls, so its Close works and it is announced while they are locked. */}
+          {unclear !== undefined ? (
+            <NoticeCard
+              title={`The last change on ${name} is unclear. Please check the turn words.`}
+              detail={unclearChangeDetail(unclear, shownRead, tryAgain)}
+              actions={[
+                {
+                  label: 'Close',
+                  onPress: () => {
+                    closeVoiceAgentNotice(machine.id);
+                    redraw((count) => count + 1);
+                  },
+                },
+              ]}
             />
           ) : null}
+          {/* While locked the controls are dimmed, take no touches, and read as one busy element. */}
+          <View
+            pointerEvents={locked ? 'none' : 'auto'}
+            accessible={locked}
+            accessibilityLabel={status ?? undefined}
+            accessibilityState={{ disabled: locked, busy: waiting }}
+            style={[local.controls, locked ? styles.rowDisabled : null]}
+          >
+            {VOICE_CALL_MODES.map((choice) => (
+              <ChoiceRow
+                key={choice.mode}
+                label={choice.label}
+                selected={mode === choice.mode}
+                onPress={() => choose(choice.mode)}
+              />
+            ))}
+            {/* CDXC:VoiceMode 2026-11-25 DECISION: User: the voice agent's language is a setting, by default the calling device's language, and the turn words are set per language. A computer that has them gets a Language row (a picker with "Same as this phone" and its languages) and, under the switch, the turn words of the language a call from this phone speaks; the switch names those words. A computer too old to have them shows the page as before. */}
+            {agentLanguage !== null && callLanguage !== null ? (
+              <>
+                <LinkRow
+                  title="Language"
+                  description={
+                    agentLanguage.language === VOICE_AGENT_DEVICE_LANGUAGE
+                      ? `Same as this phone: ${languageName(callLanguage)}`
+                      : languageName(agentLanguage.language)
+                  }
+                  onPress={() => setLanguageOpen(true)}
+                />
+                <ActionSheet
+                  visible={languageOpen}
+                  title="Voice agent language"
+                  subtitle={`The language the voice agent on ${name} speaks in calls.`}
+                  items={[
+                    {
+                      key: VOICE_AGENT_DEVICE_LANGUAGE,
+                      label: 'Same as this phone',
+                      detail: languageName(
+                        voiceAgentCallLanguage({ ...agentLanguage, language: VOICE_AGENT_DEVICE_LANGUAGE }),
+                      ),
+                    },
+                    ...agentLanguage.languages.map((entry) => ({ key: entry.code, label: entry.label })),
+                  ].map((item) => {
+                    const selected = agentLanguage.language === item.key;
+                    return {
+                      ...item,
+                      label: `${selected ? '✓ ' : ''}${item.label}`,
+                      selected,
+                      onPress: () => chooseLanguage(item.key),
+                    };
+                  })}
+                  onClose={() => setLanguageOpen(false)}
+                />
+              </>
+            ) : null}
+            {/* CDXC:VoiceMode 2026-11-12 DECISION: User (Q2749): the phone gets the desktop's "Answer when I say "reply"" switch, saved on the computer like the call mode, and shown only for Regular calls (Q2748); server/src/voice_agent/keys.rs holds the decision. A computer too old to have it shows no row. */}
+            {mode === 'regular' && waitForReply !== null ? (
+              <ToggleRow
+                label={waitText.label}
+                detail={waitText.detail}
+                value={waitForReply}
+                onValueChange={chooseWait}
+              />
+            ) : null}
+            {mode === 'regular' &&
+            waitForReply === true &&
+            agentLanguage !== null &&
+            callLanguage !== null &&
+            words !== null ? (
+              <TurnWordsBlock
+                languageName={languageName(callLanguage)}
+                language={callLanguage}
+                words={words}
+                defaults={voiceAgentDefaultTurnWords(agentLanguage, callLanguage)}
+                disabled={locked}
+                draft={drafts[machine.id] ?? ''}
+                onDraftChange={(draft) => setDrafts((known) => ({ ...known, [machine.id]: draft }))}
+                onSave={saveTurnWords}
+              />
+            ) : null}
+          </View>
+          {waiting ? <Caption>{status}</Caption> : null}
           {VOICE_CALL_MODES.map((choice) => (
             <Caption key={choice.mode}>{`${choice.label}: ${choice.detail}`}</Caption>
           ))}
@@ -378,11 +743,134 @@ function CallModeSection({ machine }: { machine: MachineRecord }) {
             The voice agent keeps its own provider (OpenAI or xAI), set on the computer; Dictate's engine never changes
             it.
           </Caption>
-          {mode === null && problem === null ? <Caption>Reading the setting from your computer…</Caption> : null}
-          {problem !== null ? <NoticeCard title="Couldn't change the setting" detail={problem} /> : null}
+          {problem !== null ? (
+            <NoticeCard
+              title="Couldn't change the setting"
+              detail={problem}
+              actions={tryAgain ? [{ label: 'Try again', onPress: () => load(null) }] : undefined}
+            />
+          ) : null}
         </>
       )}
     </SettingsSection>
+  );
+}
+
+/**
+ * The turn words of the language a call from this phone speaks: one row per word with a remove
+ * button (the last word stays; Reset to default brings back the defaults), a field that adds one,
+ * and Reset to default while they differ from the defaults. Each change is saved at once; while
+ * `disabled` (a save or read in flight) nothing can be changed. The field's text is `draft`, held by
+ * the section so that it stays while this editor is hidden. A word the computer would take for one
+ * already in the list (`sameTurnWord`) is not added: the field keeps it and a line under it says
+ * which word is already there, until the field changes.
+ */
+function TurnWordsBlock({
+  languageName,
+  language,
+  words,
+  defaults,
+  disabled,
+  draft,
+  onDraftChange,
+  onSave,
+}: {
+  languageName: string;
+  /** The code of the language the words belong to, which decides how case is compared. */
+  language: string;
+  words: string[];
+  defaults: string[];
+  disabled: boolean;
+  /** The word typed in the field and not added yet. */
+  draft: string;
+  onDraftChange: (draft: string) => void;
+  /** The new list; empty brings back the defaults. */
+  onSave: (words: string[]) => void;
+}) {
+  const styles = useSettingsStyles();
+  const appearance = useAppearance();
+  /** The field's text when Add refused it as a word already in the list. */
+  const [refused, setRefused] = useState<string | null>(null);
+  const atDefaults = words.length === defaults.length && words.every((word, index) => word === defaults[index]);
+  const cannotAdd = disabled || draft.trim().length === 0;
+  const listed = (word: string) => words.find((known) => sameTurnWord(known, word, language));
+  const alreadyListed = refused === draft ? listed(draft.trim()) : undefined;
+
+  const add = () => {
+    const word = draft.trim();
+    if (disabled || word.length === 0) return;
+    if (listed(word) !== undefined) {
+      setRefused(draft);
+      return;
+    }
+    onDraftChange('');
+    onSave([...words, word]);
+  };
+
+  return (
+    <>
+      {/* Settings search's "Turn words" lands here, at the top of the words. */}
+      <SettingsSearchAnchor label="Turn words">
+        <Caption>{`Turn words in ${languageName}: end what you say with one of them and the voice agent answers.`}</Caption>
+      </SettingsSearchAnchor>
+      {words.map((word) => (
+        <View key={word} style={styles.row}>
+          <Text style={styles.rowLabel}>{word}</Text>
+          {words.length > 1 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Remove turn word “${word}”`}
+              accessibilityState={{ disabled }}
+              disabled={disabled}
+              hitSlop={8}
+              style={local.remove}
+              onPress={() => onSave(words.filter((entry) => entry !== word))}
+            >
+              <XGlyph size={14} color={appearance.mutedGlyph} />
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+      {words.length < TURN_WORDS_MAX ? (
+        <View style={styles.row}>
+          <TextInput
+            keyboardAppearance={appearance.light ? 'light' : 'dark'}
+            accessibilityLabel={`New turn word in ${languageName}`}
+            placeholder="Add a turn word"
+            placeholderTextColor={appearance.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={TURN_WORD_MAX_LENGTH}
+            returnKeyType="done"
+            editable={!disabled}
+            style={[styles.rowLabel, local.field]}
+            value={draft}
+            onChangeText={(text) => {
+              setRefused(null);
+              onDraftChange(text);
+            }}
+            onSubmitEditing={add}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add turn word"
+            accessibilityState={{ disabled: cannotAdd }}
+            disabled={cannotAdd}
+            hitSlop={8}
+            style={local.remove}
+            onPress={add}
+          >
+            <PlusGlyph size={18} color={cannotAdd ? appearance.mutedGlyph : appearance.foreground} />
+          </Pressable>
+        </View>
+      ) : null}
+      {words.length < TURN_WORDS_MAX && alreadyListed !== undefined ? (
+        <Caption>{`"${alreadyListed}" is already in the list.`}</Caption>
+      ) : null}
+      {!atDefaults ? (
+        <LinkRow title="Reset to default" description={`Back to ${turnWordsPhrase(defaults)}`} onPress={() => onSave([])} />
+      ) : null}
+    </>
   );
 }
 
@@ -518,6 +1006,10 @@ function PhoneSection() {
 
 const local = StyleSheet.create({
   computer: { minHeight: 56, borderColor: GhostexPalette.ACCENT },
+  // The voice agent's controls in one lockable group, spaced like the Settings list's own rows (`list` gap).
+  controls: { gap: 8 },
+  field: { flex: 1, minHeight: 32, paddingVertical: 4 },
+  remove: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   pieceChoice: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   previewButton: { width: 'auto', minWidth: 76, paddingHorizontal: 12 },
 });

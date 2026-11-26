@@ -354,7 +354,7 @@ export type CoordinatorOlderItem = {
   inSessionGroup?: boolean;
 };
 
-/** Main Hub's quiet "New chat" row at the end of Chats, with "Anything, no project needed" underneath. */
+/** Main Hub's quiet "New chat" row at the end of Chats. */
 export type HomeNewChatItem = {
   type: 'HOME_NEW_CHAT';
   key: string;

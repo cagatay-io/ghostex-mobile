@@ -21,6 +21,7 @@ import { create } from 'zustand';
 import { GhostexNative, type VoiceEvent } from '../../modules/ghostex-native/src';
 import { logAppEvent } from '../app/appLog';
 import { chatMachineLink } from '../chat/rust/machine-link';
+import { isRecord } from '../docs/entries';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { enabledMachines, useMachinesStore } from '../machines/store';
 import {
@@ -935,11 +936,14 @@ export async function startVoice(
     }
     if (useVoiceStore.getState().phase !== 'starting') return;
     askedForFocus = about !== undefined;
+    // CDXC:VoiceMode 2026-11-25 WHY: the call sends the phone's language as Dictate does; the computer speaks it while its language setting is "Same as the calling device" (an older computer ignores it and keeps English). The native code adds it to the conversation query only from the build that has this change.
+    const language = deviceLanguage();
     nativeSessionId = await GhostexNative.voiceStart({
       mode: 'conversation',
       localPort: forward.localPort,
       authToken: forward.authToken,
       title: machineName,
+      ...(language !== undefined ? { language } : {}),
       ...(about !== undefined ? { focus: focusQuery(about) } : {}),
     });
     // This phone's waiting music follows the open call once its piece is found, and only while this call runs
@@ -1102,17 +1106,24 @@ export function setCallMode(mode: VoiceCallMode): void {
 /** The call mode saved on `machine` (Settings › Voice agent), or an error sentence. */
 export async function readComputerCallMode(
   machine: MachineConnectionTarget,
-): Promise<{ mode: VoiceCallMode; waitForReply: boolean | null } | { error: string }> {
+): Promise<
+  { mode: VoiceCallMode; waitForReply: boolean | null; agentLanguage: VoiceAgentLanguage | null } | { error: string }
+> {
   try {
     const answer = await chatMachineLink(machine).rpc('readVoiceAgent', {}, READ_TIMEOUT_MS);
     if (answer.error !== null) return { error: answer.error.message };
-    const result = (answer.result ?? {}) as { callMode?: string; callModeLive?: boolean; waitForReply?: boolean };
+    const result = (answer.result ?? {}) as {
+      callMode?: string;
+      callModeLive?: boolean;
+      waitForReply?: boolean;
+    } & Record<string, unknown>;
     // A gxserver that switches a running call says so here too, so Settings' note is right before any call.
     if (result.callModeLive === true) liveCallModeComputers.add(machine.id);
     return {
       mode: result.callMode === 'pushToTalk' ? 'pushToTalk' : 'regular',
       // `null`: an older gxserver without "Answer when I say "reply"" (server/src/voice_agent/keys.rs).
       waitForReply: typeof result.waitForReply === 'boolean' ? result.waitForReply : null,
+      agentLanguage: voiceAgentLanguageFrom(machine, result),
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Couldn't reach your computer." };
@@ -1135,16 +1146,189 @@ export async function saveComputerCallMode(
 }
 
 /**
- * Saves "Answer when I say "reply"" (`voiceAgentWaitForReply`) on `machine` through gxserver;
- * answers an error sentence, or null when saved. The computer reads it when a call starts.
+ * One change Settings › Voice saves in the computer's voice agent settings: "Answer when I say …"
+ * (`voiceAgentWaitForReply`), the language (`voiceAgentLanguage`), or one language's turn words
+ * (`voiceAgentTurnWords`; an empty list brings back that language's defaults).
  */
-export async function saveComputerWaitForReply(machine: MachineConnectionTarget, on: boolean): Promise<string | null> {
+export type VoiceAgentSettingsChange =
+  | { waitForReply: boolean }
+  | { language: string }
+  | { turnWordsLanguage: string; turnWords: string[] };
+
+/**
+ * Saves `change` on `machine` through gxserver's `setVoiceAgentSettings`; answers gxserver's own
+ * error text when it refuses the change, or null when saved. The computer reads it when a call starts.
+ */
+export async function saveComputerVoiceAgent(
+  machine: MachineConnectionTarget,
+  change: VoiceAgentSettingsChange,
+): Promise<string | null> {
   try {
-    const answer = await chatMachineLink(machine).rpc('setVoiceAgentSettings', { waitForReply: on }, READ_TIMEOUT_MS);
+    const answer = await chatMachineLink(machine).rpc('setVoiceAgentSettings', change, READ_TIMEOUT_MS);
     return answer.error !== null ? answer.error.message : null;
   } catch (error) {
     return error instanceof Error ? error.message : "Couldn't reach your computer.";
   }
+}
+
+/**
+ * The voice agent's language on a computer (`readVoiceAgent`): the saved choice (`"device"` or a
+ * code), the languages the computer offers, and each language's turn words in effect and by default.
+ *
+ * CDXC:VoiceMode 2026-11-25 DECISION: User: the language the voice agent speaks is a setting, by default the language of the device that places the call; and "mehrere Wörter festlegen können pro Sprache" (several turn words per language). Defaults: English "reply" and "go ahead" ("over" is no longer one), German "fertig" and "antworte"; any other language uses the English ones until the user sets some. The computer holds both settings and the defaults (server/src/voice_agent/keys.rs); the phone only shows and saves them.
+ */
+export type VoiceAgentLanguage = {
+  /** `"device"` or a code from `languages`. */
+  language: string;
+  languages: { code: string; label: string }[];
+  /** Each language's turn words in effect: the user's, else the defaults. */
+  turnWords: Record<string, string[]>;
+  turnWordDefaults: Record<string, string[]>;
+};
+
+/** The saved language that follows the device placing the call. */
+export const VOICE_AGENT_DEVICE_LANGUAGE = 'device';
+
+/** The language whose turn words apply when the computer has none for the one asked for. */
+const FALLBACK_LANGUAGE = 'en';
+
+/** At most this many turn words per language, each at most this long once trimmed: gxserver refuses more. */
+export const TURN_WORDS_MAX = 8;
+export const TURN_WORD_MAX_LENGTH = 40;
+
+function isWordsByLanguage(value: unknown): value is Record<string, string[]> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((words) => Array.isArray(words) && words.every((word) => typeof word === 'string'))
+  );
+}
+
+function isLanguageList(value: unknown): value is { code: string; label: string }[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => isRecord(entry) && typeof entry.code === 'string' && typeof entry.label === 'string')
+  );
+}
+
+/**
+ * The language fields of a `readVoiceAgent` answer, or null from a gxserver without them (it then
+ * keeps English and "reply", and Settings › Voice shows what it showed before).
+ */
+function voiceAgentLanguageFrom(machine: MachineConnectionTarget, result: Record<string, unknown>): VoiceAgentLanguage | null {
+  const { language, languages, turnWords, turnWordDefaults } = result;
+  if (language === undefined && languages === undefined && turnWords === undefined && turnWordDefaults === undefined) {
+    return null;
+  }
+  if (
+    typeof language !== 'string' ||
+    !isLanguageList(languages) ||
+    !isWordsByLanguage(turnWords) ||
+    !isWordsByLanguage(turnWordDefaults)
+  ) {
+    // Shown as from an older computer, so a wrong answer never offers a list it can't save.
+    logAppEvent(`Voice agent: ${machine.id}'s readVoiceAgent has unreadable language fields; showing none`);
+    return null;
+  }
+  return {
+    language,
+    languages: languages.map(({ code, label }) => ({ code, label })),
+    turnWords,
+    turnWordDefaults,
+  };
+}
+
+/** A locale's primary language subtag, lowercase: "de" from "de-DE"; undefined when it has none. */
+export function primaryLanguage(locale: string): string | undefined {
+  const primary = locale.split(/[-_]/)[0]?.toLowerCase();
+  return primary !== undefined && primary.length > 0 ? primary : undefined;
+}
+
+/**
+ * The phone's language as a lowercase primary subtag ("de"): the `language` a call sends, which the
+ * computer speaks while its setting is "device", and the language Settings › Voice shows for "Same
+ * as this phone".
+ *
+ * CDXC:VoiceMode 2026-11-25 WHY: the phone's first preferred language in its system settings, read natively. The app is localized in English only, so iOS reports English as the app's locale (what `Intl` says) even on a German iPhone, and the agent would speak English there. A native build from before `preferredLanguage` has no such function: the app's locale, as before, so a newer update on an older app still starts calls. Dictate keeps its own hint (`dictation.ts`).
+ */
+export function deviceLanguage(): string | undefined {
+  try {
+    const preferred = GhostexNative.preferredLanguage?.();
+    if (typeof preferred === 'string' && preferred.length > 0) return preferred;
+  } catch {
+    // An unreadable system language: the app's locale below.
+  }
+  try {
+    return primaryLanguage(Intl.DateTimeFormat().resolvedOptions().locale);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The language a call through this phone speaks, which is the one whose turn words apply: the saved
+ * code, or for "device" the phone's language when the computer offers it, else English (what the
+ * computer then speaks too).
+ */
+export function voiceAgentCallLanguage(settings: VoiceAgentLanguage, device: string | undefined = deviceLanguage()): string {
+  const offered = (code: string | undefined): code is string =>
+    code !== undefined && settings.languages.some((entry) => entry.code === code);
+  if (settings.language !== VOICE_AGENT_DEVICE_LANGUAGE) {
+    return offered(settings.language) ? settings.language : FALLBACK_LANGUAGE;
+  }
+  return offered(device) ? device : FALLBACK_LANGUAGE;
+}
+
+/** `language`'s built-in turn words; a language without its own uses English's. */
+export function voiceAgentDefaultTurnWords(settings: VoiceAgentLanguage, language: string): string[] {
+  return settings.turnWordDefaults[language] ?? settings.turnWordDefaults[FALLBACK_LANGUAGE] ?? [];
+}
+
+/** `language`'s turn words in effect: the user's, else its defaults. */
+export function voiceAgentTurnWords(settings: VoiceAgentLanguage, language: string): string[] {
+  return settings.turnWords[language] ?? voiceAgentDefaultTurnWords(settings, language);
+}
+
+/** Turn words as a sentence names them: `"fertig" or "antworte"`, `"a", "b" or "c"`. */
+export function turnWordsPhrase(words: string[]): string {
+  const quoted = words.map((word) => `"${word}"`);
+  if (quoted.length <= 1) return quoted.join('');
+  return `${quoted.slice(0, -1).join(', ')} or ${quoted[quoted.length - 1]}`;
+}
+
+/**
+ * Whether `a` and `b` are the same turn word to the computer of a call in `language`, which tells
+ * words apart by everything but case: each character lowercased by Unicode's language-independent
+ * mapping, except that in a Turkish call ("tr") "İ" is "i" and "I" is "ı".
+ *
+ * CDXC:VoiceMode 2026-11-26 WHY: gxserver folds case this way when it matches a turn word, whatever
+ * the phone's locale, so the editor refuses a word only when gxserver would treat it as one already
+ * in the list. The app's locale (`toLocaleLowerCase`) made "KIR" a copy of "kir" in a Turkish call
+ * on an English phone, where gxserver folds "KIR" to "kır", so a word the user needs could not be added.
+ */
+export function sameTurnWord(a: string, b: string, language: string): boolean {
+  const turkish = language === 'tr';
+  const fold = (word: string) =>
+    Array.from(word, (c) => (turkish && c === 'İ' ? 'i' : turkish && c === 'I' ? 'ı' : c.toLowerCase())).join('');
+  return fold(a) === fold(b);
+}
+
+/**
+ * The label and second line of Settings › Voice's "Answer when I say …" switch. Without `words` (a
+ * computer too old to have turn words per language) it is today's text, word for word.
+ */
+export function waitForReplyText(words: string[] | null): { label: string; detail: string } {
+  if (words === null) {
+    return {
+      label: 'Answer when I say "reply"',
+      detail:
+        'The voice agent keeps listening until you end with "reply", "over" or "go ahead", then answers. Each Regular call starts with it saying "Hey, I hear you. Please say reply after you finish speaking so I can reply to you." Off: it answers when you pause.',
+    };
+  }
+  const phrase = turnWordsPhrase(words);
+  return {
+    label: `Answer when I say ${phrase}`,
+    detail: `The voice agent keeps listening until you end with ${phrase}, then answers. Each Regular call starts with it telling you which words to say. Off: it answers when you pause.`,
+  };
 }
 
 /** What holding the talk button does now (server/src/voice_agent/talk.rs decides the turn). */

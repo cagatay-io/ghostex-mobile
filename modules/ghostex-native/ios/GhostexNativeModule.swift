@@ -333,6 +333,15 @@ public class GhostexNativeModule: Module {
             true
         }
 
+        // The first language in Settings › General › Language & Region, as a lowercase primary subtag ("de" from
+        // "de-DE"), or nil. Locale.current would follow the app's own languages, which are English only. A call's
+        // `language` (src/voice/conversation.ts, deviceLanguage); an older build has no such function, so JS checks.
+        Function("preferredLanguage") { () -> String? in
+            guard let tag = Locale.preferredLanguages.first,
+                  let primary = tag.split(separator: "-").first, !primary.isEmpty else { return nil }
+            return primary.lowercased()
+        }
+
         OnStartObserving("onNetworkChanged") { [weak self] in
             guard let self, self.networkObserver == nil else { return }
             self.networkObserver = GhostexNetworkObserver { [weak self] in

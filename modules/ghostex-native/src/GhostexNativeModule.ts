@@ -116,6 +116,13 @@ declare class GhostexNativeModule extends NativeModule<GhostexNativeEvents> {
   supportsDialTimeout?(): boolean;
 
   /**
+   * The phone's first preferred language in its system settings, as a lowercase primary subtag (`de` from `de-DE`),
+   * or null when it has none. Not the app's locale: the app is localized in English only. Only in app builds from the
+   * voice agent language change on; an older build has no such function, so `voice/conversation.ts` checks for it.
+   */
+  preferredLanguage?(): string | null;
+
+  /**
    * The connection's channel bookkeeping, or null without a connection. Only in iPhone builds with the SSH send queue
    * (absent on Android and older builds), so callers check for it.
    */
