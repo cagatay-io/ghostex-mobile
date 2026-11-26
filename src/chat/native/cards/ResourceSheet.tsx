@@ -25,22 +25,24 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
   const modal = document?.resourceModal ?? null;
   const { dispatch: chatDispatch, uploadFiles, queryAsync } = chat;
   const forms = document?.questionForms ?? {};
-  // The form the reader sent from this sheet (Send or Skip all), and whether its call was seen in
-  // flight: the sheet closes (its own slide and fade) once the send settles OK, and stays open on
-  // the answers when it fails (the form open again with its `sendError`). Desktop:
+  // The form the reader sent from this sheet (Send or Skip all): the sheet closes (its own slide and
+  // fade) the moment the answers go out, without waiting for their call to settle. Desktop:
   // `resource_modal.rs` `settle_resource_modal_send`.
   //
-  // CDXC:SessionChat 2026-11-12 DECISION:
-  // User: as soon as the reply is sent, close the question form popup and the Ghostex page popup
-  // with a short fade; keep it open with the answers if the send fails.
-  const sent = useRef<{ id: string; seen: boolean } | null>(null);
+  // CDXC:SessionChat 2026-11-26 DECISION:
+  // User: "I wanted it to be gone as soon as I answer." The question form popup closes the moment its
+  // answers go out, as the page popup does; a send that then fails comes back as the chat's failed
+  // message card with the reason and Retry, not as the popup kept open. Supersedes the 2026-11-12
+  // decision ("as soon as the reply is sent, close the question form popup ... keep it open with the
+  // answers if the send fails").
+  const sent = useRef<{ id: string } | null>(null);
   const modalId = modal?.id ?? null;
   const dispatch = useMemo<typeof chatDispatch>(
     () => (action) => {
       const type = (action as { type?: unknown }).type;
       const form = (action as { form?: unknown }).form;
       if ((type === 'formSend' || type === 'formSkipAll') && typeof form === 'string' && form === modalId) {
-        sent.current = { id: form, seen: false };
+        sent.current = { id: form };
       }
       return chatDispatch(action);
     },
@@ -56,15 +58,8 @@ export function ResourceSheet({ chat, document }: { chat: RustChat; document: Ch
       sent.current = null;
       return;
     }
-    if (inFlight) {
-      watched.seen = true;
-      return;
-    }
-    if (sentState === 'open' || sentState === '') {
-      // Not dispatched yet, or it failed after going out.
-      if (watched.seen) sent.current = null;
-      return;
-    }
+    // Not dispatched yet.
+    if (!inFlight && (sentState === 'open' || sentState === '')) return;
     sent.current = null;
     chatDispatch({ type: 'closeResource' });
   }, [modalId, inFlight, sentState, chatDispatch]);
