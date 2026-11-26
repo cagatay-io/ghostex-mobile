@@ -67,7 +67,13 @@ function markColor(icon: PreviewIcon, appearance: Appearance): string {
   return readableSecondaryText(agentIconTint(icon), appearance.foreground, [appearance.card]);
 }
 
-export default function LiveActivityPreview({ showSessionNames }: { showSessionNames: boolean }) {
+export default function LiveActivityPreview({
+  showSessionNames,
+  hideProjectNames = false,
+}: {
+  showSessionNames: boolean;
+  hideProjectNames?: boolean;
+}) {
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const marks = useMemo(
@@ -106,9 +112,11 @@ export default function LiveActivityPreview({ showSessionNames }: { showSessionN
               <Text style={[styles.agent, row.state === 'finished' && styles.secondary]} numberOfLines={1}>
                 {showSessionNames ? row.session : row.agent}
               </Text>
-              <Text style={styles.project} numberOfLines={1}>
-                {row.project}
-              </Text>
+              {hideProjectNames ? null : (
+                <Text style={styles.project} numberOfLines={1}>
+                  {row.project}
+                </Text>
+              )}
             </View>
             <Text style={styles.time}>{row.time}</Text>
             <View style={styles.state}>

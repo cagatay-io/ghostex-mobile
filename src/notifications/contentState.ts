@@ -295,6 +295,7 @@ export function buildContentState(
   memory: FinishedMemory = new Map(),
   showSessionNames = false,
   computerName: (machineId: string) => string = () => '',
+  hideProjectNames = false,
 ): LiveActivityContentState {
   const candidates: Candidate[] = [];
   const counts = { working: 0, waiting: 0 };
@@ -338,7 +339,11 @@ export function buildContentState(
     .sort(compareShown)
     .slice(0, MAX_ACTIVITY_ROWS)
     .map((shown): LiveActivityRow => {
-      const row: LiveActivityRow = { ...shown.row, agentName: leadingName(shown, showSessionNames) };
+      const row: LiveActivityRow = {
+        ...shown.row,
+        agentName: leadingName(shown, showSessionNames),
+        project: hideProjectNames ? '' : shown.row.project,
+      };
       const name = machinesShown.size > 1 ? truncateName(computerName(shown.row.target.machineId)) : '';
       if (name.length > 0) row.computer = name;
       return row;

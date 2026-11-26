@@ -48,6 +48,7 @@ export type LiveActivityParams =
       pushToStartToken?: string;
       environment: LiveActivityEnvironment;
       sessionNames: boolean;
+      hideProjectNames?: boolean;
       computers: { serverId: string; machineId: string }[];
     };
 
@@ -62,6 +63,7 @@ export type LiveActivityPushDeps = {
   tokens(): LiveActivityTokens;
   environment(): LiveActivityEnvironment;
   sessionNames(): boolean;
+  hideProjectNames?(): boolean;
   /** The enabled computers, by the phone's own id for each. */
   machines(): readonly { id: string }[];
   /** Its endpoint lists `liveActivityPush` (true), does not (false), or its link knows no endpoint yet (null). */
@@ -292,6 +294,7 @@ export class LiveActivityPushRegistration {
       ...(tokens.start === undefined ? {} : { pushToStartToken: tokens.start }),
       environment: this.deps.environment(),
       sessionNames: this.deps.sessionNames(),
+      hideProjectNames: this.deps.hideProjectNames?.() ?? false,
       computers: computers
         .filter((computer) => computer.machineId !== pick)
         .map((computer) => ({ serverId: computer.serverId, machineId: computer.machineId })),

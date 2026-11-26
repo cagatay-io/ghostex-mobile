@@ -640,6 +640,14 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
           description: 'A notice in 5 seconds, to check sound and banners.',
           catalog: 'attentionNotificationActions',
         } as const,
+        {
+          page: 'notifications',
+          section: '',
+          group: NotificationsCopy.settings.sectionAgents,
+          title: NotificationsCopy.settings.hideProjectNamesToggle,
+          description: NotificationsCopy.settings.hideProjectNamesCaption,
+          keywords: ['project names', 'hide project', 'folder', 'privacy', 'live activity', 'push'],
+        } as const,
       ]
     : []),
   {

@@ -76,6 +76,8 @@ export type PushTokenParams =
       deviceId?: string;
       /** The "Show session names" switch, sent only to a computer that lists `pushSessionNames`. */
       sessionNames?: boolean;
+      /** The "Hide project names in notifications" switch: on, folder/project names are omitted from pushes. */
+      hideProjectNames?: boolean;
       /** Sound, Silent or Off for each kind, sent only to a computer that lists `pushAlertChoices`. */
       alerts?: AlertChoices;
     }
@@ -119,6 +121,8 @@ export type PushTokenDeps = {
   offersSessionNames(machineId: string): boolean;
   /** The "Show session names" switch: on, the computer's pushes lead with the session's title. */
   sessionNames(): boolean;
+  /** The "Hide project names in notifications" switch: on, folder/project names are omitted from pushes. */
+  hideProjectNames?(): boolean;
   /** Whether the computer's endpoint lists `pushAlertChoices` (it takes `alerts`); false while unknown. */
   offersAlertChoices(machineId: string): boolean;
   /**
@@ -163,6 +167,7 @@ function holdsAlready(taken: PushTokenParams, wanted: PushTokenParams): boolean 
     taken.token === wanted.token &&
     taken.deviceId === wanted.deviceId &&
     taken.sessionNames === wanted.sessionNames &&
+    taken.hideProjectNames === wanted.hideProjectNames &&
     sameChoices(taken.alerts, wanted.alerts) &&
     taken.kinds.finished === wanted.kinds.finished &&
     taken.kinds.waiting === wanted.kinds.waiting &&
@@ -405,6 +410,7 @@ export class PushTokenRegistration {
       the field and never puts a session title in a push, so it is not sent there.
       */
       ...(this.deps.offersSessionNames(machine.id) ? { sessionNames: this.deps.sessionNames() } : {}),
+      hideProjectNames: this.deps.hideProjectNames?.() ?? false,
       /*
       CDXC:Notifications 2026-11-11 DECISION: the computer learns the Sound, Silent or Off choice of each kind with
       the registration, so it sends nothing the phone would drop and a Silent kind without its sound; a thread's

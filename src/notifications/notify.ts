@@ -78,6 +78,8 @@ export type NotifyDeps = {
   onScreen(machineId: string, sessionId: string): boolean;
   /** The "Show session names" switch (`liveActivitySessionNames`): on, a notification leads with the session's title. */
   sessionNames?(): boolean;
+  /** The "Hide project names in notifications" switch (`hideProjectNames`): on, omits the project name from titles. */
+  hideProjectNames?(): boolean;
   log(message: string): void;
 };
 
@@ -116,6 +118,7 @@ export function notificationRequestFor(
   event: AttentionEvent,
   sound: boolean,
   sessionNames = false,
+  hideProjectNames = false,
 ): NotificationRequest {
   const sessionTitle = event.sessionTitle.split(/\s+/u).filter(Boolean).join(' ');
   const agent =
@@ -132,7 +135,7 @@ export function notificationRequestFor(
       event.eventId.length > 0
         ? `ghostex-attention:${event.machineId}:${event.eventId}`
         : `ghostex-attention:${event.machineId}:${event.sessionId}:${event.occurredAt}`,
-    title: event.projectName.length > 0 ? `${agent} · ${event.projectName}` : agent,
+    title: !hideProjectNames && event.projectName.length > 0 ? `${agent} · ${event.projectName}` : agent,
     line: NotificationsCopy.event[event.kind],
     sound,
     data: {
@@ -172,7 +175,16 @@ export function postNotification(event: AttentionEvent, identity: EventIdentity,
     deps.log(`Notification held back by the rate limit (${event.kind}); it is in the attention list.`);
   }
   if (!announcement.notification) return false;
-  void deps.centre.post(notificationRequestFor(event, announcement.sound, deps.sessionNames?.() ?? false)).catch(() => {
+  void deps.centre
+    .post(
+      notificationRequestFor(
+        event,
+        announcement.sound,
+        deps.sessionNames?.() ?? false,
+        deps.hideProjectNames?.() ?? false,
+      ),
+    )
+    .catch(() => {
     // iOS's own error text stays out of the app log, which can be exported.
     deps.log(`Notification not shown (${event.kind}): iOS did not take it.`);
   });

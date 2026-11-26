@@ -2344,6 +2344,9 @@ export const NotificationsCopy = {
     blockedText:
       'iOS doesn’t allow Ghostex to notify you, so the switches below have no effect. Turn on Allow Notifications in iOS Settings › Apps › Ghostex › Notifications.',
     openSettings: 'Open iOS Settings',
+    hideProjectNamesToggle: 'Hide project names in notifications',
+    hideProjectNamesCaption:
+      'Omits folder and project names from Apple/Expo push alerts and Lock Screen Live Activities. Turning this on shows only the agent or session name.',
   },
 } as const;
 

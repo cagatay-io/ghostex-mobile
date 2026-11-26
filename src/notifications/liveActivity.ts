@@ -48,6 +48,7 @@ let lastInputs: {
   sources: readonly ActivitySource[];
   enabled: boolean;
   showSessionNames: boolean;
+  hideProjectNames: boolean;
   inFront: boolean;
 } | null = null;
 /** The finished events seen while the app runs (in memory: a restart forgets them). */
@@ -113,12 +114,14 @@ function sameInputs(
   sources: readonly ActivitySource[],
   enabled: boolean,
   showSessionNames: boolean,
+  hideProjectNames: boolean,
   inFront: boolean,
 ): boolean {
   if (
     lastInputs === null ||
     lastInputs.enabled !== enabled ||
     lastInputs.showSessionNames !== showSessionNames ||
+    lastInputs.hideProjectNames !== hideProjectNames ||
     lastInputs.inFront !== inFront ||
     lastInputs.sources.length !== sources.length
   ) {
@@ -146,14 +149,18 @@ function syncLiveActivity(): void {
   const settings = useSettingsStore.getState();
   // The switches are stored settings: nothing starts or ends before they are read.
   if (controller === null || !settings.hydrated) return;
-  const { liveActivityEnabled: enabled, liveActivitySessionNames: showSessionNames } = settings.settings;
+  const {
+    liveActivityEnabled: enabled,
+    liveActivitySessionNames: showSessionNames,
+    hideProjectNames,
+  } = settings.settings;
   const sources = currentSources();
   const inFront = AppState.currentState === 'active';
-  if (sameInputs(sources, enabled, showSessionNames, inFront)) return;
-  lastInputs = { sources, enabled, showSessionNames, inFront };
+  if (sameInputs(sources, enabled, showSessionNames, hideProjectNames, inFront)) return;
+  lastInputs = { sources, enabled, showSessionNames, hideProjectNames, inFront };
   const now = Date.now();
   controller.process(
-    buildContentState(sources, now, finishedMemory, showSessionNames, computerName),
+    buildContentState(sources, now, finishedMemory, showSessionNames, computerName, hideProjectNames),
     workingStints(sources, now),
     enabled,
     computersNeedingUpdate(sources).length === 0,

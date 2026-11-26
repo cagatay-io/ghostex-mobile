@@ -1,4 +1,4 @@
-import { LiveActivityCopy } from '../../copy';
+import { LiveActivityCopy, NotificationsCopy } from '../../copy';
 import { DemoCopy } from '../../demo/copy';
 import { isDemoMachine } from '../../demo/identity';
 import { useMachinesStore } from '../../machines/store';
@@ -23,6 +23,7 @@ import { Caption, SectionHeader, SettingsScreenLayout, SettingToggle } from './S
 export default function LiveActivityPage() {
   const enabled = useSettingsStore((state) => state.settings.liveActivityEnabled);
   const showSessionNames = useSettingsStore((state) => state.settings.liveActivitySessionNames);
+  const hideProjectNames = useSettingsStore((state) => state.settings.hideProjectNames);
   const outdated = useComputersNeedingUpdate();
   const demoOn = useMachinesStore((state) => state.machines.some((machine) => isDemoMachine(machine)));
   return (
@@ -45,10 +46,12 @@ export default function LiveActivityPage() {
       )}
       <SettingToggle settingKey="liveActivitySessionNames" label={LiveActivityCopy.sessionNamesToggle} />
       <Caption>{LiveActivityCopy.sessionNamesCaption}</Caption>
+      <SettingToggle settingKey="hideProjectNames" label={NotificationsCopy.settings.hideProjectNamesToggle} />
+      <Caption>{NotificationsCopy.settings.hideProjectNamesCaption}</Caption>
       {enabled ? (
         <>
           <SectionHeader title={LiveActivityCopy.previewTitle} />
-          <LiveActivityPreview showSessionNames={showSessionNames} />
+          <LiveActivityPreview showSessionNames={showSessionNames} hideProjectNames={hideProjectNames} />
         </>
       ) : null}
     </SettingsScreenLayout>

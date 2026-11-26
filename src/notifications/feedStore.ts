@@ -284,6 +284,7 @@ const notifyDeps: NotifyDeps = {
   needsYouOnly: () => useSettingsStore.getState().settings.attentionAlertsFor === 'needsYou',
   onScreen: sessionOnScreen,
   sessionNames: () => useSettingsStore.getState().settings.liveActivitySessionNames,
+  hideProjectNames: () => useSettingsStore.getState().settings.hideProjectNames,
   log: logAppEvent,
 };
 

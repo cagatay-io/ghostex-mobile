@@ -242,6 +242,8 @@ function AgentNotifications() {
           <TestNotification settings={notifications} />
         </>
       ) : null}
+      <SettingToggle settingKey="hideProjectNames" label={copy.hideProjectNamesToggle} />
+      <Caption>{copy.hideProjectNamesCaption}</Caption>
     </>
   );
 }

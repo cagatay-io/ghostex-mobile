@@ -114,7 +114,17 @@ async function sendPushToken(
     if (offers === null) return 'unreachable';
     if (!offers) return 'noPush';
   }
-  const answer = await link.rpc(REGISTER_PUSH_TOKEN_METHOD, params, PUSH_TOKEN_REQUEST_TIMEOUT_MS);
+  let answer = await link.rpc(REGISTER_PUSH_TOKEN_METHOD, params, PUSH_TOKEN_REQUEST_TIMEOUT_MS);
+  if (
+    answer.error !== null &&
+    answer.error.code === 'badRequest' &&
+    params.action === 'register' &&
+    params.hideProjectNames !== undefined
+  ) {
+    // Older gxserver builds reject unknown registerPushToken fields with badRequest; retry without hideProjectNames.
+    const { hideProjectNames: _omitted, ...legacyParams } = params;
+    answer = await link.rpc(REGISTER_PUSH_TOKEN_METHOD, legacyParams, PUSH_TOKEN_REQUEST_TIMEOUT_MS);
+  }
   if (answer.error === null) return 'done';
   // gxserver answers an `/api/` route it does not know with `notFound`.
   if (answer.error.code === 'notFound') return 'unsupported';
@@ -138,6 +148,7 @@ const registration = new PushTokenRegistration({
   offersSessionNames,
   offersAlertChoices,
   sessionNames: () => useSettingsStore.getState().settings.liveActivitySessionNames,
+  hideProjectNames: () => useSettingsStore.getState().settings.hideProjectNames,
   send: sendPushToken,
   accepted: pushAccepted,
   log: logAppEvent,
@@ -210,11 +221,14 @@ export function initPushNotifications(): void {
   watchPushToken((deviceToken) => void registration.tokenChanged(deviceToken));
   let switches = useSettingsStore.getState().settings.notifications;
   let sessionNames = useSettingsStore.getState().settings.liveActivitySessionNames;
+  let hideProjectNames = useSettingsStore.getState().settings.hideProjectNames;
   useSettingsStore.subscribe((state) => {
     const next = state.settings.notifications;
     const nextNames = state.settings.liveActivitySessionNames;
+    const nextHideProjectNames = state.settings.hideProjectNames;
     if (
       nextNames === sessionNames &&
+      nextHideProjectNames === hideProjectNames &&
       next.choices === switches.choices &&
       next.enabled === switches.enabled &&
       next.finished === switches.finished &&
@@ -226,6 +240,7 @@ export function initPushNotifications(): void {
     }
     switches = next;
     sessionNames = nextNames;
+    hideProjectNames = nextHideProjectNames;
     sync();
   });
   // The enabled computers and their pairing device ids: a re-pair sends the new id with a new registration.

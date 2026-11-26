@@ -120,6 +120,11 @@ export type GhostexSettings = ThemeColourSettings & {
    */
   liveActivitySessionNamesDefaultedOn: boolean;
   /**
+   * Omits folder and project names from Apple/Expo push notifications, local alerts, and Lock Screen Live Activities.
+   * Off by default (opt-in privacy toggle).
+   */
+  hideProjectNames: boolean;
+  /**
    * While the phone is locked, one computer keeps the Live Activity current through Ghostex's push relay
    * (`notifications/liveActivityPush.ts`). Off, the Live Activity updates only while the app runs, as before.
    * iOS only.
@@ -374,6 +379,7 @@ export function defaultSettings(): GhostexSettings {
     liveActivityEnabled: true,
     liveActivitySessionNames: true,
     liveActivitySessionNamesDefaultedOn: true,
+    hideProjectNames: false,
     liveActivityLockedUpdates: false,
     hideKeyboardOnStartup: true,
     openUrlsOnTap: true,
@@ -770,6 +776,7 @@ function sanitizeSettings(value: unknown): GhostexSettings {
       ? bool('liveActivitySessionNames', defaults.liveActivitySessionNames)
       : true,
     liveActivitySessionNamesDefaultedOn: true,
+    hideProjectNames: bool('hideProjectNames', defaults.hideProjectNames),
     liveActivityLockedUpdates: bool('liveActivityLockedUpdates', defaults.liveActivityLockedUpdates),
     hideKeyboardOnStartup: bool('hideKeyboardOnStartup', defaults.hideKeyboardOnStartup),
     openUrlsOnTap: bool('openUrlsOnTap', defaults.openUrlsOnTap),

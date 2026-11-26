@@ -97,7 +97,17 @@ async function send(machineId: string, params: LiveActivityParams): Promise<Live
   if (record === undefined) return { ok: false, reason: 'unreachable' };
   const link = chatMachineLink(record);
   if ((await link.route()) !== 'socket') return { ok: false, reason: 'unreachable' };
-  const answer = await link.rpc(REGISTER_LIVE_ACTIVITY_METHOD, params, REQUEST_TIMEOUT_MS);
+  let answer = await link.rpc(REGISTER_LIVE_ACTIVITY_METHOD, params, REQUEST_TIMEOUT_MS);
+  if (
+    answer.error !== null &&
+    answer.error.code === 'badRequest' &&
+    params.action === 'register' &&
+    params.hideProjectNames !== undefined
+  ) {
+    // Older gxserver builds reject unknown registerLiveActivity fields with badRequest; retry without hideProjectNames.
+    const { hideProjectNames: _omitted, ...legacyParams } = params;
+    answer = await link.rpc(REGISTER_LIVE_ACTIVITY_METHOD, legacyParams, REQUEST_TIMEOUT_MS);
+  }
   if (answer.error === null) return readAnswer(answer.result);
   if (answer.error.code === 'notFound') return { ok: false, reason: 'unsupported' };
   if (answer.error.code === 'unreachable') return { ok: false, reason: 'unreachable' };
@@ -113,6 +123,7 @@ const registration = new LiveActivityPushRegistration({
   tokens: () => (tokenModule?.pushTokens === undefined ? {} : { ...tokenModule.pushTokens() }),
   environment: () => environment,
   sessionNames: () => useSettingsStore.getState().settings.liveActivitySessionNames,
+  hideProjectNames: () => useSettingsStore.getState().settings.hideProjectNames,
   machines: () => enabledMachines(useMachinesStore.getState()),
   capable,
   answered,
