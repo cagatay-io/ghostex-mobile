@@ -61,7 +61,14 @@ import { ShareLinkSheet } from '../../../sharing/ShareLinkSheet';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
 import { PAGE_DICTATION_SCRIPT, usePageDictation } from './pageDictation';
 import { usePageArtBackdrop, type PageOrigin, type SheetSize } from './pageArtBackdrop';
-import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, RELOAD_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
+import {
+  PAGE_SCRIPT,
+  PENDING_DRAFT_SCRIPT,
+  RELOAD_SCRIPT,
+  pageIdOfPath,
+  readPageMessage,
+  resendScript,
+} from './pageSheetScript';
 
 /** How long the first back press keeps the sheet armed for a second one to close it. */
 const CLOSE_ARMED_FOR_MS = 2_000;
@@ -246,6 +253,8 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
   );
   /** Takes the page's answer to {@link PENDING_DRAFT_SCRIPT} while one is awaited. */
   const draftReplyRef = useRef<((draft: Record<string, unknown> | null) => void) | null>(null);
+  /** The answers the page is sending, until it closes or gxserver refused them ({@link resendScript}). */
+  const sendingRef = useRef<string | null>(null);
 
   // Opening (or reopening) a page: the forward first, then the page through it.
   useEffect(() => {
@@ -258,6 +267,7 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
     setTitle('');
     setPictures(null);
     setArmed(false);
+    sendingRef.current = null;
     if (page === null) {
       setMeasuredSheetSize(null);
       setMeasuredPageOrigin(null);
@@ -482,6 +492,8 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       if (message === null) return;
       if (message.type === 'images') setPictures({ images: message.images, index: message.index });
       else if (message.type === 'draft') draftReplyRef.current?.(message.draft);
+      else if (message.type === 'sending') sendingRef.current = message.body;
+      else if (message.type === 'sendEnded') sendingRef.current = null;
       else if (message.type === 'dictate') askDictation(message.action);
       else if (message.type === 'blurredArt') receiveBlurredArt(message);
       else close();
@@ -627,7 +639,13 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
                 onMessage={received}
                 onShouldStartLoadWithRequest={shouldStartLoad}
                 onLoadStart={() => setFailure(null)}
-                onLoadEnd={() => setPageLoaded(true)}
+                onLoadEnd={() => {
+                  setPageLoaded(true);
+                  // A Send still on its way when the page reloaded goes again, so the sheet closes
+                  // once the computer has the answers.
+                  const sending = sendingRef.current;
+                  if (sending !== null) webviewRef.current?.injectJavaScript(resendScript(sending));
+                }}
                 onNavigationStateChange={(state) => {
                   setTitle(state.title?.startsWith('http') ? '' : (state.title ?? ''));
                   followLinkedPage(state.url);

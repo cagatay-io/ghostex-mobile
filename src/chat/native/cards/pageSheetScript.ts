@@ -27,7 +27,8 @@ import { MAX_BLURRED_DATA_URI_CHARS, type BlurredArtwork } from './pageArtBackdr
  * not base64 are turned into base64 data URIs here, where they can still be read, and SVG pictures
  * into PNGs, which the phone's image view can draw. The WebView tells the app nothing when the page
  * calls `window.close()`, which a page in the sheet does once its answers are sent, so the script
- * turns that into a message.
+ * turns that into a message. It also tells the app when the page starts sending its answers, and
+ * when gxserver refused them, so a page reloaded meanwhile sends them again ({@link resendScript}).
  */
 export const PAGE_SCRIPT = `(() => {
   if (window.top !== window || window.__ghostexPageSheetScript) return;
@@ -36,6 +37,21 @@ export const PAGE_SCRIPT = `(() => {
   const send = (message) => { try { window.ReactNativeWebView.postMessage(JSON.stringify(message)); } catch (_) {} };
   // The page closes itself once its answers are sent (gx-floating=1); the WebView reports no close.
   window.close = () => send({ type: 'close' });
+  // The page's Send (server/src/visual_pages/theme.rs \`ghostex.submit\`) posts to its \`/answers\`:
+  // the app keeps the answers until the page closes, or gxserver refused them for good.
+  const pageFetch = window.fetch && window.fetch.bind(window);
+  if (pageFetch) {
+    window.fetch = (input, init) => {
+      const url = String(typeof input === 'string' ? input : (input && input.url) || '').split(/[?#]/)[0];
+      const posting = init && String(init.method || '').toUpperCase() === 'POST' && typeof init.body === 'string';
+      if (!posting || !/\\/visual\\/[0-9a-f]{32}\\/answers$/.test(url)) return pageFetch(input, init);
+      send({ type: 'sending', body: init.body });
+      return pageFetch(input, init).then((response) => {
+        if (!response.ok && response.status !== 409 && response.status < 500) send({ type: 'sendEnded' });
+        return response;
+      });
+    };
+  }
   const SKIP = 'a[href],button,label,summary,select,input,textarea,[role=button],[role=link],[role=radio],[role=checkbox],[role=option],[onclick],[contenteditable],gx-option,gx-questions .gx-choice,[data-gx-no-viewer]';
   const sourceOf = (img) => img.currentSrc || img.src || '';
   const viewable = (img) => {
@@ -151,6 +167,10 @@ export type PageMessage =
   | { type: 'images'; images: ChatImage[]; index: number }
   /** The page asked to close (`window.close()`). */
   | { type: 'close' }
+  /** The page started sending its answers (`body` is what it posts to `/answers`). */
+  | { type: 'sending'; body: string }
+  /** gxserver refused the answers (anything but stored, already stored, or a 5xx). */
+  | { type: 'sendEnded' }
   /** What the page had not saved yet ({@link PENDING_DRAFT_SCRIPT}), `null` when nothing. */
   | { type: 'draft'; draft: Record<string, unknown> | null }
   /** A box's microphone was pressed, Escape cancelled it, or Restore was pressed (`pageDictation.ts`). */
@@ -188,6 +208,28 @@ export const RELOAD_SCRIPT = `(() => {
 })();
 true;`;
 
+/**
+ * Sends again the answers a page was still sending when it reloaded (the link dropped and the page
+ * moved to a new phone port, or Refresh): `body` is what the page posted to `/answers`. Answers the
+ * first try already stored come back as already sent (409), which a page in the sheet counts as
+ * sent, so either way the page closes the sheet once gxserver has them. A page from an older
+ * gxserver without `ghostex.submit` is left as it is.
+ *
+ * CDXC:SessionStatus 2026-11-26 DECISION:
+ * User: "I wanted it to be gone as soon as I answer", on the phone and the computer. A Send the
+ * link dropped in the middle of is not forgotten when the sheet reloads: the sheet sends it again
+ * and closes once it is confirmed, without the reader pressing Send twice.
+ */
+export function resendScript(body: string): string {
+  return `(() => {
+  try {
+    const answers = JSON.parse(${JSON.stringify(body)}).answers;
+    if (window.ghostex && typeof ghostex.submit === 'function') ghostex.submit(answers).catch(() => {});
+  } catch (_) {}
+})();
+true;`;
+}
+
 const record = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 
@@ -216,6 +258,8 @@ export function readPageMessage(payload: string): PageMessage | null {
     return index === null ? null : { type: 'images', images, index };
   }
   if (message.type === 'draft') return { type: 'draft', draft: record(message.draft) };
+  if (message.type === 'sending') return typeof message.body === 'string' ? { type: 'sending', body: message.body } : null;
+  if (message.type === 'sendEnded') return { type: 'sendEnded' };
   if (message.type === 'dictate') {
     return message.action === 'toggle' || message.action === 'cancel' || message.action === 'restore'
       ? { type: 'dictate', action: message.action }
