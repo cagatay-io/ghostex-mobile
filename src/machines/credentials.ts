@@ -64,6 +64,41 @@ async function getCredential(machineId: string, kind: CredentialKind): Promise<s
   }
 }
 
+/**
+ * CDXC:MachineCredentials 2026-11-27 WHY:
+ * Security review finding 3: `getCredential` reads a failed secure-store read as "no entry", so the
+ * form showed "None" and offered Generate over a key that was there. These reads throw instead, so a
+ * caller can tell "nothing stored" (null) from "could not read" (an error).
+ */
+async function readCredential(machineId: string, kind: CredentialKind): Promise<string | null> {
+  const value = await SecureStore.getItemAsync(credentialKey(machineId, kind));
+  return value === null || value.length === 0 ? null : value;
+}
+
+/** The stored public key, null when there is none; throws when the secure store can't be read. */
+export function readPublicKey(machineId: string): Promise<string | null> {
+  return readCredential(machineId, 'publickey');
+}
+
+/** The stored private key, null when there is none; throws when the secure store can't be read. */
+export function readSshKey(machineId: string): Promise<string | null> {
+  return readCredential(machineId, 'sshkey');
+}
+
+/** The stored key passphrase, null when there is none; throws when the secure store can't be read. */
+export function readPassphrase(machineId: string): Promise<string | null> {
+  return readCredential(machineId, 'passphrase');
+}
+
+/** Deletes the stored key, its public key and its passphrase; throws when the secure store refuses. */
+export async function removeSshKey(machineId: string): Promise<void> {
+  await Promise.all(
+    (['sshkey', 'publickey', 'passphrase'] as const).map((kind) =>
+      SecureStore.deleteItemAsync(credentialKey(machineId, kind)),
+    ),
+  );
+}
+
 async function setCredential(machineId: string, kind: CredentialKind, value: string): Promise<void> {
   if (value.length === 0) {
     await deleteCredential(machineId, kind);

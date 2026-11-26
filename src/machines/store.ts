@@ -38,6 +38,7 @@ import { decodeSavedAddresses } from './easyConnectAddresses';
 import { adoptEasyConnectRoute } from './easyConnectAdopt';
 import { EASY_CONNECT_LINK_KEYS_STORAGE_KEY, forgetRegisteredLinkKeys } from './easyConnectLinkKeyState';
 import { migrateMachineData } from './machineDataMigration';
+import { beginMachineRemoval, isMachineBeingRemoved, machineWritesSettled } from './machineWrites';
 import { noteDuplicateEntries } from './duplicateNotice';
 import { notePairingChanged } from './pairingEpoch';
 import { forgetProvenServerKeys, loadMachineProofs, PROVEN_SERVER_KEYS_STORAGE_KEY } from './provenComputer';
@@ -602,7 +603,7 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
   updateMachine: async (id, input) => {
     const { machines } = get();
     const existing = machines.find((machine) => machine.id === id);
-    if (existing === undefined) {
+    if (existing === undefined || isMachineBeingRemoved(id)) {
       return {
         ok: false,
         errors: { general: MachineCopy.validation.general },
@@ -707,7 +708,14 @@ export const useMachinesStore = create<MachinesState>()((set, get) => ({
       resetDemoWorld();
     }
     notePairingChanged(id);
-    await deleteAllCredentials(id);
+    // A Save already writing for this computer finishes first, so nothing it writes outlives the delete.
+    const endRemoval = beginMachineRemoval(id);
+    try {
+      await machineWritesSettled(id);
+      await deleteAllCredentials(id);
+    } finally {
+      endRemoval();
+    }
     await forgetProvenServerKeys([id]);
     const nextMachines = get().machines.filter((machine) => machine.id !== id);
     const selectedMachineId = resolveSelectedMachineId(

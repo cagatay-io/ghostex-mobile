@@ -1083,6 +1083,28 @@ export const TailscaleFormCopy = {
     generate: 'Generate',
     copyPublicKey: 'Copy public key',
     copied: 'Copied',
+    /**
+     * CDXC:MachineCredentials 2026-11-27 DECISION:
+     * User (yes to "Add a 'Remove key' / 'Replace key' option to a computer's Advanced page"): a stored key
+     * could not be removed or replaced from the phone, so a key the computer refused left only removing
+     * the whole computer. One row under Copy public key, shown while a key is stored, each with a confirm.
+     */
+    changeKey: 'Remove or replace the key',
+    changeKeyDetail: 'Without a key the phone signs in with the saved password.',
+    replaceKey: 'Replace',
+    removeKey: 'Remove',
+    removeKeyConfirm: {
+      title: 'Remove the SSH key?',
+      body: (name: string) =>
+        `The phone deletes its key for ${name} and signs in with the saved password from now on. The public key stays in authorized_keys on ${name} until you remove it there.`,
+      confirm: 'Remove key',
+    },
+    replaceKeyConfirm: {
+      title: 'Replace the SSH key?',
+      body: (name: string) =>
+        `The phone makes a new key for ${name} and deletes the one it has. ${name} doesn't know the new key yet: copy the new public key and add it to ~/.ssh/authorized_keys on ${name}. Until then the phone signs in with the saved password.`,
+      confirm: 'Replace key',
+    },
     passphrase: 'Key passphrase',
     passphrasePlaceholder: 'Only if the key is encrypted',
     webPreviewPorts: 'Web preview ports',

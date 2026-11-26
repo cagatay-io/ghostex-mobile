@@ -12,20 +12,27 @@ import { unregisterBeforeRemoval } from '../notifications/pushStore';
 import { useSpacesStore } from '../spaces/store';
 import { useWorkspacesStore } from '../workspaces/store';
 import { forgetFallbackChoice } from './easyConnectRoute';
+import { beginMachineRemoval } from './machineWrites';
 import { useMachinesStore } from './store';
 
 export async function removeComputerFromPhone(machineId: string): Promise<void> {
-  useInventoryStore.getState().clearMachine(machineId);
-  useSpacesStore.getState().clearMachine(machineId);
-  useWorkspacesStore.getState().clearMachine(machineId);
-  await unregisterBeforeRemoval(machineId);
-  await clearLiveActivityBeforeRemoval(machineId);
+  // From the first step: a Save for this computer while the removal waits on it is refused (machineWrites.ts).
+  const endRemoval = beginMachineRemoval(machineId);
   try {
-    markManualDisconnect(machineId);
-    await GhostexNative.disconnect(machineId);
-  } catch {
-    // Not connected is fine.
+    useInventoryStore.getState().clearMachine(machineId);
+    useSpacesStore.getState().clearMachine(machineId);
+    useWorkspacesStore.getState().clearMachine(machineId);
+    await unregisterBeforeRemoval(machineId);
+    await clearLiveActivityBeforeRemoval(machineId);
+    try {
+      markManualDisconnect(machineId);
+      await GhostexNative.disconnect(machineId);
+    } catch {
+      // Not connected is fine.
+    }
+    await useMachinesStore.getState().removeMachine(machineId);
+    forgetFallbackChoice(machineId);
+  } finally {
+    endRemoval();
   }
-  await useMachinesStore.getState().removeMachine(machineId);
-  forgetFallbackChoice(machineId);
 }

@@ -132,13 +132,20 @@ function ComputerPageBody({
   const plainApprovals = usePlainApprovals((state) => state.plain[machine.id] === true);
   const removalAsksComputer = useRemovalAsksComputer();
   const [removeOpen, setRemoveOpen] = useState(false);
+  /**
+   * CDXC:MachineCredentials 2026-11-27 WHY:
+   * Security review finding 6: the page stayed usable while Remove waited on the computer, so a row
+   * could open the form and Save while the computer was being removed. The page waits for Remove.
+   */
+  const [removing, setRemoving] = useState(false);
   const [waiting, setWaiting] = useState<number | null>(null);
   const [requirePresence, setRequirePresenceShown] = useState<boolean | null>(null);
   const [requirePresenceError, setRequirePresenceError] = useState<string | null>(null);
   const name = machineCardTitle(machine);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: name });
+    // No Save left in the header by a section this route showed before.
+    navigation.setOptions({ title: name, headerRight: undefined });
   }, [navigation, name]);
 
   // Its Ghostex version, agent CLIs and tools, for the rows below; and what waits for approval.
@@ -405,12 +412,24 @@ function ComputerPageBody({
         <Text style={formStyles.sectionLabel}>{copy.moreLabel}</Text>
         <View style={formStyles.rowsCard}>
           {moreRows.map((row, index) => (
-            <PageRow key={row.key} first={index === 0} label={row.label} detail={row.detail} onPress={row.onPress} />
+            <PageRow
+              key={row.key}
+              first={index === 0}
+              label={row.label}
+              detail={row.detail}
+              onPress={removing ? () => undefined : row.onPress}
+            />
           ))}
         </View>
 
         <View style={formStyles.divider} />
-        <Pressable accessibilityRole="button" style={styles.removeButton} onPress={() => setRemoveOpen(true)}>
+        <Pressable
+          accessibilityRole="button"
+          style={styles.removeButton}
+          onPress={() => {
+            if (!removing) setRemoveOpen(true);
+          }}
+        >
           <Text style={[styles.removeLabel, formStyles.danger]}>{EditMachineCopy.remove.button(name)}</Text>
         </Pressable>
       </ScrollView>
@@ -423,7 +442,9 @@ function ComputerPageBody({
         destructive
         onConfirm={() => {
           setRemoveOpen(false);
-          void removeComputerFromPhone(machine.id).then(onRemoved);
+          if (removing) return;
+          setRemoving(true);
+          void removeComputerFromPhone(machine.id).then(onRemoved, () => setRemoving(false));
         }}
         onCancel={() => setRemoveOpen(false)}
       />

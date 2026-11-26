@@ -12,6 +12,7 @@ import { Switch, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import Collapsible from '../../components/common/Collapsible';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { SwitchRow } from '../../components/common/SwitchRow';
 import { SetupButton } from '../../components/onboarding/SetupPrimitives';
 import { TailscaleFormCopy } from '../../copy';
@@ -28,10 +29,21 @@ export type AdvancedSectionProps = {
   sshPortError?: string;
   /** Public half of the phone's key, or null when there is none. */
   publicKey: string | null;
+  /**
+   * Whether the saved key has been read: `reading` until the secure store answers, `failed` when it could
+   * not be read. Neither shows "None" or offers Generate, so a key that is there is never replaced unseen.
+   */
+  keyRead: 'reading' | 'failed' | 'done';
+  /** What the confirms call the computer. */
+  computerName: string;
+  /** Remove and Replace for a key stored for this computer; null hides the row. */
+  onRemoveKey: (() => Promise<void>) | null;
+  onReplaceKey: (() => Promise<void>) | null;
   /** Passphrase of an encrypted key; shown only while a key exists. */
   keyPassphrase: string;
   onKeyPassphraseChange: (value: string) => void;
-  onGenerateKey: () => void;
+  /** `keyStored`: a private key is stored with no public key beside it, so the row asks before replacing it. */
+  onGenerateKey: () => Promise<'generated' | 'keyStored'>;
   generatingKey: boolean;
   tailscaleSsh: boolean;
   onTailscaleSshChange: (value: boolean) => void;
@@ -137,27 +149,102 @@ function SshPortField({ sshPort, onSshPortChange, sshPortError }: AdvancedSectio
 
 function SshKeyRow({
   publicKey,
+  keyRead,
   editing,
   onGenerateKey,
   generatingKey,
+  computerName,
+  onReplaceKey,
   first = false,
 }: AdvancedSectionProps & { first?: boolean }) {
   const copy = TailscaleFormCopy.advanced;
   const [copied, copyText] = useCopied();
+  const [askReplace, setAskReplace] = useState(false);
+  const generate = (): void => {
+    void onGenerateKey().then((outcome) => {
+      if (outcome === 'keyStored' && onReplaceKey !== null) setAskReplace(true);
+    });
+  };
   const hasKey = publicKey !== null && publicKey.length > 0;
+  // Until the saved key is read (or when it can't be), the row says nothing rather than "None".
+  const known = hasKey || keyRead === 'done';
   return (
-    <Row
-      first={first}
-      label={copy.sshKey}
-      detail={hasKey ? copy.sshKeyPresent : editing ? copy.sshKeyNoneEdit : copy.sshKeyNone}
-      trailing={
-        hasKey ? (
-          <SetupButton small label={copied ? copy.copied : copy.copyPublicKey} onPress={() => copyText(publicKey)} />
-        ) : (
-          <SetupButton small label={copy.generate} busy={generatingKey} onPress={onGenerateKey} />
-        )
-      }
-    />
+    <>
+      <Row
+        first={first}
+        label={copy.sshKey}
+        detail={hasKey ? copy.sshKeyPresent : !known ? undefined : editing ? copy.sshKeyNoneEdit : copy.sshKeyNone}
+        trailing={
+          hasKey ? (
+            <SetupButton small label={copied ? copy.copied : copy.copyPublicKey} onPress={() => copyText(publicKey)} />
+          ) : known ? (
+            <SetupButton small label={copy.generate} busy={generatingKey} onPress={generate} />
+          ) : undefined
+        }
+      />
+      <ConfirmDialog
+        visible={askReplace}
+        title={copy.replaceKeyConfirm.title}
+        body={copy.replaceKeyConfirm.body(computerName)}
+        confirmLabel={copy.replaceKeyConfirm.confirm}
+        destructive
+        onConfirm={() => {
+          setAskReplace(false);
+          if (onReplaceKey !== null) void onReplaceKey();
+        }}
+        onCancel={() => setAskReplace(false)}
+      />
+    </>
+  );
+}
+
+/** Remove or Replace the key stored for this computer, each behind a confirm. */
+function ChangeKeyRow({ computerName, onRemoveKey, onReplaceKey }: AdvancedSectionProps) {
+  const copy = TailscaleFormCopy.advanced;
+  const [asking, setAsking] = useState<'remove' | 'replace' | null>(null);
+  const [busy, setBusy] = useState<'remove' | 'replace' | null>(null);
+  if (onRemoveKey === null || onReplaceKey === null) return null;
+  const run = (which: 'remove' | 'replace'): void => {
+    setAsking(null);
+    if (busy !== null) return;
+    setBusy(which);
+    void (which === 'remove' ? onRemoveKey() : onReplaceKey()).finally(() => setBusy(null));
+  };
+  const confirm = asking === 'replace' ? copy.replaceKeyConfirm : copy.removeKeyConfirm;
+  return (
+    <>
+      <Row
+        label={copy.changeKey}
+        detail={copy.changeKeyDetail}
+        trailing={
+          <View style={styles.buttons}>
+            <SetupButton
+              small
+              label={copy.replaceKey}
+              busy={busy === 'replace'}
+              disabled={busy !== null}
+              onPress={() => setAsking('replace')}
+            />
+            <SetupButton
+              small
+              label={copy.removeKey}
+              busy={busy === 'remove'}
+              disabled={busy !== null}
+              onPress={() => setAsking('remove')}
+            />
+          </View>
+        }
+      />
+      <ConfirmDialog
+        visible={asking !== null}
+        title={confirm.title}
+        body={confirm.body(computerName)}
+        confirmLabel={confirm.confirm}
+        destructive
+        onConfirm={() => run(asking ?? 'remove')}
+        onCancel={() => setAsking(null)}
+      />
+    </>
   );
 }
 
@@ -204,6 +291,7 @@ function TailscaleRows(props: AdvancedSectionProps) {
       <SshPortField {...props} />
       <View style={formStyles.rowsCard}>
         <SshKeyRow {...props} first />
+        <ChangeKeyRow {...props} />
         {hasKey ? (
           <Row label={copy.passphrase}>
             <FormField
@@ -270,7 +358,7 @@ function EasyConnectRows(props: AdvancedSectionProps) {
         </Row>
         <Row
           label={copy.phoneKey}
-          detail={hasKey ? copy.phoneKeyDetail : copy.phoneKeyNone}
+          detail={hasKey ? copy.phoneKeyDetail : props.keyRead === 'done' ? copy.phoneKeyNone : undefined}
           trailing={
             hasKey ? (
               <SetupButton
@@ -292,3 +380,7 @@ function EasyConnectRows(props: AdvancedSectionProps) {
     </>
   );
 }
+
+const styles = {
+  buttons: { flexDirection: 'row' as const, gap: 8 },
+};

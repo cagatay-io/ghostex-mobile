@@ -42,15 +42,17 @@ import { useInventoryStore } from '../inventory/store';
 import { APP_UPDATE_FRESH_MS, refreshAppUpdate } from '../machines/appUpdate';
 import { refreshMachineTools } from '../machines/machineTools';
 import {
-  getPassphrase,
-  getPublicKey,
-  getSshKey,
   getTailcatToken,
+  readPassphrase,
+  readPublicKey,
+  readSshKey,
+  removeSshKey,
   resolvePassword,
   setPassphrase,
   setPublicKey,
   setSshKey,
 } from '../machines/credentials';
+import { runMachineWrites } from '../machines/machineWrites';
 import {
   TAILCAT_TOKEN_PREFIX,
   isMachineEnabled,
@@ -58,6 +60,7 @@ import {
   tailcatSyntheticHost,
   useMachinesStore,
   type MachineInput,
+  type MachineSaveResult,
   type MachineTransport,
   type MachineValidationErrors,
 } from '../machines/store';
@@ -115,7 +118,14 @@ export default function MachineFormScreen(props: Props) {
   ) {
     return <ComputerPage navigation={props.navigation as never} machineId={params.machineId} />;
   }
-  return <MachineFormBody {...props} />;
+  /*
+   * CDXC:MachineCredentials 2026-11-27 WHY:
+   * Security review finding 4: a navigate onto the focused form (the missing-agent card) gives this
+   * same screen another computer's params, and the form kept computer A's fields, key and edit flags
+   * while it saved to computer B. The key starts a fresh form for each computer and section.
+   */
+  const section = params?.section ?? (params?.focus === 'password' ? 'name' : '');
+  return <MachineFormBody key={`${params?.machineId ?? 'new'}:${section}`} {...props} />;
 }
 
 function MachineFormBody({ navigation, route }: Props) {
@@ -163,19 +173,30 @@ function MachineFormBody({ navigation, route }: Props) {
     existing?.gxserverPort === undefined ? '' : String(existing.gxserverPort),
   );
   const [tailscaleSsh, setTailscaleSsh] = useState(existing?.tailscaleSsh ?? false);
-  const [privateKey, setPrivateKey] = useState('');
+  /** The public key shown: the stored one once read, or the one generated here. */
   const [publicKey, setPublicKeyText] = useState<string | null>(null);
+  /** Whether the stored public key has been read (a new computer has nothing to read). */
+  const [keyRead, setKeyRead] = useState<'reading' | 'failed' | 'done'>(machineId === null ? 'done' : 'reading');
+  /** A key is stored for this computer (its public key was read), so Remove and Replace apply. */
+  const [keyStored, setKeyStored] = useState(false);
+  /** The passphrase typed here; the stored one is read only for Test connection. */
   const [keyPassphrase, setKeyPassphrase] = useState('');
-  const [generatingKey, setGeneratingKey] = useState(false);
+  const passphraseTyped = useRef('');
+  const [keyWork, setKeyWork] = useState<'generating' | 'removing' | 'replacing' | null>(null);
   /**
    * CDXC:MachineCredentials 2026-11-27 WHY:
-   * Brief: "saving any one field never touches stored credentials". The key, its passphrase and
-   * public key are read from the secure store after the form opens; Save used to write them back
-   * from that state every time, so a Save before the read ended (or after a read that failed)
-   * deleted a saved key. They are written only once the person generated a key or edited the
-   * passphrase here; otherwise Save leaves the secure store's key entries as they are.
+   * Brief: "saving any one field never touches stored credentials". Save writes the key entries only
+   * once the person generated a key or edited the passphrase here; otherwise it leaves the secure
+   * store's key entries as they are.
+   *
+   * Security review findings 2 and 5: the key generated here waits in this ref, and Save writes from
+   * it (and from `passphraseTyped`), never from an older render's values. The private key and the
+   * stored passphrase are not held by the form at all: the form reads only the public key, and Test
+   * connection reads the rest from the secure store when it is pressed.
    */
-  const keyEdits = useRef({ generated: false, passphrase: false });
+  const generatedKey = useRef<{ privateKey: string; publicKey: string } | null>(null);
+  const [keyStaged, setKeyStaged] = useState(false);
+  const keyEdits = useRef({ passphrase: false });
   const [testState, setTestState, resetTest] = useTestState();
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<MachineValidationErrors | null>(null);
@@ -194,30 +215,32 @@ function MachineFormBody({ navigation, route }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scannedToken]);
 
-  // Edit mode: load the stored key and pairing address.
+  /** Reads the stored public key into the form; a key generated here and not yet saved stays shown. */
+  const readStoredKey = async (id: string, isCancelled: () => boolean = () => false): Promise<void> => {
+    try {
+      const stored = await readPublicKey(id);
+      if (isCancelled()) return;
+      setKeyStored(stored !== null);
+      if (generatedKey.current === null) setPublicKeyText(stored);
+      setKeyRead('done');
+    } catch {
+      if (!isCancelled()) setKeyRead('failed');
+    }
+  };
+
+  // Edit mode: load the stored public key and pairing address.
   useEffect(() => {
     if (machineId === null) return;
     let cancelled = false;
-    void (async () => {
-      const [key, storedPublicKey, storedToken, storedPassphrase] = await Promise.all([
-        getSshKey(machineId),
-        getPublicKey(machineId),
-        getTailcatToken(machineId),
-        getPassphrase(machineId),
-      ]);
-      if (cancelled) return;
-      if (storedToken !== null && storedToken.length > 0) setTailcatToken(storedToken);
-      // A key generated or a passphrase typed before the read ended is the one the person wants.
-      const edits = keyEdits.current;
-      if (!edits.generated && key !== null && key.length > 0) setPrivateKey(key);
-      if (!edits.generated && !edits.passphrase && storedPassphrase !== null && storedPassphrase.length > 0) {
-        setKeyPassphrase(storedPassphrase);
-      }
-      if (!edits.generated && storedPublicKey !== null && storedPublicKey.length > 0) setPublicKeyText(storedPublicKey);
-    })();
+    void getTailcatToken(machineId).then((storedToken) => {
+      if (!cancelled && storedToken !== null && storedToken.length > 0) setTailcatToken(storedToken);
+    });
+    void readStoredKey(machineId, () => cancelled);
     return () => {
       cancelled = true;
     };
+    // readStoredKey only sets state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [machineId]);
 
   /**
@@ -276,9 +299,17 @@ function MachineFormBody({ navigation, route }: Props) {
     if (tailscaleSsh) {
       config.authMethod = 'none';
     } else {
-      if (privateKey.length > 0) {
-        config.privateKey = privateKey;
-        if (keyPassphrase.length > 0) config.passphrase = keyPassphrase;
+      // The key generated here, or the stored one read now; a read that fails fails the test.
+      const generated = generatedKey.current;
+      const key = generated !== null ? generated.privateKey : existing !== null ? await readSshKey(existing.id) : null;
+      if (key !== null && key.length > 0) {
+        config.privateKey = key;
+        const passphrase = keyEdits.current.passphrase
+          ? passphraseTyped.current
+          : generated === null && existing !== null
+            ? await readPassphrase(existing.id)
+            : null;
+        if (passphrase !== null && passphrase.length > 0) config.passphrase = passphrase;
       }
       // A blank field while editing keeps the stored password, so test with it.
       const effective = password.length > 0 ? password : existing !== null ? await resolvePassword(existing.id) : null;
@@ -292,17 +323,100 @@ function MachineFormBody({ navigation, route }: Props) {
     };
   };
 
-  const generateKey = async (): Promise<void> => {
-    if (generatingKey) return;
-    setGeneratingKey(true);
+  const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+  /**
+   * Generate: a new key for Save to write. A saved computer with a private key stored but no public
+   * key answers `keyStored`, and the row asks before replacing it (security review finding 3).
+   */
+  const generateKey = async (): Promise<'generated' | 'keyStored'> => {
+    if (keyWork !== null || saving) return 'generated';
+    setKeyWork('generating');
     try {
+      if (existing !== null && generatedKey.current === null) {
+        let stored: string | null;
+        try {
+          stored = await readSshKey(existing.id);
+        } catch {
+          setKeyRead('failed');
+          return 'generated';
+        }
+        if (stored !== null) return 'keyStored';
+      }
       const generated = await GhostexNative.generateSshKey('ed25519', 'ghostex-phone');
-      keyEdits.current.generated = true;
-      setPrivateKey(generated.privateKey);
+      generatedKey.current = { privateKey: generated.privateKey, publicKey: generated.publicKey };
+      setKeyStaged(true);
       setPublicKeyText(generated.publicKey);
       resetTest();
+    } catch (error) {
+      setErrors({ general: errorText(error) });
     } finally {
-      setGeneratingKey(false);
+      setKeyWork(null);
+    }
+    return 'generated';
+  };
+
+  /** The passphrase field and its edit flag start over: it belonged to the key before. */
+  const clearPassphrase = (): void => {
+    keyEdits.current.passphrase = false;
+    passphraseTyped.current = '';
+    setKeyPassphrase('');
+  };
+
+  /** Remove key: deletes the stored key, its public key and passphrase now; sign-in falls back to the password. */
+  const removeKey = async (): Promise<void> => {
+    if (existing === null || keyWork !== null || saving) return;
+    setKeyWork('removing');
+    setErrors(null);
+    try {
+      const outcome = await runMachineWrites(existing.id, () => removeSshKey(existing.id));
+      if (!outcome.ran) return;
+      generatedKey.current = null;
+      setKeyStaged(false);
+      clearPassphrase();
+      setPublicKeyText(null);
+      setKeyStored(false);
+      setKeyRead('done');
+      resetTest();
+    } catch (error) {
+      setErrors({ general: errorText(error) });
+      await readStoredKey(existing.id);
+    } finally {
+      setKeyWork(null);
+    }
+  };
+
+  /** Replace key: a new key is made and stored now in place of the one before (or of none, when it can't be). */
+  const replaceKey = async (): Promise<void> => {
+    if (existing === null || keyWork !== null || saving) return;
+    setKeyWork('replacing');
+    setErrors(null);
+    try {
+      const generated = await GhostexNative.generateSshKey('ed25519', 'ghostex-phone');
+      const outcome = await runMachineWrites(existing.id, async () => {
+        try {
+          await setSshKey(existing.id, generated.privateKey);
+          await setPublicKey(existing.id, generated.publicKey);
+          await setPassphrase(existing.id, '');
+        } catch (error) {
+          // Half a key pair helps no one: no key at all, and sign-in uses the password.
+          await removeSshKey(existing.id).catch(() => undefined);
+          throw error;
+        }
+      });
+      if (!outcome.ran) return;
+      generatedKey.current = null;
+      setKeyStaged(false);
+      clearPassphrase();
+      setPublicKeyText(generated.publicKey);
+      setKeyStored(true);
+      setKeyRead('done');
+      resetTest();
+    } catch (error) {
+      setErrors({ general: errorText(error) });
+      await readStoredKey(existing.id);
+    } finally {
+      setKeyWork(null);
     }
   };
 
@@ -316,7 +430,7 @@ function MachineFormBody({ navigation, route }: Props) {
         : () => GhostexNative.resetHostKey(address.trim(), parsedPort ?? existing.port);
 
   const save = async (): Promise<void> => {
-    if (!canSave || saving) return;
+    if (!canSave || saving || keyWork !== null) return;
     setSaving(true);
     setErrors(null);
     // A saved password is never wiped by turning on Tailscale SSH or adding a
@@ -334,23 +448,58 @@ function MachineFormBody({ navigation, route }: Props) {
     };
     const parsedGxserverPort = parsePort(gxserverPort);
     if (easyConnect && parsedGxserverPort !== null) input.gxserverPort = parsedGxserverPort;
-    const result = existing === null ? await addMachine(input) : await updateMachine(existing.id, input);
+    let addedId: string | null = null;
+    const writes = async (): Promise<MachineSaveResult> => {
+      const saved = existing === null ? await addMachine(input) : await updateMachine(existing.id, input);
+      if (!saved.ok) return saved;
+      const id = saved.machine.id;
+      if (existing === null) addedId = id;
+      // The key entries are written only when this form changed them (generatedKey, keyEdits above).
+      const generated = generatedKey.current;
+      if (generated !== null) {
+        await Promise.all([
+          setSshKey(id, generated.privateKey),
+          setPassphrase(id, keyEdits.current.passphrase ? passphraseTyped.current : ''),
+          setPublicKey(id, generated.publicKey),
+        ]);
+      } else if (existing !== null && keyEdits.current.passphrase) {
+        await setPassphrase(id, passphraseTyped.current);
+      }
+      return saved;
+    };
+    let result: MachineSaveResult;
+    try {
+      // A Save for a computer being removed is refused (machines/machineWrites.ts).
+      const outcome =
+        existing === null ? { ran: true as const, value: await writes() } : await runMachineWrites(existing.id, writes);
+      if (!outcome.ran) {
+        setSaving(false);
+        return;
+      }
+      result = outcome.value;
+    } catch (error) {
+      /*
+       * CDXC:MachineCredentials 2026-11-27 WHY:
+       * Security review finding 7: a secure-store write that failed after the record was saved left
+       * Save spinning for good, and a new computer saved without its key. The form says what failed
+       * and stays open; a new computer is taken off again, so Connect can simply be pressed again.
+       */
+      if (addedId !== null)
+        await useMachinesStore
+          .getState()
+          .removeMachine(addedId)
+          .catch(() => undefined);
+      setErrors({ general: errorText(error) });
+      setSaving(false);
+      return;
+    }
     if (!result.ok) {
       setErrors(result.errors);
       setSaving(false);
       return;
     }
     const id = result.machine.id;
-    // An edit writes the key entries only when this form changed them (keyEdits above).
-    if (existing === null || keyEdits.current.generated) {
-      await Promise.all([
-        setSshKey(id, privateKey),
-        setPassphrase(id, privateKey.length > 0 ? keyPassphrase : ''),
-        setPublicKey(id, publicKey ?? ''),
-      ]);
-    } else if (keyEdits.current.passphrase) {
-      await setPassphrase(id, keyPassphrase);
-    }
+    generatedKey.current = null;
     if (existing === null) {
       openSessions(id);
       return;
@@ -376,7 +525,8 @@ function MachineFormBody({ navigation, route }: Props) {
    * CDXC:Mobile 2026-10-21 WHY:
    * react-native-screens on Android crashes ("View already has a parent") when views inside a screen's header or content are re-parented while that screen's removal transition runs (react-native-screens #4677, #3249). This header was set again on every render, and Save re-renders right around goBack() (saving, the store update, a renamed title). So it is set only when what it shows changes, never once the form is leaving, and the title stays the name the form opened with.
    */
-  const saveDisabled = !canSave || saving;
+  // Not while a key is being made, removed or replaced: Save would write around it (review finding 2).
+  const saveDisabled = !canSave || saving || keyWork !== null;
   // Only the name and Advanced pages edit something.
   const saves = editing && (section === 'name' || section === 'advanced');
   const sectionTitle =
@@ -415,7 +565,8 @@ function MachineFormBody({ navigation, route }: Props) {
       return;
     }
     if (!saves) {
-      navigation.setOptions({ title: sectionTitle });
+      // A section without Save drops one left in the header by the section this route showed before.
+      navigation.setOptions({ title: sectionTitle, headerRight: undefined });
       return;
     }
     navigation.setOptions({
@@ -461,13 +612,18 @@ function MachineFormBody({ navigation, route }: Props) {
         onSshPortChange={editField(setSshPort)}
         sshPortError={errors?.port}
         publicKey={publicKey}
+        keyRead={keyRead}
+        computerName={existing === null ? computerName : machineName(existing)}
+        onRemoveKey={existing !== null && keyStored && !keyStaged ? removeKey : null}
+        onReplaceKey={existing !== null ? replaceKey : null}
         keyPassphrase={keyPassphrase}
         onKeyPassphraseChange={editField((value: string) => {
           keyEdits.current.passphrase = true;
+          passphraseTyped.current = value;
           setKeyPassphrase(value);
         })}
-        onGenerateKey={() => void generateKey()}
-        generatingKey={generatingKey}
+        onGenerateKey={generateKey}
+        generatingKey={keyWork === 'generating'}
         tailscaleSsh={tailscaleSsh}
         onTailscaleSshChange={editField(setTailscaleSsh)}
         onResetHostKey={resetHostKey}
@@ -482,7 +638,7 @@ function MachineFormBody({ navigation, route }: Props) {
   const test = (
     <FormSection name="machine-form:test-connection">
       <TestConnectionButton
-        disabled={!canSave || saving}
+        disabled={!canSave || saving || keyWork !== null}
         buildPlan={buildPlan}
         computerName={computerName}
         username={username.trim()}
