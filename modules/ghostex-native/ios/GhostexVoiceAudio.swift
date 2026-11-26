@@ -978,10 +978,12 @@ final class GhostexWaitingMusicGate {
 
     /**
      * The call's audio started, or was built anew (the system's media reset) without the music: nothing plays on it
-     * now, whatever the gate thought, and the music starts again after the whole `delay` if the agent still works.
+     * now, whatever the gate thought, and the music starts again after the whole `delay` if the agent still works. A
+     * start that was already waiting is dropped too, so its timer does nothing: the whole `delay` counts from here.
      */
     func audioRestarted() {
         playing = false
+        pending = nil
         update()
     }
 
