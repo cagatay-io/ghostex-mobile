@@ -135,37 +135,43 @@ export function WorkingLine({ card }: { card: WorkingCardValue }) {
   const label = card.label ?? '';
   const strong = card.labelKind === 'tool' || card.labelKind === 'activity';
   const parts = card.labelParts ?? [];
-  const segments = card.labelSegments ?? [];
   const textStyle = strong ? styles.labelStrong : styles.label;
   return (
     <>
       <Lead card={card} />
       <View style={styles.labelSlot}>
-        {segments.length > 0 ? (
-          <View style={styles.segmentRow}>
-            {segments.map((segment, index) => (
-              <Text
-                key={index}
-                style={[textStyle, segment.truncate === true ? styles.segmentTruncate : styles.segmentFixed]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {segment.text}
-              </Text>
-            ))}
-          </View>
-        ) : (
-          <Text style={textStyle} numberOfLines={1} ellipsizeMode="tail">
-            {parts.length > 0
-              ? parts.map((part, index) => (
-                  <Text key={index} style={part.dim === true ? styles.dim : null}>
-                    {part.text}
-                  </Text>
-                ))
-              : label}
-          </Text>
-        )}
+        <Text style={textStyle} numberOfLines={1} ellipsizeMode="tail">
+          {parts.length > 0
+            ? parts.map((part, index) => (
+                <Text key={index} style={part.dim === true ? styles.dim : null}>
+                  {part.text}
+                </Text>
+              ))
+            : label}
+        </Text>
         {card.labelKind === 'activity' ? <ActivityTrailing activity={obj(card.activity)} /> : null}
+      </View>
+    </>
+  );
+}
+
+/**
+ * The dock's bar at its left while the agent has not started or its Worked line's minute is up:
+ * the Worked line's look with a plain circle and "Idle", so the bar's left is never empty
+ * (desktop `idle_line_in_bar`; CDXC:Coordinators 2026-11-26 in `WorkCards.tsx` `DockHeader`).
+ */
+export function IdleLine() {
+  const styles = useStyles();
+  const P = useTranscriptTheme();
+  return (
+    <>
+      <View style={styles.sparkBox}>
+        <Glyph name="circle" size={VISUAL.sparkSize} color={P.muted} />
+      </View>
+      <View style={styles.labelSlot}>
+        <Text style={styles.label} numberOfLines={1} ellipsizeMode="tail">
+          Idle
+        </Text>
       </View>
     </>
   );
@@ -416,20 +422,6 @@ const useStyles = themedStyles((P) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: VISUAL.gap,
-  },
-  segmentRow: {
-    flexShrink: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  segmentTruncate: {
-    flexShrink: 1,
-    minWidth: 24,
-  },
-  segmentFixed: {
-    flexShrink: 0,
   },
   label: {
     flexShrink: 1,

@@ -77,7 +77,7 @@ import { loadReplyDrafts, pruneReplyDrafts, registerReplyDraftScope, type ReplyD
 import { FoldChevron } from '../transcript/foldChevron';
 import { animateNextFold } from '../transcript/foldMotion';
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
-import { WorkingLine } from './WorkingCard';
+import { IdleLine, WorkingLine } from './WorkingCard';
 import { VISUAL as WORKING_VISUAL } from './WorkingStrip';
 import {
   SINGLE_LINE_CARD,
@@ -249,13 +249,13 @@ function dockMoreLabel(hiddenRows: JsonRecord[]): string {
  * (desktop `work_dock_header` with `dock_status_card`): while the bar shows, the working card above
  * the chat box does not. With nothing docked the bar still shows while there is something to count
  * or a status to carry, as one line with no chevron (`workDockShown`); with nothing counted and the
- * agent idle it goes, unlike the desktop's "Nothing in progress", since the phone keeps its Work pill.
+ * agent idle and no rows docked it goes, since the phone keeps its Work pill; while it shows, an idle
+ * agent reads "Idle" at its left (CDXC:Coordinators 2026-11-26 in `DockHeader`).
  *
  * CDXC:Coordinators 2026-11-12 DECISION:
  * User, of the desktop's bar ("✦ Manifesting…" at the left, "◐ 2 in progress" and the Work panel
  * button at the right): make the phone's chat match, one bar above the chat box, opening to the
- * docked rows as before; idle, it shows only the work summary; with no work items it is just the
- * working status. The phone's limits stay (45% of the space, folded while typing).
+ * docked rows as before; with no work items it is just the working status. The phone's limits stay (45% of the space, folded while typing).
  */
 export function WorkDock({
   document,
@@ -477,6 +477,7 @@ export function WorkDock({
               rows={rows}
               board={board}
               status={status}
+              working={document.workingCard?.working === true}
               collapsible={collapsible}
               open={!collapsed}
               onOpenGroup={(group) => dispatch({ type: 'showCoordinatorBoardGroup', group } as never)}
@@ -993,6 +994,7 @@ function DockHeader({
   rows,
   board,
   status,
+  working,
   collapsible,
   open,
   onOpenGroup,
@@ -1004,6 +1006,8 @@ function DockHeader({
   rows: JsonRecord[];
   board: JsonRecord | null;
   status: WorkingCardValue | null;
+  /** The agent works while `status` is null: Status line in the chat draws its line in the transcript. */
+  working: boolean;
   collapsible: boolean;
   open: boolean;
   onOpenGroup: (group: string) => void;
@@ -1019,12 +1023,15 @@ function DockHeader({
   const awayFromBottom = useTranscriptBottomStore((store) => store.awayFromBottom);
   const jumpToBottom = useTranscriptBottomStore((store) => store.jumpToBottom);
   const counts = dockCounts(rows, board);
-  const statusWidth =
-    status === null ? 0 : 24 + (status.label ?? '').length * 7.4 + 12;
+  // CDXC:Coordinators 2026-11-26 DECISION: the left always has the status (working, "Worked for
+  // 26s" or "Idle") and the Inbox label and counts stay at the right end; whether they show their
+  // words follows the bar's width with room kept for a long "Worked for" line, never the status's
+  // own words, so nothing on the right moves as the status changes (desktop `work_dock_header`).
+  const statusWidth = 24 + 'Worked for 59m 59s'.length * 7.4 + 12;
   const inboxLabelWidth = 18 + INBOX_NAME.length * 7.6 + 10;
   const room =
     width - 24 - 12 - 5 - (board !== null ? 32 : 0) - (onMore !== undefined ? 32 : 0) - (collapsible ? 30 : 0) - 16 - statusWidth;
-  const showInboxLabel = status === null || room >= inboxLabelWidth + 80;
+  const showInboxLabel = room >= inboxLabelWidth + 80;
   const named =
     (showInboxLabel ? inboxLabelWidth : 22) +
       counts.reduce(
@@ -1055,13 +1062,10 @@ function DockHeader({
         pressed && (collapsible || jump !== undefined) && { backgroundColor: P.ink(0.055) },
       ]}
     >
-      {status === null ? null : (
-        <View accessibilityLabel={status.ariaLabel} style={styles.dockStatus}>
-          <WorkingLine card={status} />
-        </View>
-      )}
-      {status === null ? null : <View style={styles.dockSpacer} />}
-      <View style={status === null ? styles.dockCounts : styles.dockCountsBeside}>
+      <View accessibilityLabel={status?.ariaLabel ?? (working ? undefined : 'Idle')} style={styles.dockStatus}>
+        {status !== null ? <WorkingLine card={status} /> : working ? null : <IdleLine />}
+      </View>
+      <View style={styles.dockCountsBeside}>
         <View style={[styles.inboxTitleSlot, counts.length > 0 && styles.inboxTitleGap]}>
           <Glyph name="inbox" size={14} color={P.foreground} />
           {showInboxLabel ? <Text style={styles.inboxTitleText}>{INBOX_NAME}</Text> : null}
@@ -2493,13 +2497,11 @@ const useStyles = themedStyles((P) => ({
     borderTopRightRadius: 11,
   },
   dockHeadShut: { borderRadius: 11 },
-  dockCounts: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
   dockCountsBeside: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   inboxTitleSlot: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
   inboxTitleGap: { marginRight: 6 },
   inboxTitleText: { fontSize: WORKING_VISUAL.fontSize, fontWeight: '600', color: P.foreground },
-  dockStatus: { flexShrink: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'hidden' },
-  dockSpacer: { flexGrow: 1, minWidth: 8 },
+  dockStatus: { flex: 1, minWidth: 8, flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'hidden' },
   dockCount: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
   dockCountChip: {
     flexDirection: 'row',

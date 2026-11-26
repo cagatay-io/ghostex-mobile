@@ -352,6 +352,7 @@ const GLYPHS = {
       'M19 16v6',
     ],
   },
+  circle: { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0'] },
   'circle-check': { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M9 12l2 2l4 -4'] },
   'circle-minus': { paths: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M9 12l6 0'] },
   /** The Blocked pill's icon (desktop `titlebar/circle-minus-filled.svg`). */
