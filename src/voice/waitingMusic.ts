@@ -53,9 +53,9 @@ export type WaitingMusicSettings = {
   piece: WaitingMusicPieceId;
 };
 
-export const WAITING_MUSIC_VOLUME_MIN = 5;
+/** The volume is stepless between these, in percent of the call's playback; 0 is silent. */
+export const WAITING_MUSIC_VOLUME_MIN = 0;
 export const WAITING_MUSIC_VOLUME_MAX = 100;
-export const WAITING_MUSIC_VOLUME_STEP = 5;
 
 export const WAITING_MUSIC_DEFAULTS: WaitingMusicSettings = {
   enabled: true,
@@ -76,13 +76,7 @@ export function sanitizeWaitingMusic(value: unknown): WaitingMusicSettings {
     enabled: typeof record.enabled === 'boolean' ? record.enabled : WAITING_MUSIC_DEFAULTS.enabled,
     volumePercent:
       typeof volume === 'number' && Number.isFinite(volume)
-        ? Math.min(
-            WAITING_MUSIC_VOLUME_MAX,
-            Math.max(
-              WAITING_MUSIC_VOLUME_MIN,
-              Math.round(volume / WAITING_MUSIC_VOLUME_STEP) * WAITING_MUSIC_VOLUME_STEP,
-            ),
-          )
+        ? Math.min(WAITING_MUSIC_VOLUME_MAX, Math.max(WAITING_MUSIC_VOLUME_MIN, volume))
         : WAITING_MUSIC_DEFAULTS.volumePercent,
     piece: WAITING_MUSIC_PIECES.some((piece) => piece.id === record.piece)
       ? (record.piece as WaitingMusicPieceId)

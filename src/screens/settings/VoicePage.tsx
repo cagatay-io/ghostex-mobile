@@ -54,7 +54,6 @@ import {
   WAITING_MUSIC_PIECES,
   WAITING_MUSIC_VOLUME_MAX,
   WAITING_MUSIC_VOLUME_MIN,
-  WAITING_MUSIC_VOLUME_STEP,
   type WaitingMusicPiece,
 } from '../../voice/waitingMusic';
 import { SettingsSection } from './SectionBoundary';
@@ -421,9 +420,11 @@ function WaitingMusicSection() {
             label="Waiting music volume"
             minimumValue={WAITING_MUSIC_VOLUME_MIN}
             maximumValue={WAITING_MUSIC_VOLUME_MAX}
-            step={WAITING_MUSIC_VOLUME_STEP}
+            // Stepless; 5 % is only how far a VoiceOver or TalkBack swipe moves it.
+            step={5}
+            continuous
             value={settings.volumePercent}
-            valueLabel={`${settings.volumePercent}%`}
+            valueLabel={`${Math.round(settings.volumePercent)}%`}
             onValueChange={(volumePercent) => void changeWaitingMusic({ volumePercent })}
           />
           <Caption>Its own volume, as a share of the call's: the agent's voice stays as it is.</Caption>
