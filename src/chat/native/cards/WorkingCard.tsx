@@ -19,7 +19,6 @@ import type { ChatDocument, WorkingCard as WorkingCardValue } from '../../rust/d
 import { useTranscriptBottomStore } from '../transcript/bottomStore';
 import { QUIET_ICON_GAP, QUIET_LINE_HEIGHT, QUIET_TEXT_SIZE, quietDim } from '../transcript/quietWork';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { IconPill } from './ChatPills';
 import { Glyph } from './icons';
 import { isTrue, num, obj, str } from './json';
 import { chatCardsShown, COMPOSER_TOP_PADDING, STACK_GAP } from './NativeChatCards';
@@ -29,8 +28,6 @@ import { columnPercentStyle, useTranscriptColumnPercent } from '../transcript/ro
 
 /** The transcript rows' column (`Transcript.tsx` `ROW_MAX_WIDTH`), widened like the rows by ../transcript/rowWidth.ts. */
 const ROW_MAX_WIDTH = 768;
-/** How far the lone scroll-to-bottom pill sits above the transcript's bottom edge (desktop `transcript_layout.rs`). */
-const END_PADDING = 16;
 const HEADER_PAD_Y = 6;
 /** The line's height, the pills' 22 it was sized for, so the bar keeps its height (desktop `LINE_HEIGHT`). */
 const LINE_HEIGHT = 22;
@@ -271,8 +268,15 @@ export const StatusTail = memo(function StatusTail({ document }: { document: Cha
 });
 
 /**
- * Scroll-to-bottom on its own over the transcript's bottom edge, at the card's right end, while the
- * reader is away from the bottom.
+ * Scroll-to-bottom on its own over the transcript's bottom edge, while the reader is away from the
+ * bottom: a round ↓ button at the right, right above the Inbox dock (or the working card or chat box
+ * when there is no dock), its right edge on theirs.
+ *
+ * CDXC:SessionChat 2026-11-26 SEE-ALSO: The user's words ("place it on the right side above the
+ * inbox as a button pointing down ... same bg style as the header of the inbox ... outline like
+ * pills do") are on desktop `scroll_bottom.rs` `render_jump_down`. Its face is the open Inbox
+ * header's (`dockSurface` fill under `dockHeadOpen`'s tint in WorkCards.tsx) and its edge the pills'
+ * outline (`pill` in ChatPills.tsx).
  *
  * CDXC:SessionChat 2026-11-12 DECISION:
  * User picked layout A of the "Phone chat box: a cleaner bottom bar" page (Q2727): the ↓ leaves the
@@ -292,12 +296,20 @@ export function LoneScrollBottom() {
   return (
     <View pointerEvents="box-none" style={styles.lone}>
       <View pointerEvents="box-none" style={[styles.loneColumn, columnWidth]}>
-        <IconPill
-          glyph="arrow-down"
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Scroll to bottom"
-          color={P.primary}
           onPress={() => jumpToBottom()}
-        />
+          hitSlop={8}
+          style={styles.jumpDown}
+        >
+          {({ pressed }) => (
+            <>
+              <View style={[styles.jumpDownTint, pressed && styles.jumpDownTintPressed]} />
+              <Glyph name="arrow-down" size={16} color={P.primary} />
+            </>
+          )}
+        </Pressable>
       </View>
     </View>
   );
@@ -366,7 +378,9 @@ const useStyles = themedStyles((P) => ({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: END_PADDING,
+    // The toasts' height over the transcript's bottom edge (`SCROLL_BOTTOM.bottom` in
+    // Transcript.tsx), just above the dock, the card or the box (desktop `render_jump_down`).
+    bottom: 4,
     alignItems: 'center',
   },
   loneColumn: {
@@ -374,7 +388,30 @@ const useStyles = themedStyles((P) => ({
     maxWidth: ROW_MAX_WIDTH,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 12 + 10,
+    // The dock's and the working card's column (`dockColumn` in WorkCards.tsx, `column` above).
+    paddingHorizontal: 12,
+  },
+  jumpDown: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: P.ink(0.1),
+    backgroundColor: P.cardPanel,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  jumpDownTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: P.ink(0.035),
+  },
+  jumpDownTintPressed: {
+    backgroundColor: P.ink(0.035 + 0.08),
   },
   card: {
     minHeight: LINE_HEIGHT + HEADER_PAD_Y * 2,
