@@ -226,9 +226,6 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
                 New chat
               </Text>
             </Pressable>
-            <Text style={[styles.homeNewChatHint, homeNewChatStyles.hint]} numberOfLines={1}>
-              Anything, no project needed
-            </Text>
           </View>
         );
       }
@@ -566,13 +563,6 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     lineHeight: ds(20),
   },
-  homeNewChatHint: {
-    paddingLeft: ds(26),
-    paddingRight: ds(6),
-    paddingBottom: ds(4),
-    fontSize: ds(12),
-    fontWeight: '300',
-  },
   /* session_group_tree.rs `reach_left`: the fold reaches 12px left so the tree line sits inside it. */
   fold: {
     marginLeft: -FOLD_REACH,
@@ -632,7 +622,6 @@ const treeInkStyles = inkStyleSheets((ink) => StyleSheet.create({ line: { backgr
 const homeNewChatInkStyles = inkStyleSheets((ink) =>
   StyleSheet.create({
     label: { color: ink.muted },
-    hint: { color: ink.muted, opacity: 0.78 },
     pressed: { backgroundColor: ink.light ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' },
   }),
 );
