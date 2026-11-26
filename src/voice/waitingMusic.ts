@@ -146,19 +146,47 @@ async function pieceFile(id: WaitingMusicPieceId): Promise<string | null> {
 }
 
 /**
- * Hands `settings` to the native side, for the call running now and the next ones. An app build without waiting music:
- * nothing happens.
+ * Every change of the setting, and every call's hand-over, takes the next number when it is made; once its piece's
+ * file is found, it goes to the native side only if no newer one came meanwhile. The native module runs its calls in
+ * the order they are made, so the newest one is what the call keeps.
+ *
+ * CDXC:VoiceMode 2026-11-26 WHY: Finding a piece's file can take a while (expo-asset may copy or download it), and so
+ * can saving, so an older change could finish after a newer one, such as turning the music off, and undo it natively
+ * while Settings › Voice shows the newer one.
  */
-export async function sendWaitingMusic(settings: WaitingMusicSettings): Promise<void> {
+let generation = 0;
+
+/**
+ * Hands `settings` (change number `sent`) to the native side, for the call running now and the next ones, unless a
+ * newer change came or `current` no longer holds by the time the piece's file is found. An app build without waiting
+ * music: nothing happens.
+ */
+async function sendWaitingMusic(
+  settings: WaitingMusicSettings,
+  sent: number,
+  current: () => boolean = () => true,
+): Promise<void> {
   if (!waitingMusicSupported()) return;
   const path = settings.enabled ? await pieceFile(settings.piece) : null;
+  if (sent !== generation || !current()) return;
   await GhostexNative.voiceSetWaitingMusic?.(settings.enabled && path !== null, settings.volumePercent / 100, path);
 }
 
-/** Before a call opens: this phone's settings reach the native side. Never throws; a failure leaves the call without music. */
-export async function prepareWaitingMusicForCall(): Promise<void> {
+/**
+ * A call has opened: this phone's settings follow it to the native side once the piece's file is found, while
+ * `current` says the call still runs. Never throws; a failure leaves the call without music.
+ *
+ * CDXC:VoiceMode 2026-11-26 WHY: The music is optional, so the call never waits for it: finding the file or reading
+ * the saved setting has no time limit of its own, and the call would stay at "Connecting…" meanwhile.
+ */
+export async function prepareWaitingMusicForCall(current: () => boolean): Promise<void> {
+  if (!waitingMusicSupported()) return;
+  generation += 1;
+  const sent = generation;
   try {
-    await sendWaitingMusic(await loadWaitingMusic());
+    await loadWaitingMusic();
+    // The settings as shown now: a change made while they were read is in them.
+    await sendWaitingMusic(useWaitingMusicStore.getState().settings, sent, current);
   } catch (error) {
     logAppEvent(
       `Voice agent: the waiting music could not be set up (${error instanceof Error ? error.message : String(error)})`,
@@ -168,6 +196,9 @@ export async function prepareWaitingMusicForCall(): Promise<void> {
 
 /** Settings › Voice changed a setting: shown at once, saved on this phone, and handed to a call that is running. */
 export async function changeWaitingMusic(patch: Partial<WaitingMusicSettings>): Promise<void> {
+  // Numbered as it is made, before any wait, so the order of the user's changes decides what the call gets.
+  generation += 1;
+  const sent = generation;
   await loadWaitingMusic();
   const settings = sanitizeWaitingMusic({ ...useWaitingMusicStore.getState().settings, ...patch });
   useWaitingMusicStore.setState({ settings });
@@ -179,7 +210,7 @@ export async function changeWaitingMusic(patch: Partial<WaitingMusicSettings>): 
     );
   }
   try {
-    await sendWaitingMusic(settings);
+    await sendWaitingMusic(settings, sent);
   } catch (error) {
     logAppEvent(
       `Voice agent: the waiting music setting could not reach the call (${error instanceof Error ? error.message : String(error)})`,
@@ -188,6 +219,10 @@ export async function changeWaitingMusic(patch: Partial<WaitingMusicSettings>): 
 }
 
 let previewTimer: ReturnType<typeof setTimeout> | undefined;
+/** Each preview start and each stop takes the next number: a start whose number is no longer the latest goes no further. */
+let previewRun = 0;
+/** A preview went to the native side and no stop since: it may still play (or fade out by itself). */
+let previewHandedOver = false;
 
 function clearPreviewTimer(): void {
   clearTimeout(previewTimer);
@@ -197,15 +232,18 @@ function clearPreviewTimer(): void {
 /** Plays a few seconds of `id` at the volume set, replacing a preview that plays. */
 export async function previewWaitingMusic(id: WaitingMusicPieceId): Promise<void> {
   if (typeof GhostexNative.voicePreviewWaitingMusic !== 'function') return;
-  clearPreviewTimer();
+  // The preview that plays, or one still starting, ends now, also when this piece turns out to have no file.
+  stopWaitingMusicPreview();
+  const run = previewRun;
   useWaitingMusicStore.setState({ previewing: id });
   const path = await pieceFile(id);
-  // Stopped, or another piece started, while the file was looked up.
-  if (useWaitingMusicStore.getState().previewing !== id) return;
+  // Stopped (Stop, or the page was left) or replaced while the file was looked up.
+  if (run !== previewRun) return;
   if (path === null) {
     useWaitingMusicStore.setState({ previewing: null });
     return;
   }
+  previewHandedOver = true;
   try {
     await GhostexNative.voicePreviewWaitingMusic(
       path,
@@ -213,23 +251,26 @@ export async function previewWaitingMusic(id: WaitingMusicPieceId): Promise<void
       WAITING_MUSIC_PREVIEW_SECONDS,
     );
   } catch (error) {
-    if (useWaitingMusicStore.getState().previewing === id) useWaitingMusicStore.setState({ previewing: null });
+    if (run === previewRun) useWaitingMusicStore.setState({ previewing: null });
     logAppEvent(
       `Voice agent: the waiting music preview could not play (${error instanceof Error ? error.message : String(error)})`,
     );
     return;
   }
-  if (useWaitingMusicStore.getState().previewing !== id) return;
+  // A stop made while it started reached the native side after it (calls run in order) and ended it there.
+  if (run !== previewRun) return;
   previewTimer = setTimeout(() => {
     previewTimer = undefined;
-    if (useWaitingMusicStore.getState().previewing === id) useWaitingMusicStore.setState({ previewing: null });
+    if (run === previewRun) useWaitingMusicStore.setState({ previewing: null });
   }, WAITING_MUSIC_PREVIEW_SECONDS * 1000);
 }
 
-/** Stops the preview (Stop, leaving Settings › Voice, turning the music off). */
+/** Stops the preview, and cancels one still starting (Stop, leaving Settings › Voice, another piece's preview). */
 export function stopWaitingMusicPreview(): void {
+  previewRun += 1;
   clearPreviewTimer();
-  if (useWaitingMusicStore.getState().previewing === null) return;
-  useWaitingMusicStore.setState({ previewing: null });
+  if (useWaitingMusicStore.getState().previewing !== null) useWaitingMusicStore.setState({ previewing: null });
+  if (!previewHandedOver) return;
+  previewHandedOver = false;
   void GhostexNative.voiceStopWaitingMusicPreview?.().catch(() => undefined);
 }

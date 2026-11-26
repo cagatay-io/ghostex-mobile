@@ -253,9 +253,8 @@ internal object GhostexVoice {
 
     fun start() {
       if (conversationMode) {
-        audioSession = GhostexVoiceAudio.Session(context) { gained -> onFocus(gained) }.also { it.begin() }
-        player = GhostexVoiceAudio.Player().also { it.setSpeed(speed) }
-        music = GhostexVoiceAudio.Music(player!!.audioSessionId)
+        // The gate comes first: asking for audio focus may answer a refusal at once (`onFocus(false)`), and the gate
+        // must hold it, or a working `state` frame would start the music while another app has the audio.
         musicGate = GhostexVoiceAudio.WaitingMusicGate(
           schedule = { delayMs, run -> worker.postDelayed({ run() }, delayMs) },
           play = {
@@ -267,6 +266,9 @@ internal object GhostexVoice {
             Log.i(TAG, "the waiting music stopped: $reason")
           },
         )
+        audioSession = GhostexVoiceAudio.Session(context) { gained -> onFocus(gained) }.also { it.begin() }
+        player = GhostexVoiceAudio.Player().also { it.setSpeed(speed) }
+        music = GhostexVoiceAudio.Music(player!!.audioSessionId)
         applyWaitingMusic(waitingMusic)
         holdLocks()
         GhostexForegroundService.startVoiceMode(context, title)
@@ -353,11 +355,14 @@ internal object GhostexVoice {
       if (pushToTalk) setTalking(!talking)
     }
 
-    /** Settings › Voice changed the waiting music (or the call is starting). */
+    /**
+     * Settings › Voice changed the waiting music (or the call is starting). Turned off, the gate stops the music
+     * first, so it fades out before the piece is let go.
+     */
     fun applyWaitingMusic(settings: WaitingMusic) {
       if (!conversationMode || disposed) return
-      music?.configure(settings.path, settings.volume)
       musicGate?.setEnabled(settings.enabled)
+      music?.configure(settings.path, settings.volume)
     }
 
     /** gxserver times the reply's end and an interruption's estimate by this rate; it resets on every attach. */

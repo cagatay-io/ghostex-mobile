@@ -568,14 +568,21 @@ internal object GhostexVoiceAudio {
       start()
     }
 
-    /** The piece (null: none) and volume this phone set; another piece replaces one that is playing at once. */
+    /**
+     * The piece (null: none) and volume this phone set. Another piece replaces one that is playing at once; no piece
+     * fades the one that plays out first, and the thread lets its decoded audio go once it is silent ([loop]).
+     */
     fun configure(path: String?, volume: Float) {
       synchronized(lock) {
         this.volume = volume
         if (path != this.path) {
           this.path = path
-          gain = 0f
-          position = 0
+          if (path == null) {
+            wanted = false
+          } else {
+            gain = 0f
+            position = 0
+          }
           lock.notifyAll()
         }
       }
@@ -609,7 +616,15 @@ internal object GhostexVoiceAudio {
     private fun loop() {
       try {
         while (running) {
-          val toDecode = synchronized(lock) { path.takeIf { it != decodedPath } }
+          val toDecode = synchronized(lock) {
+            if (path == null && !active && decodedPath != null) {
+              // Turned off and faded out: the piece's audio goes, and the thread waits below for a new one.
+              decodedPath = null
+              pcm = null
+              rate = 0
+            }
+            path?.takeIf { it != decodedPath }
+          }
           if (toDecode != null) {
             val decoded = decode(toDecode)
             synchronized(lock) {
@@ -630,6 +645,7 @@ internal object GhostexVoiceAudio {
                 quiet.flush()
               }
             }
+            // Nothing to write until a start or another piece (also with no piece at all, its audio let go above).
             synchronized(lock) { if (running && !active && path == decodedPath) lock.wait(250) }
             continue
           }

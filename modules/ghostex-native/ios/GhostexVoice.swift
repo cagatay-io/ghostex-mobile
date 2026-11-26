@@ -334,12 +334,13 @@ final class GhostexVoice {
             GhostexWaitingMusicGate(
                 schedule: { [weak self] delay, run in self?.queue.asyncAfter(deadline: .now() + delay, execute: run) },
                 play: { [weak self] in
-                    guard let self else { return }
+                    guard let self else { return false }
                     if self.audio?.startMusic() == true {
                         self.journal("the waiting music started: the agent has been working for 1.5 s")
-                    } else {
-                        self.journal("the waiting music did not start: no piece could be opened, or the call's audio is not running")
+                        return true
                     }
+                    self.journal("the waiting music did not start: no piece could be opened, or the call's audio is not running")
+                    return false
                 },
                 stop: { [weak self] reason in
                     self?.audio?.stopMusic()
@@ -348,12 +349,13 @@ final class GhostexVoice {
             )
         }
 
-        /// Settings › Voice changed the waiting music during the call.
+        /// Settings › Voice changed the waiting music during the call. Turned off, the gate fades the music out before
+        /// the engine lets the piece go.
         func applyWaitingMusic(_ music: GhostexVoice.WaitingMusic) {
             queue.async {
                 guard !self.disposed, self.conversationMode else { return }
-                self.audio?.setMusic(path: music.path, volume: music.volume)
                 self.musicGate?.setEnabled(music.enabled)
+                self.audio?.setMusic(path: music.path, volume: music.volume)
             }
         }
 
@@ -401,6 +403,8 @@ final class GhostexVoice {
                 if activate { try GhostexAudioSession.shared.acquire(use) } else { try GhostexAudioSession.shared.acquire(use, activate: false) }
                 audio.setSpeed(speed)
                 try audio.start()
+                // The music never plays on audio that just started: the gate waits the whole delay for it again.
+                musicGate?.audioRestarted()
             } catch {
                 journal("the microphone did not start: \(error.localizedDescription)")
                 status("micError", "Ghostex could not open the microphone.")
@@ -444,6 +448,8 @@ final class GhostexVoice {
                     self.journal("the system's media services were reset; building the microphone again")
                     old.stop()
                     self.audio = self.makeEngine()
+                    // The old engine took the music with it: the gate starts it on the new one after the whole delay.
+                    self.musicGate?.audioRestarted()
                     self.startAudio(activate: true)
                 }
             })

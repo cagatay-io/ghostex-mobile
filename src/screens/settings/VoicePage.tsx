@@ -414,37 +414,30 @@ function WaitingMusicSection() {
             label="Waiting music"
             detail="Plays quietly in a voice agent call while the agent thinks or runs a tool for more than 1.5 seconds, and fades out when it speaks or you talk."
             value={settings.enabled}
-            onValueChange={(enabled) => {
-              if (!enabled) stopWaitingMusicPreview();
-              void changeWaitingMusic({ enabled });
-            }}
+            onValueChange={(enabled) => void changeWaitingMusic({ enabled })}
           />
-          {settings.enabled ? (
-            <>
-              <SettingsSlider
-                label="Waiting music volume"
-                minimumValue={WAITING_MUSIC_VOLUME_MIN}
-                maximumValue={WAITING_MUSIC_VOLUME_MAX}
-                step={WAITING_MUSIC_VOLUME_STEP}
-                value={settings.volumePercent}
-                valueLabel={`${settings.volumePercent}%`}
-                onValueChange={(volumePercent) => void changeWaitingMusic({ volumePercent })}
-              />
-              <Caption>Its own volume, as a share of the call's: the agent's voice stays as it is.</Caption>
-              {WAITING_MUSIC_PIECES.map((piece) => (
-                <MusicPieceRow
-                  key={piece.id}
-                  piece={piece}
-                  selected={settings.piece === piece.id}
-                  previewing={previewing === piece.id}
-                />
-              ))}
-              <Caption>
-                Saved on this phone only. The music is from OpenGameArt, given to the public domain by its authors
-                (CC0).
-              </Caption>
-            </>
-          ) : null}
+          {/* Shown while the music is off too: the volume and piece can be set, and previewed, before turning it on. */}
+          <SettingsSlider
+            label="Waiting music volume"
+            minimumValue={WAITING_MUSIC_VOLUME_MIN}
+            maximumValue={WAITING_MUSIC_VOLUME_MAX}
+            step={WAITING_MUSIC_VOLUME_STEP}
+            value={settings.volumePercent}
+            valueLabel={`${settings.volumePercent}%`}
+            onValueChange={(volumePercent) => void changeWaitingMusic({ volumePercent })}
+          />
+          <Caption>Its own volume, as a share of the call's: the agent's voice stays as it is.</Caption>
+          {WAITING_MUSIC_PIECES.map((piece) => (
+            <MusicPieceRow
+              key={piece.id}
+              piece={piece}
+              selected={settings.piece === piece.id}
+              previewing={previewing === piece.id}
+            />
+          ))}
+          <Caption>
+            Saved on this phone only. The music is from OpenGameArt, given to the public domain by its authors (CC0).
+          </Caption>
         </>
       )}
     </SettingsSection>

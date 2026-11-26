@@ -933,8 +933,6 @@ export async function startVoice(
       fail('outdated', outdatedGbotCallMessage(machineName));
       return;
     }
-    // This phone's waiting music reaches the native call before it opens (`waitingMusic.ts`).
-    await prepareWaitingMusicForCall();
     if (useVoiceStore.getState().phase !== 'starting') return;
     askedForFocus = about !== undefined;
     nativeSessionId = await GhostexNative.voiceStart({
@@ -944,6 +942,10 @@ export async function startVoice(
       title: machineName,
       ...(about !== undefined ? { focus: focusQuery(about) } : {}),
     });
+    // This phone's waiting music follows the open call once its piece is found, and only while this call runs
+    // (`waitingMusic.ts`); the call never waits for it.
+    const session = nativeSessionId;
+    void prepareWaitingMusicForCall(() => nativeSessionId === session && voiceActive(useVoiceStore.getState().phase));
     voiceLog(`the phone opened its call (${provider}, speed ${speed}×${clipTurns ? ', recorded turns offered' : ''})`);
     if (movedNote !== null) notice(movedNote);
     if (speed !== 1) await GhostexNative.voiceSetSpeed(speed);
