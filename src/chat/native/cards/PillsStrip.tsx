@@ -32,6 +32,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import type { ChatDocument, ChatPill, NativeSwitchOffer, ViewChip } from '../../rust/document';
 import { BLOCKED_PILL } from './CoordinatorBoard';
+import { INTRO_PILL, coordinatorIntro } from './CoordinatorIntro';
 import type { UserAction } from '../../rust/actions';
 import type { RustChat } from '../../rust/useRustChat';
 import type { GhostexSessionLinks } from '../../../contract/mobileSummary';
@@ -291,7 +292,17 @@ export function PillsStrip({
         ? // Blocked opens the board at its Blocked group (gx-chat-core `show_group`), through
           // the board focus the chat screen keeps for the pill sheet.
           chat.dispatch({ type: 'showCoordinatorBoardGroup', group: 'blocked' } as unknown as UserAction)
-        : // The Work pill opens the Work sheet, collapsed dock or not, as the desktop's opens its Work
+        : pill.id === INTRO_PILL && coordinatorIntro(document)?.opensFlowPage === true
+          ? /*
+             * CDXC:Coordinators 2026-11-26 DECISION:
+             * The user, of a coordinator's How to use pill: "make the tips just open this page directly",
+             * and then "Yes, do the phone change". In a coordinator's chat the pill opens the coordinator
+             * flow page in the chat's page sheet (the core's Open of its `/visual/<id>` address) instead
+             * of the tips sheet, as on the desktop (`chat_pills.rs`). A chat core without
+             * `opensFlowPage` keeps the tips sheet.
+             */
+            chat.dispatch({ type: 'openCoordinatorFlowPage' })
+          : // The Work pill opens the Work sheet, collapsed dock or not, as the desktop's opens its Work
           // panel: a collapsed dock keeps its bar, whose tap opens it again (`WorkCards.tsx` `DockHeader`).
           onMenuChange(pill.id);
   /*

@@ -23,6 +23,8 @@ export type CoordinatorIntro = {
   dontShowAgain: string;
   dontShowAgainNote: string;
   tips: CoordinatorIntroTip[];
+  /** In a coordinator's chat the pill opens the coordinator flow page instead of these tips (chat cores from 2026-11-26). */
+  opensFlowPage?: boolean;
 };
 
 /** The pill's id in `chatPills`. */

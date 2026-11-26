@@ -48,6 +48,8 @@ export type ActionFields = {
   stopNeedsYouCommand: { key: string; item: string; ask?: string };
   /** "Don't show again" on the coordinator tips: gxserver drops their pill from every coordinator. Desktop: `coordinator_intro.rs`. */
   hideCoordinatorIntro: {};
+  /** A coordinator's How to use pill: gxserver publishes (or reuses) the coordinator flow page and the core opens it (gx-chat-core `extras/coordinator_intro.rs` `open_flow_page`). */
+  openCoordinatorFlowPage: {};
   /** The Autopilot pill: Autopilot itself on a coordinator, this session elsewhere (gx-chat-core `extras/autopilot.rs`). */
   toggleAutopilot: {};
   /** Boosts (gx-chat-core `extras/boosts.rs`): a Boost into or out of the chat box (`text` is the
