@@ -802,7 +802,15 @@ actor SSHConnection {
             throw SSHError.authenticationFailed
         }
 
-        if let keyString = config.credentials.privateKey, !keyString.isEmpty {
+        let hasKey = !(config.credentials.privateKey ?? "").isEmpty
+        let fallbackPassword = config.credentials.password.flatMap { $0.isEmpty ? nil : $0 }
+        // CDXC:MachineCredentials 2026-11-27 WHY:
+        // Security review finding 1: a computer that refused the phone's key (its public key not added
+        // there yet) was never tried with the saved password, so iPhone could not sign in at all while
+        // Android could. Like Android (GhostexSshConnection.authenticate), a refused key falls back to
+        // the password; a connection that died while logging in does not.
+        var keyRefused = false
+        if hasKey, let keyString = config.credentials.privateKey {
             // Public key auth from in-memory key material
             // NUL-terminated: libssh2's key parsing reads past the given length looking for one (AddressSanitizer
             // caught a heap over-read in sign_frommemory with the unterminated buffer).
@@ -826,7 +834,12 @@ actor SSHConnection {
                     passphrase
                 )
             }
-        } else if let password = config.credentials.password {
+            if authResult != 0, fallbackPassword != nil, !Self.isDeadLogin(authResult) {
+                logger.info("Publickey auth was refused, trying the saved password")
+                keyRefused = true
+            }
+        }
+        if !hasKey || keyRefused, let password = keyRefused ? fallbackPassword : config.credentials.password {
             logger.info("Attempting password auth for user: \(username)")
 
             authResult = libssh2_userauth_password_ex(
@@ -852,7 +865,7 @@ actor SSHConnection {
                     kbdintCallback
                 )
             }
-        } else {
+        } else if !hasKey {
             logger.error("No credentials provided")
             throw SSHError.authenticationFailed
         }
@@ -866,14 +879,19 @@ actor SSHConnection {
             // A login that never got an answer is a dead connection, not a wrong credential:
             // reporting it as an auth failure would stop every automatic retry.
             if authResult == LIBSSH2_ERROR_TIMEOUT { throw SSHError.timeout }
-            if authResult == LIBSSH2_ERROR_SOCKET_SEND || authResult == LIBSSH2_ERROR_SOCKET_RECV
-                || authResult == LIBSSH2_ERROR_SOCKET_DISCONNECT {
+            if Self.isDeadLogin(authResult) {
                 throw SSHError.connectionFailed("The connection dropped while logging in.")
             }
             throw SSHError.authenticationFailed
         }
 
         logger.info("Authentication successful")
+    }
+
+    /// A login that failed because the connection timed out or dropped, not because a credential was refused.
+    private static func isDeadLogin(_ result: Int32) -> Bool {
+        result == LIBSSH2_ERROR_TIMEOUT || result == LIBSSH2_ERROR_SOCKET_SEND || result == LIBSSH2_ERROR_SOCKET_RECV
+            || result == LIBSSH2_ERROR_SOCKET_DISCONNECT
     }
 
     private func verifyHostKey() throws {
