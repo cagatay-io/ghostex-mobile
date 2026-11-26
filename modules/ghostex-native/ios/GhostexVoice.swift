@@ -588,7 +588,8 @@ final class GhostexVoice {
             if let conversationId { query.append(URLQueryItem(name: "conversationId", value: conversationId)) }
             if conversationMode, let provider { query.append(URLQueryItem(name: "provider", value: provider)) }
             if conversationMode, conversationId == nil, let startFocus { query.append(URLQueryItem(name: "focus", value: startFocus)) }
-            if !conversationMode, let language { query.append(URLQueryItem(name: "language", value: language)) }
+            // CDXC:VoiceMode 2026-11-25 WHY: a call sends the phone's language too; gxserver speaks it while its language setting is "device", and an older gxserver ignores it for calls.
+            if let language { query.append(URLQueryItem(name: "language", value: language)) }
             components.queryItems = query
             guard let url = components.url else { return }
             var request = URLRequest(url: url)

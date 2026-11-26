@@ -513,6 +513,25 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     catalog: 'voiceAgentCallMode',
     options: ['Regular', 'Push-to-talk'],
   },
+  // Shown only for a computer whose voice agent has a language setting; on an older one the result lands on the top
+  // of the Voice agent section.
+  {
+    page: 'voice',
+    section: 'settings:voice:call-mode',
+    group: 'Voice agent',
+    title: 'Language',
+    description: 'The language the voice agent speaks in calls.',
+    catalog: 'voiceAgentLanguage',
+  },
+  // Shown for Regular calls while "Answer when I say …" is on; otherwise the result lands on the section's top.
+  {
+    page: 'voice',
+    section: 'settings:voice:call-mode',
+    group: 'Voice agent',
+    title: 'Turn words',
+    description: 'The words that end your turn, per language.',
+    catalog: 'voiceAgentTurnWords',
+  },
   {
     page: 'voice',
     section: 'settings:voice:phone',

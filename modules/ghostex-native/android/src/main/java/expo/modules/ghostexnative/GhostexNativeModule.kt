@@ -202,6 +202,16 @@ class GhostexNativeModule : Module() {
     // src/machines/routeChoice.ts).
     Function("supportsDialTimeout") { true }
 
+    // The first language of the system's language list, as a lowercase primary subtag ("de" from "de-DE"), or null.
+    // The system's configuration, not the app's: a per-app language (Android 13+) or the app's own resources would
+    // give the app's locale instead of the phone's. toLanguageTag gives today's codes ("id", "he"), where
+    // Locale.language can give the legacy ones ("in", "iw"). A call's `language` (src/voice/conversation.ts,
+    // deviceLanguage); an older build has no such function, so JS checks.
+    Function("preferredLanguage") {
+      val tag = android.content.res.Resources.getSystem().configuration.locales.get(0)?.toLanguageTag()
+      tag?.substringBefore('-')?.lowercase()?.takeIf { it.isNotEmpty() && it != "und" }
+    }
+
     // This build has the connection check's own lane (`exec` with lane "probe") and ends a timed-out command alone;
     // JS turns the Android stall checks on only when it is true (src/remote/channelBudget.ts).
     Function("probeLane") { true }
