@@ -61,7 +61,7 @@ import { ShareLinkSheet } from '../../../sharing/ShareLinkSheet';
 import { keepUnsavedDraft, sendUnsavedDraft } from './pageDrafts';
 import { PAGE_DICTATION_SCRIPT, usePageDictation } from './pageDictation';
 import { usePageArtBackdrop, type PageOrigin, type SheetSize } from './pageArtBackdrop';
-import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
+import { PAGE_SCRIPT, PENDING_DRAFT_SCRIPT, RELOAD_SCRIPT, pageIdOfPath, readPageMessage } from './pageSheetScript';
 
 /** How long the first back press keeps the sheet armed for a second one to close it. */
 const CLOSE_ARMED_FOR_MS = 2_000;
@@ -430,7 +430,7 @@ export function PageSheet({ chat, machine, page, starredPages, onClose, onHide, 
       return;
     }
     setChanged(false);
-    webviewRef.current?.reload();
+    webviewRef.current?.injectJavaScript(RELOAD_SCRIPT);
   }, [pageId]);
 
   const shouldStartLoad = useCallback(

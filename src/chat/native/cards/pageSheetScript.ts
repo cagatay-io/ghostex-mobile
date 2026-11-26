@@ -171,6 +171,23 @@ export const PENDING_DRAFT_SCRIPT = `(() => {
 })();
 true;`;
 
+/**
+ * Refresh's reload. The page dropped the `gx-floating=1` the sheet opened it with from its address
+ * (the page bootstrap in server/src/visual_pages/theme.rs), so a plain reload left a page that no
+ * longer closes the sheet once its answers are sent: the mark is put back first, after the page saved
+ * its draft, as the desktop's window reloads (apps/desktop/src/app/window/visual_page_modal/source.rs).
+ */
+export const RELOAD_SCRIPT = `(() => {
+  try { if (window.ghostex && typeof ghostex.__flush === 'function') ghostex.__flush(); } catch (_) {}
+  try {
+    if (document.documentElement.hasAttribute('data-gx-floating')) {
+      history.replaceState(history.state, '', location.pathname + location.search + '#gx-floating=1');
+    }
+  } catch (_) {}
+  location.reload();
+})();
+true;`;
+
 const record = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 
