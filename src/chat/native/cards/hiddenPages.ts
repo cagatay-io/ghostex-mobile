@@ -82,33 +82,73 @@ export function useHiddenPages(chat: string): readonly HiddenPage[] {
 /** How long after Hide the count is asked for, so it counts the reader's last pick (the desktop waits as long). */
 const STATUS_AFTER_MS = 400;
 const STATUS_TIMEOUT_MS = 10_000;
+/** How often a hidden page is asked again whether it was answered meanwhile. */
+const STATUS_AGAIN_MS = 5_000;
+
+/** The watch each hidden page has, so hiding it again does not start a second one. */
+const watches = new Map<string, number>();
+let nextWatch = 0;
 
 /**
  * Asks the page's computer how many of its questions are answered (`readVisualPageSource`'s
- * `questionsAnswered` of `questionsTotal` and `questionsLeft`, from 2026-11-11 on), once, a moment
- * after the page saved its draft, and writes it on the pill. A computer that cannot say leaves the
- * pill without a count.
+ * `questionsAnswered` of `questionsTotal` and `questionsLeft`, from 2026-11-11 on), a moment after
+ * the page saved its draft, and writes it on the pill. A computer that cannot say leaves the pill
+ * without a count.
+ *
+ * It asks again while the pill is there, and a page answered meanwhile (`answered`, from 2026-11-26
+ * on: by the desktop, another phone or the agent's own page) takes its pill away, as the desktop's
+ * hidden page window closes then (apps/desktop/src/app/window/visual_page_modal/source.rs
+ * `note_answered`). A page already answered when it was hidden keeps its pill until the reader
+ * closes it, since it only brings back what they chose to read.
+ *
+ * CDXC:SessionStatus 2026-11-26 DECISION:
+ * User: "I wanted it to be gone as soon as I answer", on the phone and the computer. A hidden page's
+ * pill goes away once the page is answered anywhere, not only by its own Send.
  */
 export function readHiddenPageStatus(chat: string, machine: MachineConnectionTarget, pageId: string): void {
-  setTimeout(() => {
-    void (async () => {
-      const link = chatMachineLink(machine);
-      if ((await link.route()) !== 'socket') return;
-      const answer = await link.rpc('readVisualPageSource', { pageId }, STATUS_TIMEOUT_MS);
-      if (answer.error !== null) return;
-      const status = (answer.result ?? {}) as {
-        questionsLeft?: unknown;
-        questionsAnswered?: unknown;
-        questionsTotal?: unknown;
-      };
-      const total = typeof status.questionsTotal === 'number' ? status.questionsTotal : 0;
-      const answered = typeof status.questionsAnswered === 'number' ? Math.min(status.questionsAnswered, total) : 0;
-      useHiddenPagesStore.getState().update(chat, pageId, {
-        questionsLeft: status.questionsLeft === true,
-        counts: total > 0 ? { answered, total } : null,
-      });
-    })().catch(() => undefined);
-  }, STATUS_AFTER_MS);
+  const key = `${chat}\n${pageId}`;
+  const watch = ++nextWatch;
+  watches.set(key, watch);
+  let wasAnswered: boolean | null = null;
+  const shown = () =>
+    watches.get(key) === watch &&
+    (useHiddenPagesStore.getState().byChat[chat] ?? NONE).some((entry) => entry.pageId === pageId);
+  const ask = async () => {
+    const link = chatMachineLink(machine);
+    if ((await link.route()) !== 'socket') return;
+    const answer = await link.rpc('readVisualPageSource', { pageId }, STATUS_TIMEOUT_MS);
+    if (answer.error !== null || !shown()) return;
+    const status = (answer.result ?? {}) as {
+      answered?: unknown;
+      questionsLeft?: unknown;
+      questionsAnswered?: unknown;
+      questionsTotal?: unknown;
+    };
+    if (typeof status.answered === 'boolean') {
+      if (status.answered && wasAnswered === false) {
+        useHiddenPagesStore.getState().remove(chat, pageId);
+        return;
+      }
+      wasAnswered = status.answered;
+    }
+    const total = typeof status.questionsTotal === 'number' ? status.questionsTotal : 0;
+    const answered = typeof status.questionsAnswered === 'number' ? Math.min(status.questionsAnswered, total) : 0;
+    useHiddenPagesStore.getState().update(chat, pageId, {
+      questionsLeft: status.questionsLeft === true,
+      counts: total > 0 ? { answered, total } : null,
+    });
+  };
+  const turn = (after: number) =>
+    setTimeout(() => {
+      if (!shown()) {
+        if (watches.get(key) === watch) watches.delete(key);
+        return;
+      }
+      void ask()
+        .catch(() => undefined)
+        .finally(() => turn(STATUS_AGAIN_MS));
+    }, after);
+  turn(STATUS_AFTER_MS);
 }
 
 /** "3/16" for a page that asks questions. */
