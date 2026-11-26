@@ -29,14 +29,13 @@ final class GhostexVoice {
     private static let lock = NSLock()
     private static var conversation: Session?
     private static var dictation: Session?
-    /// This phone's waiting music (`voiceSetWaitingMusic`): kept for the next call, and applied to one running now.
+    /// A call's waiting music, as `voiceSetWaitingMusic` sets it for that call's session.
     struct WaitingMusic {
         var enabled = false
         var volume: Float = 0.3
         /// The piece's file; nil plays nothing.
         var path: String?
     }
-    private static var waitingMusic = WaitingMusic()
 
     struct Options {
         let mode: String
@@ -125,20 +124,19 @@ final class GhostexVoice {
     /// What JavaScript needs after a reload: the conversation still running, if any.
     static func status() -> [String: Any?]? { current("conversation")?.snapshot() }
 
-    /// Settings › Voice set the waiting music (or a call is starting): kept, and handed to a call that runs.
-    static func setWaitingMusic(enabled: Bool, volume: Double, path: String?) {
+    /**
+     * Settings › Voice set the waiting music, or a call is handed the phone's settings: the preview takes the volume,
+     * and the conversation running now takes the rest only when `session` names it. Nothing is kept for later calls.
+     *
+     * CDXC:VoiceMode 2026-11-26 WHY: A call that kept the last call's settings could play that call's piece, or music
+     * since turned off, before the newest settings for it arrived. So every call starts without music, and only the
+     * settings JavaScript hands over for that call's own session start it (JavaScript drops older changes first).
+     */
+    static func setWaitingMusic(enabled: Bool, volume: Double, path: String?, session: String?) {
         let music = WaitingMusic(enabled: enabled && path != nil, volume: Float(min(1, max(0, volume))), path: path)
-        lock.lock()
-        waitingMusic = music
-        lock.unlock()
         GhostexWaitingMusicPreview.setVolume(music.volume)
-        current("conversation")?.applyWaitingMusic(music)
-    }
-
-    fileprivate static func currentWaitingMusic() -> WaitingMusic {
-        lock.lock()
-        defer { lock.unlock() }
-        return waitingMusic
+        guard let session, let call = current("conversation"), call.id == session else { return }
+        call.applyWaitingMusic(music)
     }
 
     fileprivate static func finished(_ session: Session) {
@@ -266,6 +264,8 @@ final class GhostexVoice {
         private var audio: GhostexVoiceEngine?
         /// A conversation's waiting music: when it plays (`GhostexWaitingMusicGate`); the engine plays it.
         private var musicGate: GhostexWaitingMusicGate?
+        /// The waiting music set for this call (`setWaitingMusic`); none until then.
+        private var music = GhostexVoice.WaitingMusic()
         /// CallKit carries this conversation (it activates the audio session and shows the call).
         private var onCall = false
         private var audioFallback: DispatchWorkItem?
@@ -303,7 +303,7 @@ final class GhostexVoice {
                 self.audio = self.makeEngine()
                 if self.conversationMode {
                     self.musicGate = self.makeMusicGate()
-                    self.musicGate?.setEnabled(GhostexVoice.currentWaitingMusic().enabled)
+                    // The gate starts switched off: only the settings set for this call turn it on.
                 }
                 self.observeAudioSession()
                 if self.conversationMode && GhostexVoiceCall.available {
@@ -323,10 +323,7 @@ final class GhostexVoice {
                 onChunk: { [weak self] chunk in self?.queue.async { self?.onMicrophone(chunk) } },
                 onError: { [weak self] message in self?.queue.async { self?.status("micError", message) } }
             )
-            if conversationMode {
-                let music = GhostexVoice.currentWaitingMusic()
-                engine.setMusic(path: music.path, volume: music.volume)
-            }
+            if conversationMode { engine.setMusic(path: music.path, volume: music.volume) }
             return engine
         }
 
@@ -349,11 +346,12 @@ final class GhostexVoice {
             )
         }
 
-        /// Settings › Voice changed the waiting music during the call. Turned off, the gate fades the music out before
-        /// the engine lets the piece go.
+        /// The waiting music set for this call: at its start, or changed in Settings › Voice during it. Turned off, the
+        /// gate fades the music out before the engine lets the piece go.
         func applyWaitingMusic(_ music: GhostexVoice.WaitingMusic) {
             queue.async {
                 guard !self.disposed, self.conversationMode else { return }
+                self.music = music
                 self.musicGate?.setEnabled(music.enabled)
                 self.audio?.setMusic(path: music.path, volume: music.volume)
             }

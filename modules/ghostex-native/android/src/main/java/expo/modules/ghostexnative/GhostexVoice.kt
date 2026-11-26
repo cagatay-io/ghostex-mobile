@@ -60,9 +60,8 @@ internal object GhostexVoice {
   private var conversation: Session? = null
   private var dictation: Session? = null
   private var debugReceiver: BroadcastReceiver? = null
-  /** This phone's waiting music (`voiceSetWaitingMusic`): kept for the next call, and applied to one running now. */
+  /** A call's waiting music, as `voiceSetWaitingMusic` sets it for that call's session. */
   data class WaitingMusic(val enabled: Boolean = false, val volume: Float = 0.3f, val path: String? = null)
-  @Volatile private var waitingMusic = WaitingMusic()
 
   data class Options(
     val mode: String,
@@ -155,12 +154,16 @@ internal object GhostexVoice {
   /** What JavaScript needs after a reload: the conversation still running, if any. */
   fun status(): Map<String, Any?>? = current("conversation")?.snapshot()
 
-  /** Settings › Voice set the waiting music (or a call is starting): kept, and handed to a call that runs. */
-  fun setWaitingMusic(enabled: Boolean, volume: Double, path: String?) {
+  /**
+   * Settings › Voice set the waiting music, or a call is handed the phone's settings: the preview takes the volume,
+   * and the conversation running now takes the rest only when [session] names it. Nothing is kept for later calls; a
+   * call starts without music (GhostexVoice.swift's `setWaitingMusic` holds the WHY).
+   */
+  fun setWaitingMusic(enabled: Boolean, volume: Double, path: String?, session: String?) {
     val music = WaitingMusic(enabled && path != null, volume.coerceIn(0.0, 1.0).toFloat(), path)
-    waitingMusic = music
     GhostexVoiceAudio.WaitingMusicPreview.setVolume(music.volume)
-    current("conversation")?.applyWaitingMusic(music)
+    val call = current("conversation") ?: return
+    if (session != null && call.id == session) call.applyWaitingMusic(music)
   }
 
   internal fun finished(session: Session) {
@@ -268,8 +271,8 @@ internal object GhostexVoice {
         )
         audioSession = GhostexVoiceAudio.Session(context) { gained -> onFocus(gained) }.also { it.begin() }
         player = GhostexVoiceAudio.Player().also { it.setSpeed(speed) }
+        // No piece and the gate off until the settings set for this call arrive (`setWaitingMusic`).
         music = GhostexVoiceAudio.Music(player!!.audioSessionId)
-        applyWaitingMusic(waitingMusic)
         holdLocks()
         GhostexForegroundService.startVoiceMode(context, title)
       }
@@ -356,8 +359,8 @@ internal object GhostexVoice {
     }
 
     /**
-     * Settings › Voice changed the waiting music (or the call is starting). Turned off, the gate stops the music
-     * first, so it fades out before the piece is let go.
+     * The waiting music set for this call: at its start, or changed in Settings › Voice during it. Turned off, the gate
+     * stops the music first, so it fades out before the piece is let go.
      */
     fun applyWaitingMusic(settings: WaitingMusic) {
       if (!conversationMode || disposed) return

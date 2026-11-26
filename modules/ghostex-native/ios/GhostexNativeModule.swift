@@ -1249,9 +1249,11 @@ public class GhostexNativeModule: Module {
         }
 
         // A call's waiting music and Settings › Voice's preview of it (GhostexVoiceAudio.swift). `path` is expo-asset's
-        // `file://` URI of the bundled piece.
-        AsyncFunction("voiceSetWaitingMusic") { (enabled: Bool, volume: Double, path: String?) in
-            GhostexVoice.setWaitingMusic(enabled: enabled, volume: volume, path: path.flatMap(GhostexVoiceAudio.localFilePath))
+        // `file://` URI of the bundled piece; `session` is the call it is for (nil: the preview's volume only).
+        AsyncFunction("voiceSetWaitingMusic") { (enabled: Bool, volume: Double, path: String?, session: String?) in
+            GhostexVoice.setWaitingMusic(
+                enabled: enabled, volume: volume, path: path.flatMap(GhostexVoiceAudio.localFilePath), session: session
+            )
         }
 
         AsyncFunction("voicePreviewWaitingMusic") { (path: String, volume: Double, seconds: Double) throws in

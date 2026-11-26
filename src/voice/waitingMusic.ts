@@ -151,36 +151,50 @@ async function pieceFile(id: WaitingMusicPieceId): Promise<string | null> {
 let generation = 0;
 
 /**
- * Hands `settings` (change number `sent`) to the native side, for the call running now and the next ones, unless a
- * newer change came or `current` no longer holds by the time the piece's file is found. An app build without waiting
- * music: nothing happens.
+ * The call the setting goes to: `voiceStart`'s session, while `current` says it still runs. A call starts natively
+ * without music and plays only what is handed over with its own session (GhostexVoice.swift's `setWaitingMusic`).
  */
-async function sendWaitingMusic(
-  settings: WaitingMusicSettings,
-  sent: number,
-  current: () => boolean = () => true,
-): Promise<void> {
-  if (!waitingMusicSupported()) return;
-  const path = settings.enabled ? await pieceFile(settings.piece) : null;
-  if (sent !== generation || !current()) return;
-  await GhostexNative.voiceSetWaitingMusic?.(settings.enabled && path !== null, settings.volumePercent / 100, path);
+let call: { session: string; current: () => boolean } | null = null;
+
+/** The session of the call running now, or null. */
+function runningCall(): string | null {
+  return call !== null && call.current() ? call.session : null;
 }
 
 /**
- * A call has opened: this phone's settings follow it to the native side once the piece's file is found, while
- * `current` says the call still runs. Never throws; a failure leaves the call without music.
+ * Hands `settings` (change number `sent`) to the native side for the call `session` (null: no call, only a preview's
+ * volume), unless a newer change came or that call ended by the time the piece's file is found. An app build without
+ * waiting music: nothing happens.
+ */
+async function sendWaitingMusic(settings: WaitingMusicSettings, sent: number, session: string | null): Promise<void> {
+  if (!waitingMusicSupported()) return;
+  const path = settings.enabled ? await pieceFile(settings.piece) : null;
+  if (sent !== generation || (session !== null && runningCall() !== session)) return;
+  await GhostexNative.voiceSetWaitingMusic?.(
+    settings.enabled && path !== null,
+    settings.volumePercent / 100,
+    path,
+    session,
+  );
+}
+
+/**
+ * A call has opened (`session`, `voiceStart`'s answer), or JavaScript found one still running after a reload: this
+ * phone's settings follow it to the native side once the piece's file is found, while `current` says the call still
+ * runs, and so do the changes made during it. Never throws; a failure leaves the call without music.
  *
  * CDXC:VoiceMode 2026-11-26 WHY: The music is optional, so the call never waits for it: finding the file or reading
  * the saved setting has no time limit of its own, and the call would stay at "Connecting…" meanwhile.
  */
-export async function prepareWaitingMusicForCall(current: () => boolean): Promise<void> {
+export async function prepareWaitingMusicForCall(session: string, current: () => boolean): Promise<void> {
   if (!waitingMusicSupported()) return;
+  call = { session, current };
   generation += 1;
   const sent = generation;
   try {
     await loadWaitingMusic();
     // The settings as shown now: a change made while they were read is in them.
-    await sendWaitingMusic(useWaitingMusicStore.getState().settings, sent, current);
+    await sendWaitingMusic(useWaitingMusicStore.getState().settings, sent, session);
   } catch (error) {
     logAppEvent(
       `Voice agent: the waiting music could not be set up (${error instanceof Error ? error.message : String(error)})`,
@@ -190,9 +204,11 @@ export async function prepareWaitingMusicForCall(current: () => boolean): Promis
 
 /** Settings › Voice changed a setting: shown at once, saved on this phone, and handed to a call that is running. */
 export async function changeWaitingMusic(patch: Partial<WaitingMusicSettings>): Promise<void> {
-  // Numbered as it is made, before any wait, so the order of the user's changes decides what the call gets.
+  // Numbered as it is made, before any wait, so the order of the user's changes decides what the call gets; and meant
+  // for the call running when it is made, never for one that starts later (that one is handed its own).
   generation += 1;
   const sent = generation;
+  const session = runningCall();
   await loadWaitingMusic();
   const settings = sanitizeWaitingMusic({ ...useWaitingMusicStore.getState().settings, ...patch });
   useWaitingMusicStore.setState({ settings });
@@ -204,7 +220,7 @@ export async function changeWaitingMusic(patch: Partial<WaitingMusicSettings>): 
     );
   }
   try {
-    await sendWaitingMusic(settings, sent);
+    await sendWaitingMusic(settings, sent, session);
   } catch (error) {
     logAppEvent(
       `Voice agent: the waiting music setting could not reach the call (${error instanceof Error ? error.message : String(error)})`,
