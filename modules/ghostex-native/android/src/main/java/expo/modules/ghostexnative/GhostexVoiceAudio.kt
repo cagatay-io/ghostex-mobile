@@ -560,6 +560,8 @@ internal object GhostexVoiceAudio {
     private var wanted = false
     private var active = false
     private var gain = 0f
+    /** The loudest gain since the music last held steady: a fade down takes [FADE_SECONDS] from it, not [volume]'s. */
+    private var fadeFrom = 0f
     private var position = 0
     /** Touched by the music thread only. */
     private var track: AudioTrack? = null
@@ -570,11 +572,15 @@ internal object GhostexVoiceAudio {
 
     /**
      * The piece (null: none) and volume this phone set. Another piece replaces one that is playing at once; no piece
-     * fades the one that plays out first, and the thread lets its decoded audio go once it is silent ([loop]).
+     * fades the one that plays out first, and the thread lets its decoded audio go once it is silent ([loop]). 0 is
+     * silent at once, also while the loop plays.
      */
     fun configure(path: String?, volume: Float) {
       synchronized(lock) {
         this.volume = volume
+        // CDXC:VoiceMode 2026-11-26 WHY: 0 % means silent: a fade toward it from the gain playing would still be heard,
+        // also over the agent's reply when its first audio stops the music right after.
+        if (volume == 0f) gain = 0f
         if (path != this.path) {
           this.path = path
           if (path == null) {
@@ -671,7 +677,10 @@ internal object GhostexVoiceAudio {
         return null
       }
       val target = if (wanted) volume else 0f
-      val step = maxOf(volume, 0.05f) / (FADE_SECONDS * rate)
+      // A fade down runs from the loudest gain since the music held steady, so a stop right after the volume was
+      // lowered still ends within FADE_SECONDS; a fade up takes FADE_SECONDS to the volume.
+      fadeFrom = if (gain == target) gain else maxOf(fadeFrom, gain)
+      val step = maxOf(volume, fadeFrom, 0.05f) / (FADE_SECONDS * rate)
       val out = ShortArray(rate / 50)
       for (index in out.indices) {
         gain = if (gain < target) minOf(target, gain + step) else maxOf(target, gain - step)
