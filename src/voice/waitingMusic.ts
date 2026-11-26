@@ -8,7 +8,7 @@
  * CDXC:VoiceMode 2026-11-26 DECISION: The settings belong to this phone, one set per device, and the computer and its
  * desktop app are unchanged: a phone in a car holder can be set up differently from another one. They are on by
  * default at 30 % of the call's playback, with four CC0 pieces to choose from (music/PROVENANCE.md), each with a short
- * preview.
+ * preview. The user chose Calm Loop as the piece a phone starts with; a piece already chosen and saved stays.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,7 +28,7 @@ export type WaitingMusicPiece = {
   readonly asset: number;
 };
 
-/** The pieces, in Settings › Voice's order; the first is the default. */
+/** The pieces, in Settings › Voice's order. */
 export const WAITING_MUSIC_PIECES: readonly WaitingMusicPiece[] = [
   {
     id: 'ambientRelaxingLoop',
@@ -60,7 +60,7 @@ export const WAITING_MUSIC_VOLUME_MAX = 100;
 export const WAITING_MUSIC_DEFAULTS: WaitingMusicSettings = {
   enabled: true,
   volumePercent: 30,
-  piece: 'ambientRelaxingLoop',
+  piece: 'calmLoop',
 };
 
 /** How long Settings › Voice's preview of a piece plays before it fades out. */
