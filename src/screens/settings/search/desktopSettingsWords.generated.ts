@@ -15,7 +15,7 @@ export type DesktopSettingWords = {
 export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords>> = {
   "agentSessionMode": {
     "title": "Session mode",
-    "subtitle": "Choose Native (faster, more stable structured host; default on new Chat-first installs; switching to Terminal-based asks first and interrupts any active turn) or Terminal-based (legacy interactive terminal, will be removed in a future release). Applies to sessions started or resumed after you change it.",
+    "subtitle": "Choose Native (faster, with live approvals; the default on new Chat-first installs; switching a chat to Terminal-based asks first and interrupts any active turn) or Terminal-based (the agent's own app in a terminal, with instant switching between Chat and Terminal). Applies to sessions started or resumed after you change it.",
     "options": [],
     "keywords": []
   },
@@ -1860,13 +1860,13 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "voiceAgentLanguage": {
     "title": "Language",
-    "subtitle": "The language the voice agent speaks and listens for. Same as the calling device follows the language of the phone or computer that starts the call, and English when that language isn't one the agent speaks. A change applies to your next call.",
+    "subtitle": "The language the voice agent speaks and listens for, English by default. Same as the calling device follows the language of the phone or computer that starts the call, and English when that language isn't one the agent speaks. A change applies to your next call.",
     "options": [],
     "keywords": []
   },
   "voiceAgentTurnWords": {
     "title": "Turn words",
-    "subtitle": "The words that end your turn, separated by commas, for one language at a time: English \"reply\" and \"go ahead\", German \"fertig\" and \"antworte\", and the English ones for any other language until you set some. Up to 8, each up to 40 characters. Reset to defaults puts that language's own words back.",
+    "subtitle": "The words that end your turn, separated by commas, for one language at a time: English \"reply\", \"over\" and \"go ahead\", German \"fertig\" and \"antworte\", and the English ones for any other language until you set some. Up to 8, each up to 40 characters. Reset to defaults puts that language's own words back.",
     "options": [],
     "keywords": []
   },
