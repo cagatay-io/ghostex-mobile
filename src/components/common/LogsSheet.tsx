@@ -4,6 +4,8 @@
  * with a Copy button that puts the full plain-text log on the clipboard, Export, which shares it as a .txt file
  * (logExport.ts), and Send to developer, which opens its review step (SendLogsReview.tsx) in the same sheet and is the
  * only path that files a GitHub issue. Half folded like a laptop it starts below the fold and the log scrolls inside.
+ * It rides above the keyboard on both platforms (KeyboardAvoidingContainer; React Native's KeyboardAvoidingView does
+ * nothing inside a Modal on Android), and the review step scrolls its focused note into view.
  *
  * CDXC:RemoteMachines 2026-11-13 DECISION: the Connections sheet's Send logs opens Export (the share sheet with the
  * file), not the GitHub review: Sebastian wants a file he can save or send. The sheet opens under it so a failed
@@ -13,9 +15,10 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useFoldSheetMaxHeight } from './foldAvoidance';
+import KeyboardAvoidingContainer from './keyboard/KeyboardAvoidingContainer';
 import { useVerticalBarSpace } from './verticalBar/VerticalBarArea';
 import * as Clipboard from 'expo-clipboard';
 
@@ -40,7 +43,7 @@ export default function LogsSheet({ visible, onClose, exportNow = false }: LogsS
   const appearance = useAppearance();
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const bar = useVerticalBarSpace();
-  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: false });
+  const foldMaxHeight = useFoldSheetMaxHeight({ avoidsKeyboard: true });
   const entries = useAppLogStore((state) => state.entries);
   const [copied, setCopied] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -96,7 +99,7 @@ export default function LogsSheet({ visible, onClose, exportNow = false }: LogsS
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingContainer style={styles.fill}>
         <Pressable style={[styles.backdrop, bar.padding]} onPress={onClose}>
           <Pressable
             style={[styles.sheet, foldMaxHeight !== undefined && { maxHeight: foldMaxHeight }]}
@@ -162,7 +165,7 @@ export default function LogsSheet({ visible, onClose, exportNow = false }: LogsS
             )}
           </Pressable>
         </Pressable>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingContainer>
     </Modal>
   );
 }

@@ -6,7 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAppLogStore } from '../../app/appLog';
 import { SendLogsCopy } from '../../copy';
@@ -16,6 +16,7 @@ import { logReport } from '../../feedback/logReport';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 import { GhostexRadii, GhostexStrokeWidth } from '../../theme/palette';
 import { SetupButton } from '../onboarding/SetupPrimitives';
+import KeyboardAwareScrollView from './keyboard/KeyboardAwareScrollView';
 
 /** The GitHub username Send Bug / Feedback last named (src/screens/FeedbackScreen.tsx). */
 const GITHUB_USERNAME_KEY = 'feedback.githubUsername.v1';
@@ -90,7 +91,7 @@ export default function SendLogsReview({ onCancel, onDone }: { onCancel: () => v
   );
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.body}>
       <Text accessibilityRole="header" style={styles.title}>
         {SendLogsCopy.title}
       </Text>
@@ -153,7 +154,7 @@ export default function SendLogsReview({ onCancel, onDone }: { onCancel: () => v
           onPress={send}
         />
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
