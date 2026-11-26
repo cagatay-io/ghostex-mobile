@@ -7,8 +7,9 @@
  *
  * CDXC:VoiceMode 2026-11-26 DECISION: The settings belong to this phone, one set per device, and the computer and its
  * desktop app are unchanged: a phone in a car holder can be set up differently from another one. They are on by
- * default at 30 % of the call's playback, with four CC0 pieces to choose from (music/PROVENANCE.md), each with a short
- * preview. The user chose Calm Loop as the piece a phone starts with; a piece already chosen and saved stays.
+ * default at 30 % of the call's playback, with six CC0 pieces to choose from (music/PROVENANCE.md), each with a short
+ * preview. The user chose Calm Loop as the piece a phone starts with; a piece already chosen and saved stays. The user
+ * added Bossa Town and Coffee House Bump after the first four, at the end, so the list keeps its order.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,7 +19,8 @@ import { create } from 'zustand';
 import { GhostexNative } from '../../modules/ghostex-native/src';
 import { logAppEvent } from '../app/appLog';
 
-export type WaitingMusicPieceId = 'ambientRelaxingLoop' | 'heavenlyLoop' | 'slowStride' | 'calmLoop';
+export type WaitingMusicPieceId =
+  'ambientRelaxingLoop' | 'heavenlyLoop' | 'slowStride' | 'calmLoop' | 'bossaTown' | 'coffeeHouseBump';
 
 export type WaitingMusicPiece = {
   readonly id: WaitingMusicPieceId;
@@ -44,6 +46,13 @@ export const WAITING_MUSIC_PIECES: readonly WaitingMusicPiece[] = [
   },
   { id: 'slowStride', title: 'Slow Stride', author: 'isaiah658', asset: require('./music/slow-stride.m4a') as number },
   { id: 'calmLoop', title: 'Calm Loop', author: 'wipics', asset: require('./music/calm-loop.m4a') as number },
+  { id: 'bossaTown', title: 'Bossa Town', author: 'KarateStudios', asset: require('./music/bossa-town.m4a') as number },
+  {
+    id: 'coffeeHouseBump',
+    title: 'Coffee House Bump',
+    author: 'OatCog',
+    asset: require('./music/coffee-house-bump.m4a') as number,
+  },
 ];
 
 export type WaitingMusicSettings = {
