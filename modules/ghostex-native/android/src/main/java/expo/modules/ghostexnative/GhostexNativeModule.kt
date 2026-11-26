@@ -789,6 +789,21 @@ class GhostexNativeModule : Module() {
       GhostexVoice.status()
     }
 
+    // A call's waiting music and Settings › Voice's preview of it (GhostexVoiceAudio.kt). `path` is expo-asset's
+    // `file://` URI of the bundled piece.
+    AsyncFunction("voiceSetWaitingMusic") { enabled: Boolean, volume: Double, path: String? ->
+      GhostexVoice.setWaitingMusic(enabled, volume, path?.let { GhostexVoiceAudio.localFilePath(it) })
+    }
+
+    AsyncFunction("voicePreviewWaitingMusic") { path: String, volume: Double, seconds: Double ->
+      val file = GhostexVoiceAudio.localFilePath(path) ?: throw IllegalArgumentException("The music file is missing.")
+      GhostexVoiceAudio.WaitingMusicPreview.play(file, volume.coerceIn(0.0, 1.0).toFloat(), maxOf(1.0, seconds))
+    }
+
+    AsyncFunction("voiceStopWaitingMusicPreview") {
+      GhostexVoiceAudio.WaitingMusicPreview.stop()
+    }
+
     // Dictate's recordings (GhostexVoiceRecorder.kt): record to a file first, upload it after.
     AsyncFunction("dictationRecordStart") {
       GhostexVoiceRecorder.start(requireAndroidContext())

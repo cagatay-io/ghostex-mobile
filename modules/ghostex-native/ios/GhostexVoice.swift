@@ -29,6 +29,14 @@ final class GhostexVoice {
     private static let lock = NSLock()
     private static var conversation: Session?
     private static var dictation: Session?
+    /// This phone's waiting music (`voiceSetWaitingMusic`): kept for the next call, and applied to one running now.
+    struct WaitingMusic {
+        var enabled = false
+        var volume: Float = 0.3
+        /// The piece's file; nil plays nothing.
+        var path: String?
+    }
+    private static var waitingMusic = WaitingMusic()
 
     struct Options {
         let mode: String
@@ -116,6 +124,22 @@ final class GhostexVoice {
 
     /// What JavaScript needs after a reload: the conversation still running, if any.
     static func status() -> [String: Any?]? { current("conversation")?.snapshot() }
+
+    /// Settings › Voice set the waiting music (or a call is starting): kept, and handed to a call that runs.
+    static func setWaitingMusic(enabled: Bool, volume: Double, path: String?) {
+        let music = WaitingMusic(enabled: enabled && path != nil, volume: Float(min(1, max(0, volume))), path: path)
+        lock.lock()
+        waitingMusic = music
+        lock.unlock()
+        GhostexWaitingMusicPreview.setVolume(music.volume)
+        current("conversation")?.applyWaitingMusic(music)
+    }
+
+    fileprivate static func currentWaitingMusic() -> WaitingMusic {
+        lock.lock()
+        defer { lock.unlock() }
+        return waitingMusic
+    }
 
     fileprivate static func finished(_ session: Session) {
         lock.lock()
@@ -240,6 +264,8 @@ final class GhostexVoice {
         private var pingSentAt: Date?
 
         private var audio: GhostexVoiceEngine?
+        /// A conversation's waiting music: when it plays (`GhostexWaitingMusicGate`); the engine plays it.
+        private var musicGate: GhostexWaitingMusicGate?
         /// CallKit carries this conversation (it activates the audio session and shows the call).
         private var onCall = false
         private var audioFallback: DispatchWorkItem?
@@ -275,6 +301,10 @@ final class GhostexVoice {
         func start() {
             queue.async {
                 self.audio = self.makeEngine()
+                if self.conversationMode {
+                    self.musicGate = self.makeMusicGate()
+                    self.musicGate?.setEnabled(GhostexVoice.currentWaitingMusic().enabled)
+                }
                 self.observeAudioSession()
                 if self.conversationMode && GhostexVoiceCall.available {
                     self.placeCall()
@@ -288,11 +318,43 @@ final class GhostexVoice {
         // MARK: Audio
 
         private func makeEngine() -> GhostexVoiceEngine {
-            GhostexVoiceEngine(
+            let engine = GhostexVoiceEngine(
                 conversation: conversationMode,
                 onChunk: { [weak self] chunk in self?.queue.async { self?.onMicrophone(chunk) } },
                 onError: { [weak self] message in self?.queue.async { self?.status("micError", message) } }
             )
+            if conversationMode {
+                let music = GhostexVoice.currentWaitingMusic()
+                engine.setMusic(path: music.path, volume: music.volume)
+            }
+            return engine
+        }
+
+        private func makeMusicGate() -> GhostexWaitingMusicGate {
+            GhostexWaitingMusicGate(
+                schedule: { [weak self] delay, run in self?.queue.asyncAfter(deadline: .now() + delay, execute: run) },
+                play: { [weak self] in
+                    guard let self else { return }
+                    if self.audio?.startMusic() == true {
+                        self.journal("the waiting music started: the agent has been working for 1.5 s")
+                    } else {
+                        self.journal("the waiting music did not start: no piece could be opened, or the call's audio is not running")
+                    }
+                },
+                stop: { [weak self] reason in
+                    self?.audio?.stopMusic()
+                    self?.journal("the waiting music stopped: \(reason)")
+                }
+            )
+        }
+
+        /// Settings › Voice changed the waiting music during the call.
+        func applyWaitingMusic(_ music: GhostexVoice.WaitingMusic) {
+            queue.async {
+                guard !self.disposed, self.conversationMode else { return }
+                self.audio?.setMusic(path: music.path, volume: music.volume)
+                self.musicGate?.setEnabled(music.enabled)
+            }
         }
 
         /**
@@ -441,6 +503,7 @@ final class GhostexVoice {
         private func onFocus(_ gained: Bool) {
             guard !disposed, focusPaused == gained else { return }
             focusPaused = !gained
+            musicGate?.setPaused(!gained)
             // A call or Siri took the speaker: the agent stops talking and stops listening.
             if !gained && audio?.playing() == true { sendJsonLocked(["type": "interrupt"]) }
             status(gained ? "focusResumed" : "focusPaused", nil)
@@ -464,6 +527,7 @@ final class GhostexVoice {
                 if !value { self.audio?.recover() }
                 if value && self.pushToTalk && self.talking {
                     self.talking = false
+                    self.musicGate?.setTalking(false)
                     self.status("notTalking", nil)
                 }
                 if !fromCall && self.onCall { GhostexVoiceCall.shared.setMuted(value) }
@@ -506,6 +570,7 @@ final class GhostexVoice {
                 return
             }
             talking = value
+            musicGate?.setTalking(value)
             if value { audio?.recover() }
             sendJsonLocked(["type": value ? "talkStart" : "talkEnd"])
             status(value ? "talking" : "notTalking", nil)
@@ -524,6 +589,7 @@ final class GhostexVoice {
             queue.async {
                 guard self.conversationMode, self.talking else { return }
                 self.talking = false
+                self.musicGate?.setTalking(false)
                 self.sendJsonLocked(["type": "talkCancel"])
                 self.status("notTalking", nil)
                 self.refreshNotice()
@@ -556,6 +622,7 @@ final class GhostexVoice {
             guard !disposed else { return }
             finishing = true
             // The microphone stops first, so a dictation's last chunk goes before its `end`.
+            musicGate?.end()
             audio?.stop()
             sendJsonLocked(["type": "end"])
             // gxserver answers `ended` / `done` and closes; a socket that is already gone ends it here.
@@ -625,7 +692,11 @@ final class GhostexVoice {
                     case .success(.string(let text)):
                         self.onText(text)
                     case .success(.data(let bytes)):
-                        if self.conversationMode { self.audio?.enqueue(bytes) }
+                        if self.conversationMode {
+                            // The reply's first audio fades the music out (the engine does so too, `enqueue`).
+                            self.musicGate?.replyAudio()
+                            self.audio?.enqueue(bytes)
+                        }
                     case .success:
                         break
                     case .failure:
@@ -687,6 +758,8 @@ final class GhostexVoice {
                     pushToTalk = string("callMode") == "pushToTalk"
                     talking = false
                     status("notTalking", nil)
+                    musicGate?.setTalking(false)
+                    musicGate?.setLinkDown(false)
                     // gxserver starts every client unmuted; a reattach carries this phone's Mute over.
                     if muted { sendJsonLocked(["type": "mute", "muted": true]) }
                     sendPlaybackRate()
@@ -695,6 +768,7 @@ final class GhostexVoice {
                 }
             case "state":
                 state = frame["state"] as? String ?? state
+                musicGate?.agentState(state)
                 refreshNotice()
             case "focus":
                 if conversationMode {
@@ -742,6 +816,7 @@ final class GhostexVoice {
             if detachedAt == nil {
                 GhostexVoiceAudio.log.info("conversation socket lost\(httpCode.map { " (HTTP \($0))" } ?? ""); reattaching")
                 detachedAt = now
+                musicGate?.setLinkDown(true)
                 audio?.cut(nil)
                 refreshNotice()
             }
@@ -839,6 +914,8 @@ final class GhostexVoice {
             socket = nil
             urlSession?.finishTasksAndInvalidate()
             urlSession = nil
+            musicGate?.end()
+            musicGate = nil
             audio?.stop()
             audio = nil
             observers.forEach(NotificationCenter.default.removeObserver)

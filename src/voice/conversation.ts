@@ -47,6 +47,7 @@ import {
 import { saveGbotVoice } from './gbotVoice';
 import { captionParagraphs, toolLineFrame } from './lines';
 import { microphoneAllowed, microphoneDeniedMessage } from './microphone';
+import { prepareWaitingMusicForCall } from './waitingMusic';
 
 /** Where the conversation is: not running, opening, talking, reconnecting after a dropped link, over. */
 export type VoicePhase = 'idle' | 'starting' | 'live' | 'reattaching' | 'ended';
@@ -932,6 +933,8 @@ export async function startVoice(
       fail('outdated', outdatedGbotCallMessage(machineName));
       return;
     }
+    // This phone's waiting music reaches the native call before it opens (`waitingMusic.ts`).
+    await prepareWaitingMusicForCall();
     if (useVoiceStore.getState().phase !== 'starting') return;
     askedForFocus = about !== undefined;
     nativeSessionId = await GhostexNative.voiceStart({
