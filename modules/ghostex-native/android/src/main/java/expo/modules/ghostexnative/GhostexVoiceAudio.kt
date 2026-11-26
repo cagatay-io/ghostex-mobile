@@ -546,7 +546,9 @@ internal object GhostexVoiceAudio {
    * buffer. The twin of the iOS engine's music node (GhostexVoiceAudio.swift). [Player] is unchanged by it.
    */
   class Music(private val audioSessionId: Int) {
-    private val lock = Object()
+    /** The music thread waits on it: typed as Java's Object for `wait` and `notifyAll`, as React Native does. */
+    @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+    private val lock: Object = Object()
     @Volatile private var running = true
     // Guarded by `lock`.
     private var path: String? = null
