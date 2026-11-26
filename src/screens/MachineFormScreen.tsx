@@ -11,8 +11,9 @@
  * - Add over Easy Connect with a bare pairing address (`MachineForm` with
  *   `tailcatToken`, the legacy "paste the address" path from the scanner).
  * - A saved computer (`machineId`) opens on its page (machine-form/ComputerPage); each of the page's rows
- *   opens this form on one `section`: name and Sessions tab (with the Tailscale fields), Ghostex updates,
- *   agents and tools, or Advanced (pair again, ports, keys, Test connection). Name and Advanced save.
+ *   opens this form on one `section`, as its own screen (`MachineSection`): name and Sessions tab (with the
+ *   Tailscale fields), Ghostex updates, agents and tools, or Advanced (pair again, ports, keys, Test
+ *   connection). Name and Advanced save.
  *
  * Sections live in ./machine-form/; this file owns the state and the save.
  */
@@ -82,7 +83,10 @@ import TailscaleFields, { NameField, PairingAddressField, FormField } from './ma
 import { TEST_MACHINE_ID, type ConnectionTestPlan } from './machine-form/testConnection';
 import TestConnectionButton, { useTestState } from './machine-form/TestConnectionButton';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MachineForm' | 'TailscaleForm' | 'SshDetailsForm'>;
+type Props = NativeStackScreenProps<
+  RootStackParamList,
+  'MachineForm' | 'MachineSection' | 'TailscaleForm' | 'SshDetailsForm'
+>;
 
 /** "Connected now" on the Easy Connect summary: the machine answered within the last 3 minutes. */
 const CONNECTED_NOW_WINDOW_MS = 3 * 60 * 1000;
@@ -107,15 +111,10 @@ function parsePort(value: string): number | null {
   return parsed;
 }
 
-/** A saved computer without a `section` opens on its page; everything else is the form. */
+/** `MachineForm` with a saved computer opens on its page; everything else is the form. */
 export default function MachineFormScreen(props: Props) {
   const params = props.route.params;
-  if (
-    props.route.name === 'MachineForm' &&
-    params?.machineId !== undefined &&
-    params.section === undefined &&
-    params.focus === undefined
-  ) {
+  if (props.route.name === 'MachineForm' && params?.machineId !== undefined && params.focus === undefined) {
     return <ComputerPage navigation={props.navigation as never} machineId={params.machineId} />;
   }
   /*

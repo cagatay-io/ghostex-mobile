@@ -7,17 +7,26 @@ import type { SettingsSearchFocus } from '../screens/settings/search/SettingsSea
  * Add/edit machine form params. `tailcatToken` prefills the Easy Connect
  * address when the scanner read a bare legacy address. `focus` opens the
  * editor with that field focused (Can't reach → Wrong password → Edit machine).
- * `machineId` alone opens that computer's page; with `section`, one part of its settings.
+ * `machineId` alone opens that computer's page; one part of its settings is `MachineSection`.
  */
 export type MachineFormParams =
   | {
       machineId?: string;
       tailcatToken?: string;
       focus?: 'password';
-      /** One part of a saved computer's settings; without it a saved computer opens on its page (ComputerPage). */
-      section?: 'name' | 'updates' | 'tools' | 'advanced';
+      section?: never;
     }
   | undefined;
+
+export type MachineFormSection = 'name' | 'updates' | 'tools' | 'advanced';
+
+/** One part of a saved computer's settings (`MachineSection`). */
+export type MachineSectionParams = {
+  machineId: string;
+  section: MachineFormSection;
+  tailcatToken?: never;
+  focus?: never;
+};
 
 /** Root native-stack route map. */
 export type RootStackParamList = {
@@ -58,6 +67,11 @@ export type RootStackParamList = {
    * scanner read a bare legacy address (the Advanced "Pairing address" row).
    */
   MachineForm: MachineFormParams;
+  /**
+   * CDXC:Mobile 2026-11-27 WHY:
+   * A computer page's rows open their own route. `navigate` to the route already on top only swaps its params, so while a section was a `MachineForm` param it replaced the computer's page and Back went straight to Machines. A `getId` was passed over: it also moves a matching screen up from lower in the stack.
+   */
+  MachineSection: MachineSectionParams;
   Terminal: { sessionKey: string; machineId: string; title?: string };
   /** Find Prompts: search every prompt this machine sent to an agent (`gx f`). */
   FindPrompts: { machineId: string };

@@ -1,7 +1,7 @@
 /**
  * ghostex-mobile entry: dark navigation shell over the shared TS core.
  * Welcome shows while no machine is saved; once one exists Sessions is home.
- * The setup routes (ConnectChoose, ScanCode, TailscaleForm, SshDetailsForm, MachineForm) are registered in both states so the stack survives the
+ * The setup routes (ConnectChoose, ScanCode, TailscaleForm, SshDetailsForm, MachineForm, MachineSection) are registered in both states so the stack survives the
  * moment the first machine is saved mid-flow.
  */
 
@@ -296,6 +296,11 @@ export default function App() {
                   title:
                     route.params?.machineId !== undefined ? MachineCopy.editor.editTitle : MachineCopy.editor.addTitle,
                 })}
+              />
+              <Stack.Screen
+                name="MachineSection"
+                component={MachineFormScreen}
+                options={{ title: MachineCopy.editor.editTitle }}
               />
               {/* Outside the machine routes: feedback posts with no computer connected. */}
               <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: FeedbackCopy.title }} />

@@ -149,7 +149,7 @@ export function parseAgentNotInstalled(error: unknown): MissingAgentError | null
   return null;
 }
 
-/** Whether the phone can open the Agent CLIs screen (`MachineForm` `tools` section) for `machineId`. */
+/** Whether the phone can open the Agent CLIs screen (`MachineSection` `tools`) for `machineId`. */
 export function canOpenAgentClis(machineId: string): boolean {
   if (machineId.length === 0 || isCloudBoxMachineId(machineId)) return false;
   const machine = useMachinesStore.getState().machines.find((entry) => entry.id === machineId);
@@ -196,6 +196,6 @@ export function reportMissingAgentError(machineId: string, error: unknown): bool
 export function openAgentClisScreen(machineId: string): void {
   dismissMissingAgentNotice();
   if (canOpenAgentClis(machineId) && navigationRef.isReady()) {
-    navigationRef.navigate('MachineForm', { machineId, section: 'tools' });
+    navigationRef.navigate('MachineSection', { machineId, section: 'tools' });
   }
 }

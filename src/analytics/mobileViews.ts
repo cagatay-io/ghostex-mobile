@@ -36,6 +36,7 @@ const VIEW_BY_ROUTE: Record<string, MobileView> = {
   Voice: 'mobile_voice',
   Machines: 'mobile_machines',
   MachineForm: 'mobile_machines',
+  MachineSection: 'mobile_machines',
   Settings: 'mobile_settings',
   SettingsPage: 'mobile_settings',
   ExtraKeysEditor: 'mobile_settings',

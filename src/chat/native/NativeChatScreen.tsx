@@ -1264,7 +1264,7 @@ function useChatViewRequests(
               });
             } else if (request.action === 'openSettingsPage' && pageOf(request.params) === 'agents') {
               // The model picker's "+": this computer's Agent CLIs, where agents are installed.
-              navigation.navigate('MachineForm', { machineId, section: 'tools' });
+              navigation.navigate('MachineSection', { machineId, section: 'tools' });
             } else if (request.action === 'openSettingsPage' && pageOf(request.params) === 'connectors') {
               // The Session details panel's Connectors Manage: the phone has no Connectors settings.
               show('Open Settings › Connectors in Ghostex on your computer.', false, 'Connectors');

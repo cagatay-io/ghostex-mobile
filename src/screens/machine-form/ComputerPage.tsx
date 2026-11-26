@@ -61,8 +61,6 @@ import { useFormStyles } from './styles';
 /** "Connected now": the computer answered within the last 3 minutes. */
 const CONNECTED_NOW_WINDOW_MS = 3 * 60 * 1000;
 
-export type MachineFormSection = 'name' | 'updates' | 'tools' | 'advanced';
-
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'MachineForm'>;
 
 /** How often the page asks again whether Easy Connect is on there, while it isn't known to be. */
@@ -236,25 +234,25 @@ function ComputerPageBody({
       key: 'name',
       label: easyConnect ? copy.rows.name.easyConnect : copy.rows.name.tailscale,
       detail: `${name} · ${isMachineEnabled(machine) ? copy.rows.shown : copy.rows.hidden}`,
-      onPress: () => navigation.navigate('MachineForm', { machineId: machine.id, section: 'name' }),
+      onPress: () => navigation.navigate('MachineSection', { machineId: machine.id, section: 'name' }),
     },
     {
       key: 'updates',
       label: copy.rows.updates,
       detail: updateLine,
-      onPress: () => navigation.navigate('MachineForm', { machineId: machine.id, section: 'updates' }),
+      onPress: () => navigation.navigate('MachineSection', { machineId: machine.id, section: 'updates' }),
     },
     {
       key: 'tools',
       label: copy.rows.tools,
       detail: toolUpdates > 0 ? copy.rows.toolsUpdates(toolUpdates) : copy.rows.toolsNone,
-      onPress: () => navigation.navigate('MachineForm', { machineId: machine.id, section: 'tools' }),
+      onPress: () => navigation.navigate('MachineSection', { machineId: machine.id, section: 'tools' }),
     },
     {
       key: 'advanced',
       label: copy.rows.advanced,
       detail: easyConnect ? copy.rows.advancedEasyConnect : copy.rows.advancedTailscale,
-      onPress: () => navigation.navigate('MachineForm', { machineId: machine.id, section: 'advanced' }),
+      onPress: () => navigation.navigate('MachineSection', { machineId: machine.id, section: 'advanced' }),
     },
   ];
 
