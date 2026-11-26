@@ -77,7 +77,7 @@ function nativeLoudness(level: number, previous: number): number {
 }
 
 /** The file recording `id` is written to: the recorders' `dictation-recordings` folder. */
-function recordingPath(id: string): string | null {
+export function recordingPath(id: string): string | null {
   try {
     const folder =
       Platform.OS === 'ios'

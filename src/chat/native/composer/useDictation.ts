@@ -477,7 +477,7 @@ export function useDictation(
       // The microphone went away: what was recorded so far is transcribed.
       callbacks.current.onError(`${message} What was recorded so far is being transcribed.`);
       if (phaseRef.current === 'recording') void stop();
-    });
+    }, machine);
     if ('error' in started) {
       setNotice({ code: 'micUnavailable', message: started.error });
       setPhase('notice');

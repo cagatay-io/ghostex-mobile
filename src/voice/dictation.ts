@@ -10,12 +10,15 @@
  * CDXC:VoiceMode 2026-11-09 WHY: A user: "most of the time I record, and it fails and my audio does not get saved properly ... not saving my audio is killer". The phone forgot its copy as soon as the computer had the file, a failed send needed a tap on a row that vanished when the chat closed, and leaving the chat while recording marked the recording dismissed. Sending is idempotent by recording id (`save_piece` and `transcribe` in server/src/voice_agent/), so the phone re-sends and re-asks freely.
  *
  * CDXC:VoiceMode 2026-10-20 SEE-ALSO: the user's decision is in the computer's `server/src/voice_agent/recordings.rs` and `apps/desktop/src/app/voice_agent/dictation.rs`; the desktop records with `recorder.rs`.
+ *
+ * CDXC:Dictate 2026-11-26 WHY: A user: "Parakeet is super slow ... whenever I send a prompt it takes ages for it to process it and show it in the chat box". The computer's own recordings showed where the time went: after Stop, the phone's upload took 10.8 to 18.2 s (the link carried 50 to 67 KB a second that day) while Hex and Parakeet took 0.5 to 1.7 s. The recording is now sent on to the computer while it is being made (`sendWhileRecording`), in the same resendable pieces as before, so after Stop only the last moment of audio is still to go. Recording to the phone's file first is unchanged: a piece that fails only ends this early sending, and the upload after Stop sends what the computer is missing.
  */
 
 import { GhostexNative, type LocalDictation } from '../../modules/ghostex-native/src';
 import { chatMachineLink } from '../chat/rust/machine-link';
 import type { MachineConnectionTarget } from '../machines/credentials';
 import { VOICE_SUPPORTED } from './conversation';
+import { recordingPath } from './dictationLevel';
 import { microphoneAllowed, microphoneDeniedMessage } from './microphone';
 
 /** Raw bytes per upload piece: under gxserver's 1 MiB JSON limit once base64 grows it by a third. */
@@ -24,6 +27,12 @@ const UPLOAD_TIMEOUT_MS = 30_000;
 /** xAI usually answers in a few seconds; a long recording takes longer. */
 const TRANSCRIBE_TIMEOUT_MS = 180_000;
 const SHORT_TIMEOUT_MS = 10_000;
+/**
+ * While it records, a piece of what the microphone wrote since starts at most this often (start to
+ * start): a link only a little faster than the audio keeps up, and a fast one is not sent a
+ * request for every few milliseconds of audio.
+ */
+const SEND_WHILE_RECORDING_MS = 750;
 
 /** A recording the computer keeps, as gxserver describes it. */
 export type ServerDictation = {
@@ -121,14 +130,104 @@ async function rpc(
   return { result: (answer.result ?? {}) as Record<string, unknown> };
 }
 
+/** Raw bytes a piece of base64 `chunk` carries. */
+function pieceBytes(chunk: string): number {
+  return Math.floor((chunk.length * 3) / 4) - (chunk.endsWith('==') ? 2 : chunk.endsWith('=') ? 1 : 0);
+}
+
 /**
- * Starts recording. `onMicError` hears about a microphone that stops later. Answers the recording's
- * id, or a sentence for why the microphone did not start.
+ * A recording sent on to `machineId` while the microphone writes it: `sent` is how much of it the
+ * computer has said it holds, `running` the sending, which ends soon after `stopped`.
+ */
+type LiveSend = { machineId: string; sent: number; stopped: boolean; wake: () => void; running: Promise<void> };
+/** The sendings by recording id, kept until the recording's upload has waited for its last piece. */
+const sending = new Map<string, LiveSend>();
+
+/** The microphone stopped or started anew: every sending ends after the piece on its way. */
+function stopSending(): void {
+  for (const send of sending.values()) {
+    send.stopped = true;
+    send.wake();
+  }
+}
+
+/** How much of each recording sent while it was made the computer holds, until its upload is complete. */
+const sentWhileRecording = new Map<string, { machineId: string; bytes: number }>();
+
+/**
+ * Sends recording `id` on to the computer while the microphone writes it: what was written since,
+ * as an unfinished piece (`done: false`), one after another, at most one every
+ * [SEND_WHILE_RECORDING_MS]. The computer keeps the pieces in its
+ * upload file and repairs the WAV header when the last one comes (`save_piece` and
+ * `repair_wav_header` in server/src/voice_agent/recordings.rs, since 10.29.0), so the header's
+ * early sizes do not matter. A failed piece ends this sending and nothing else: the upload after
+ * Stop goes on from what the computer said it holds, and the phone's file stays until its words
+ * are in a draft.
+ */
+function sendWhileRecording(machine: MachineConnectionTarget, id: string): void {
+  const path = recordingPath(id);
+  if (path === null) return;
+  const send: LiveSend = { machineId: machine.id, sent: 0, stopped: false, wake: () => undefined, running: Promise.resolve() };
+  sending.set(id, send);
+  const pause = (ms: number) =>
+    new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      send.wake = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+  send.running = (async () => {
+    let began = Date.now();
+    for (;;) {
+      const wait = began + SEND_WHILE_RECORDING_MS - Date.now();
+      if (wait > 0) await pause(wait);
+      if (send.stopped) return;
+      began = Date.now();
+      let chunk: string;
+      try {
+        chunk = await GhostexNative.dictationReadPiece(path, send.sent, PIECE_BYTES);
+      } catch {
+        return;
+      }
+      if (chunk.length === 0) continue;
+      const answer = await rpc(machine, 'saveDictationRecording', { id, offset: send.sent, chunk, done: false }, UPLOAD_TIMEOUT_MS);
+      if ('error' in answer || answer.result.dictation !== undefined) return;
+      const received = answer.result.received;
+      if (typeof received !== 'number') return;
+      send.sent = received;
+      sentWhileRecording.set(id, { machineId: machine.id, bytes: received });
+    }
+  })();
+}
+
+/**
+ * Where an upload of recording `id` to `machine` starts: after what the computer took while it was
+ * recorded (the sending is let finish first, so two never write at once), or 0.
+ */
+async function sentSoFar(machine: MachineConnectionTarget, id: string): Promise<number> {
+  const send = sending.get(id);
+  if (send !== undefined) {
+    send.stopped = true;
+    send.wake();
+    await send.running;
+    sending.delete(id);
+  }
+  const sent = sentWhileRecording.get(id);
+  return sent !== undefined && sent.machineId === machine.id ? sent.bytes : 0;
+}
+
+/**
+ * Starts recording. `onMicError` hears about a microphone that stops later. With `machine`, the
+ * recording is sent on to that computer while it records. Answers the recording's id, or a
+ * sentence for why the microphone did not start.
  */
 export async function startRecording(
   onMicError: (message: string) => void,
+  machine: MachineConnectionTarget | null = null,
 ): Promise<{ id: string } | { error: string }> {
   if (!(await microphoneAllowed())) return { error: microphoneDeniedMessage('dictate') };
+  stopSending();
   let id: string;
   try {
     id = await GhostexNative.dictationRecordStart();
@@ -143,6 +242,7 @@ export async function startRecording(
     }
   });
   stopListening = () => subscription.remove();
+  if (machine !== null) sendWhileRecording(machine, id);
   return { id };
 }
 
@@ -152,6 +252,8 @@ let stopListening: (() => void) | null = null;
 export async function stopRecording(dismissed: boolean): Promise<LocalDictation | null> {
   stopListening?.();
   stopListening = null;
+  // The piece on its way finishes; the upload after Stop waits for it (`sentSoFar`).
+  stopSending();
   try {
     return await GhostexNative.dictationRecordStop(dismissed);
   } catch {
@@ -162,7 +264,9 @@ export async function stopRecording(dismissed: boolean): Promise<LocalDictation 
 /**
  * Hands a phone recording to the computer in pieces and answers what the computer keeps. The first
  * ask carries no audio: a computer that already has the recording answers with it at once, so sending
- * again costs nothing. The phone's copy stays (`forgetRecording` removes it).
+ * again costs nothing. A recording sent while it was made goes on from what the computer holds
+ * instead (that ask would empty the computer's unfinished copy). The phone's copy stays
+ * (`forgetRecording` removes it).
  */
 async function upload(
   machine: MachineConnectionTarget,
@@ -175,11 +279,13 @@ async function upload(
     dismissed: recording.dismissed,
     language: deviceLanguage(),
   };
-  const probe = await rpc(machine, 'saveDictationRecording', { id: recording.id, offset: 0, chunk: '', done: false, ...finished }, UPLOAD_TIMEOUT_MS);
-  if ('error' in probe) return probe;
-  const known = probe.result.dictation as ServerDictation | undefined;
-  if (known) return { dictation: known };
-  let offset = 0;
+  let offset = await sentSoFar(machine, recording.id);
+  if (offset === 0) {
+    const probe = await rpc(machine, 'saveDictationRecording', { id: recording.id, offset: 0, chunk: '', done: false, ...finished }, UPLOAD_TIMEOUT_MS);
+    if ('error' in probe) return probe;
+    const known = probe.result.dictation as ServerDictation | undefined;
+    if (known) return { dictation: known };
+  }
   for (;;) {
     let chunk: string;
     try {
@@ -187,12 +293,15 @@ async function upload(
     } catch {
       return { error: "The recording can't be read on this phone anymore" };
     }
-    const end = offset + Math.floor((chunk.length * 3) / 4) - (chunk.endsWith('==') ? 2 : chunk.endsWith('=') ? 1 : 0);
+    const end = offset + pieceBytes(chunk);
     const done = end >= recording.bytes;
     const answer = await rpc(machine, 'saveDictationRecording', { id: recording.id, offset, chunk, done, ...finished }, UPLOAD_TIMEOUT_MS);
     if ('error' in answer) return answer;
     const dictation = answer.result.dictation as ServerDictation | undefined;
-    if (dictation) return { dictation };
+    if (dictation) {
+      sentWhileRecording.delete(recording.id);
+      return { dictation };
+    }
     const received = typeof answer.result.received === 'number' ? answer.result.received : end;
     if (done && received >= recording.bytes) return { error: "Ghostex on your computer didn't confirm the recording." };
     offset = Math.min(received, recording.bytes);
