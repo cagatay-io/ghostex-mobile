@@ -10,7 +10,7 @@
  */
 
 import { readableSecondaryText } from '../theme/sidebarAppearance';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppearance, type Appearance } from '../theme/useAppearance';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -390,6 +390,23 @@ function callSessionDotColor(state: CallSessionState): string | null {
 }
 
 /**
+ * Whether the call's session line shows, and with it whether its Sessions sheet may be open
+ * (`showsSessionsStrip`): both follow one rule, so a call about one session, or a tap's move still
+ * waiting for the computer, has neither.
+ */
+function useSessionsListShown(): boolean {
+  return useVoiceStore((state) =>
+    showsSessionsStrip({
+      active: voiceActive(state.phase),
+      callSessions: state.callSessions,
+      focus: state.focus,
+      requestedFocus: state.requestedFocus,
+      pendingFocus: state.pendingFocus,
+    }),
+  );
+}
+
+/**
  * The line above the captions in a call about all sessions: "All sessions" with a summary of the
  * call's sessions, and a Sessions button at its right end that opens the list (`callSessions.ts`).
  * It takes the focus banner's place and look; a call about one session or with a GBot keeps its own
@@ -400,9 +417,8 @@ function SessionsStrip({ onOpen }: { onOpen: () => void }) {
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const list = useVoiceStore((state) => state.callSessions);
   const phase = useVoiceStore((state) => state.phase);
-  const focus = useVoiceStore((state) => state.focus);
-  const requested = useVoiceStore((state) => state.requestedFocus);
-  if (list === null || !showsSessionsStrip({ active: voiceActive(phase), callSessions: list, focus, requestedFocus: requested })) return null;
+  const shown = useSessionsListShown();
+  if (list === null || !shown) return null;
   return (
     <View style={styles.focusBanner}>
       <Text style={styles.focusText} numberOfLines={1}>
@@ -429,8 +445,9 @@ function VoiceSessionsSheet({ visible, onClose }: { visible: boolean; onClose: (
   const styles = useMemo(() => createStyles(appearance), [appearance]);
   const list = useVoiceStore((state) => state.callSessions);
   const live = useVoiceStore((state) => state.phase === 'live');
+  const shown = useSessionsListShown();
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    <BottomSheet visible={visible && shown} onClose={onClose}>
       <Text style={styles.sheetTitle}>Sessions in this call</Text>
       {(list?.sessions ?? []).map((session) => {
         const target = callSessionFocusTarget(session);
@@ -623,6 +640,12 @@ export default function VoiceScreen({ navigation }: Props) {
   const [speedOpen, setSpeedOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const sessionsShown = useSessionsListShown();
+  // The sheet closes for good when the call stops being about all sessions (a tap, a move by voice,
+  // a hang-up), so widening later doesn't bring it back unasked.
+  useEffect(() => {
+    if (!sessionsShown) setSessionsOpen(false);
+  }, [sessionsShown]);
   const canPickVoice = active && voice.voiceOptions.length > 0;
   // The conversation reaches under the iPhone Duo's side bar, its lines keep clear of it.
   const linesEdges = useScrollToBarEdges(styles.linesContent);
@@ -879,7 +902,7 @@ export default function VoiceScreen({ navigation }: Props) {
       <VoicePickerSheet visible={pickerOpen && canPickVoice} onClose={() => setPickerOpen(false)} />
       <VoiceSpeedSheet visible={speedOpen && active} onClose={() => setSpeedOpen(false)} />
       <VoiceSettingsSheet visible={settingsOpen && active} onClose={() => setSettingsOpen(false)} />
-      <VoiceSessionsSheet visible={sessionsOpen && active} onClose={() => setSessionsOpen(false)} />
+      <VoiceSessionsSheet visible={sessionsOpen} onClose={() => setSessionsOpen(false)} />
     </SafeAreaView>
   );
 }

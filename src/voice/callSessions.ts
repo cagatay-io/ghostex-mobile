@@ -13,17 +13,26 @@
 import type { VoiceFocusTarget } from './focus';
 
 /**
- * Whether the voice screen shows the all-sessions line with its Sessions button: in a running call
- * about all sessions whose computer sent a list. A call about one session (or one being started
- * about one) keeps its "Only about …" banner, and a call with a GBot its own; neither lists sessions.
+ * Whether the voice screen shows the all-sessions line with its Sessions button, and whether the
+ * Sessions sheet may be open: in a running call about all sessions whose computer sent a list, and
+ * not while a tap's move to one session waits for the computer's answer. A call about one session
+ * (or one being started about one) keeps its "Only about …" banner, and a call with a GBot its own;
+ * neither lists sessions.
  */
 export function showsSessionsStrip(state: {
   active: boolean;
   callSessions: CallSessions | null;
   focus: unknown;
   requestedFocus: unknown;
+  pendingFocus: unknown;
 }): boolean {
-  return state.active && state.callSessions !== null && state.focus === null && state.requestedFocus === null;
+  return (
+    state.active &&
+    state.callSessions !== null &&
+    state.focus === null &&
+    state.requestedFocus === null &&
+    state.pendingFocus === null
+  );
 }
 
 /** A session's state as gxserver names it in the frame. */
