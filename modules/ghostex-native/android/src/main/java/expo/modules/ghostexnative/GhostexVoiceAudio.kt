@@ -418,10 +418,16 @@ internal object GhostexVoiceAudio {
 
   /**
    * When a call's waiting music plays: the twin of GhostexVoiceAudio.swift's `GhostexWaitingMusicGate`, whose CDXC
-   * notes hold the DECISION and the WHY. Once the agent has been thinking or running a tool for [DELAY_MS] without a
-   * break, until the agent speaks or listens again, its reply audio arrives, the person talks, the call's audio focus
-   * is lost, the link drops, the music is turned off or the call ends; each start waits the whole delay again. The
-   * socket's reader, the link's worker and the main thread all call it, so every entry point is synchronized.
+   * notes hold the DECISION and the WHY. Once the agent's first reply audio of the call has arrived and the agent has
+   * then been thinking or running a tool for [DELAY_MS] without a break, until the agent speaks or listens again, its
+   * reply audio arrives, the person talks, the call's audio focus is lost, the link drops, the music is turned off or
+   * the call ends; each start waits the whole delay again. The socket's reader, the link's worker and the main thread
+   * all call it, so every entry point is synchronized.
+   *
+   * CDXC:VoiceMode 2026-11-27 WHY: The music played right at the start of a call, before the agent's greeting:
+   * gxserver reports `thinking` for every response it asks for, the greeting included. The music is meant for the
+   * agent's work, not for the call's setup, so it waits for the agent's first reply audio of the call ([replied]). A
+   * rejoin keeps that (the session and its gate stay); a new call has a new gate and starts without it.
    */
   class WaitingMusicGate(
     private val schedule: (Long, () -> Unit) -> Unit,
@@ -432,6 +438,8 @@ internal object GhostexVoiceAudio {
     /** The latest `state` frame's value, and whether the agent's reply audio came after it. */
     private var agentState = ""
     private var replying = false
+    /** The agent's first reply audio of this call has arrived; never cleared, so a rejoin keeps it. */
+    private var replied = false
     private var talking = false
     private var paused = false
     private var linkDown = false
@@ -457,11 +465,12 @@ internal object GhostexVoiceAudio {
       update()
     }
 
-    /** The agent's reply audio arrived: it speaks, whatever the last `state` frame said. */
+    /** The agent's reply audio arrived: it speaks, whatever the last `state` frame said. The first one arms the music. */
     @Synchronized
     fun replyAudio() {
       if (replying) return
       replying = true
+      replied = true
       update()
     }
 
@@ -504,6 +513,7 @@ internal object GhostexVoiceAudio {
       linkDown -> "the link to the computer dropped"
       talking -> "you are holding Talk"
       replying -> "the agent's reply audio arrived"
+      !replied -> "the agent has not replied yet"
       agentState == "thinking" || agentState == "toolRunning" -> null
       agentState.isEmpty() -> "the agent is not working"
       else -> "the agent is $agentState"

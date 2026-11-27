@@ -885,14 +885,14 @@ private final class GhostexPlayQueue {
 }
 
 /**
- * When a call's waiting music plays: once the agent has been thinking or running a tool for `delay` without a break,
- * until the agent speaks or listens again, its reply audio arrives, the person talks (a hold, or `userSpeaking`), the
- * call's audio is taken away (an interruption, CallKit's hold), the link to the computer drops, the music is turned
- * off or the call ends. Each start waits the whole `delay` again. Only what happens goes in and only `play` and `stop`
- * come out; the session owns the timer (`schedule`) and the audio. `play` answers whether the music started: one that
- * did not (no piece, the call's audio not running yet) is not taken as playing, and the next event that still lets it
- * play, such as the call's audio starting (`audioRestarted`), waits the whole `delay` again. Not thread-safe: the
- * session calls it on its queue.
+ * When a call's waiting music plays: once the agent's first reply audio of the call has arrived and the agent has then
+ * been thinking or running a tool for `delay` without a break, until the agent speaks or listens again, its reply
+ * audio arrives, the person talks (a hold, or `userSpeaking`), the call's audio is taken away (an interruption,
+ * CallKit's hold), the link to the computer drops, the music is turned off or the call ends. Each start waits the
+ * whole `delay` again. Only what happens goes in and only `play` and `stop` come out; the session owns the timer
+ * (`schedule`) and the audio. `play` answers whether the music started: one that did not (no piece, the call's audio
+ * not running yet) is not taken as playing, and the next event that still lets it play, such as the call's audio
+ * starting (`audioRestarted`), waits the whole `delay` again. Not thread-safe: the session calls it on its queue.
  *
  * CDXC:VoiceMode 2026-11-26 DECISION: The user asked for waiting music in a voice agent call while the agent thinks or
  * works, so silence does not sound like a dropped call: open-source pieces to choose from, their own volume, and a
@@ -902,6 +902,10 @@ private final class GhostexPlayQueue {
  * CDXC:VoiceMode 2026-11-26 WHY: A call goes on with the phone locked, and its `state` frames and reply audio arrive
  * on this socket whether or not JavaScript runs (React Native stops its timers while the app is paused, GhostexVoice.kt),
  * so the 1.5 s start and every stop are decided here, natively; JavaScript only sets the switch, volume and piece.
+ * CDXC:VoiceMode 2026-11-27 WHY: The music played right at the start of a call, before the agent's greeting: gxserver
+ * reports `thinking` for every response it asks for, the greeting included. The music is meant for the agent's work,
+ * not for the call's setup, so it waits for the agent's first reply audio of the call (`replied`). A rejoin keeps
+ * that (the session and its gate stay); a new call has a new gate and starts without it.
  */
 final class GhostexWaitingMusicGate {
     static let delay: TimeInterval = 1.5
@@ -914,6 +918,8 @@ final class GhostexWaitingMusicGate {
     /// The latest `state` frame's value, and whether the agent's reply audio came after it.
     private var agentState = ""
     private var replying = false
+    /// The agent's first reply audio of this call has arrived; never cleared, so a rejoin keeps it.
+    private var replied = false
     private var talking = false
     private var paused = false
     private var linkDown = false
@@ -942,10 +948,11 @@ final class GhostexWaitingMusicGate {
         update()
     }
 
-    /// The agent's reply audio arrived: it speaks, whatever the last `state` frame said.
+    /// The agent's reply audio arrived: it speaks, whatever the last `state` frame said. The first one arms the music.
     func replyAudio() {
         guard !replying else { return }
         replying = true
+        replied = true
         update()
     }
 
@@ -995,6 +1002,7 @@ final class GhostexWaitingMusicGate {
         if linkDown { return "the link to the computer dropped" }
         if talking { return "you are holding Talk" }
         if replying { return "the agent's reply audio arrived" }
+        if !replied { return "the agent has not replied yet" }
         if agentState == "thinking" || agentState == "toolRunning" { return nil }
         return agentState.isEmpty ? "the agent is not working" : "the agent is \(agentState)"
     }
