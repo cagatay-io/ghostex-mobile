@@ -4,6 +4,7 @@
  */
 
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
+import { sessionTagsOnIn } from '../../sessions/sessionTagsSwitch';
 import { parseExtensionPanels } from '../extensionPanels';
 import { parsePathProblem } from '../folderProblem';
 import { boolValue, firstNonEmpty, isObject, trimmedValue, type JsonObject } from './json';
@@ -478,12 +479,15 @@ function normalizeRoot(root: JsonObject): GhostexMobileSummary {
     : undefined;
   // While Session notes is off on the computer a row draws no note dot; the note stays saved there.
   const sessionNotesOn = sessionNotesOnIn({ builtInFeaturesOff });
+  // While Session Tags is off a row shows no tag but Favorite; the tag stays saved there.
+  const sessionTagsOn = sessionTagsOnIn({ builtInFeaturesOff });
   for (const entry of rawSessions) {
     if (isObject(entry) && typeof entry.sortOrder === 'number' && Number.isFinite(entry.sortOrder)) {
       anySortOrder = true;
     }
     const session = parseSession(entry);
     if (session !== null && !sessionNotesOn) session.sessionNote = '';
+    if (session !== null && !sessionTagsOn && session.sessionTag !== 'favorite') session.sessionTag = '';
     if (session !== null && session.provider === 'zmx') sessions.push(session);
   }
   const workspaceGroups = parseWorkspaceGroups(root.workspaceGroups);

@@ -41,6 +41,7 @@ import { enabledVisibleTagIds } from '../../contract/sessionTagList';
 import { effectiveSessionTag, SESSION_TAG_SECTIONS } from '../../contract/sessionTags';
 import { FORK_AGENT_ICONS, isCoordinatorAgent } from '../../sessions/sessionCommands';
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
+import { sessionTagsOnIn } from '../../sessions/sessionTagsSwitch';
 import { beadsOnIn } from '../../beads/featureSwitch';
 import {
   assembleSessionMenu,
@@ -477,6 +478,11 @@ export type SessionMenuInput = {
   voiceCall?: boolean;
   /** The computer has Session notes on (`sessions/sessionNotesSwitch.ts`), so the menu offers Note. */
   sessionNotes?: boolean;
+  /**
+   * The computer has Session Tags on (`sessions/sessionTagsSwitch.ts`), so the menu offers Tag As and the tag prompt
+   * when parking; off, Add to Favorites / Remove from Favorites takes Tag As's place. On when absent.
+   */
+  sessionTags?: boolean;
   /** The computer has its Beads extension on (`beads/featureSwitch.ts`), so the menu offers Beads. Off when absent. */
   beads?: boolean;
   /** The menu offers Snooze (or Unsnooze), as the desktop's does, run through gxserver directly. */
@@ -513,6 +519,7 @@ export function sessionMenuInputFromSummary(
       : [],
     project: summary?.projects.find((project) => project.projectId === session.projectId) ?? null,
     sessionNotes: sessionNotesOnIn(summary),
+    sessionTags: sessionTagsOnIn(summary),
     beads: beadsOnIn(summary),
     tagListItems: summary?.sessionTagListItems,
     parking: summary?.enableSessionParking !== false,
@@ -858,6 +865,7 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
     project,
     voiceCall = false,
     sessionNotes = true,
+    sessionTags = true,
     snooze = false,
     actionsIcon,
     tagListItems,
@@ -877,7 +885,8 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
   const thread = staysUnderCoordinator(session);
   const shown = (action: HoverAction): boolean =>
     mirror.includes(action) || (action !== 'note' && !enabled.includes(action));
-  const tags = (): SidebarMenuItem[] => (caps.canTag ? tagItems(session, customTags, tagListItems) : []);
+  const tags = (): SidebarMenuItem[] =>
+    caps.canTag && sessionTags ? tagItems(session, customTags, tagListItems) : [];
 
   return (place: string): SidebarMenuItem[] => {
     switch (place) {
@@ -951,6 +960,18 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
       case 'copy':
         return [copySubmenu(session, project, layout)];
       case 'tagAs': {
+        // Session Tags off: favouriting stays (Favorite is a tag value), in Tag As's place (gx-core `favorite_rows`).
+        if (!sessionTags) {
+          if (!caps.canTag) return [];
+          const favorite = effectiveSessionTag(session) === 'favorite';
+          return [
+            row(
+              favorite ? 'Remove from Favorites' : 'Add to Favorites',
+              favorite ? 'star-filled' : 'star',
+              command({ type: 'setSessionTag', sessionId: id, sessionTag: favorite ? null : 'favorite' }),
+            ),
+          ];
+        }
         const tagRows = shown('tag') ? tags() : [];
         return tagRows.length > 0 ? [layoutSubmenu(layout, 'tagAs', tagRows)] : [];
       }

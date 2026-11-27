@@ -7,6 +7,7 @@ import { useSyncedEntriesStore } from '../../settingsSync/syncedEntries';
 import { SettingsSection } from './SectionBoundary';
 import { BoolChoiceRow, Caption, SectionHeader, SegmentedRow, SettingsScreenLayout, ToggleRow } from './SettingsControls';
 import { SessionTagsSection } from './SessionTagsSection';
+import { sessionTagsOnIn } from '../../sessions/sessionTagsSwitch';
 
 const VIEW_OPTIONS: { value: SidebarOrganization['sidebarView']; label: string }[] = [
   { value: 'project', label: 'Project sidebar' },
@@ -166,7 +167,10 @@ export default function SessionsListPage() {
           </>
         ) : null}
       </SettingsSection>
-      <SessionTagsSection items={organization.sidebarSessionTagListItems} summary={selectedSummary} />
+      {/* Session Tags off on the computer (`sessions/sessionTagsSwitch.ts`): no Session Tags section. */}
+      {sessionTagsOnIn(selectedSummary) ? (
+        <SessionTagsSection items={organization.sidebarSessionTagListItems} summary={selectedSummary} />
+      ) : null}
       <SettingsSection name="settings:sessions-list:sync">
         <Caption>
           {!carrying

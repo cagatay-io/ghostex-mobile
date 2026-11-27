@@ -177,6 +177,7 @@ import { callVoiceAbout } from '../../voice/callAbout';
 import { VOICE_SUPPORTED } from '../../voice/conversation';
 import { voiceAgentOnFor } from '../../voice/VoiceButton';
 import { sessionNotesOnIn } from '../../sessions/sessionNotesSwitch';
+import { sessionTagsOnIn } from '../../sessions/sessionTagsSwitch';
 import { beadsOnIn } from '../../beads/featureSwitch';
 import {
   buildProjectMenu,
@@ -925,6 +926,7 @@ export function useSessionsScreenMenus({
           chatMachineLink(ctx.machine).capabilities()?.includes('voiceAgent') === true &&
           voiceAgentOnFor(ctx.machine.id),
         sessionNotes: sessionNotesOnIn(summaryFor(ctx.machine.id)),
+        sessionTags: sessionTagsOnIn(summaryFor(ctx.machine.id)),
         beads: beadsOnIn(summaryFor(ctx.machine.id)),
         // Both lists offer Snooze, as both desktop sidebars do (the Project list's Snoozed section, contract/grouping.ts).
         snooze: true,

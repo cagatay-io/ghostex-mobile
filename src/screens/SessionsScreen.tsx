@@ -247,6 +247,7 @@ import { useWallPreviews } from './wall/useWallPreviews';
 import WallSwitch from './wall/WallSwitch';
 import { foldedOuterDisplay, triageSessions, unifiedTriageWaits, type TriageWait } from './triage/model';
 import TriageSection from './triage/TriageSection';
+import { sessionTagsOnIn } from '../sessions/sessionTagsSwitch';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Sessions'>;
 
@@ -600,9 +601,15 @@ export default function SessionsScreen({ navigation }: Props) {
    */
   const storedTagFilters = useTagFilterStore((state) => state.filters);
   useEffect(() => void useTagFilterStore.getState().hydrate(), []);
+  // Session Tags off on the computer (`sessions/sessionTagsSwitch.ts`): no tag rows, and a stored filter filters
+  // nothing until it is turned back on.
+  const sessionTagsOn = sessionTagsOnIn(selectedSummary);
   const offeredTagFilters = useMemo(
-    () => enabledVisibleTagFilters(selectedSummary?.sessionTagListItems, selectedSummary?.customSessionTags ?? null),
-    [selectedSummary?.sessionTagListItems, selectedSummary?.customSessionTags],
+    () =>
+      sessionTagsOn
+        ? enabledVisibleTagFilters(selectedSummary?.sessionTagListItems, selectedSummary?.customSessionTags ?? null)
+        : [],
+    [sessionTagsOn, selectedSummary?.sessionTagListItems, selectedSummary?.customSessionTags],
   );
   const tagFilters = useMemo(
     () => storedTagFilters.filter((filter) => offeredTagFilters.includes(filter)),
