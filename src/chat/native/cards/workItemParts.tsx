@@ -986,6 +986,16 @@ export function workMenuRows(
   // A Needs you to-do's command (gx-chat-core `extras::needs_you`), as its chip copies it.
   const command = str(actions, 'command').trim();
   if (command.length > 0) rows.push({ label: 'Copy command', icon: 'copy', copy: command });
+  // CDXC:SessionChat 2026-11-27 DECISION: User, of a to-do's command chip that offered only Copy:
+  // "when i hover on this i dont see the button i can click to put it in terminal pls fix". The
+  // desktop shows Paste in terminal beside the chip on hover (`dock_command_chip`); the phone has no
+  // hover, so it sits here beside Copy command, the transcript's own Paste in terminal: typed into a
+  // terminal on the computer with Enter left to the user, never run (`ghostex run-in-terminal
+  // --paste`). One line only, as Paste takes; a `! ` before it is for the agent.
+  const pasted = command.startsWith('!') && command.slice(1).trim().length > 0 ? command.slice(1).trim() : command;
+  if (pasted.length > 0 && !/[\u0000-\u001f\u007f]/.test(pasted)) {
+    rows.push({ label: 'Paste in terminal', icon: 'terminal-2', command: { type: 'pasteInTerminal', command: pasted } });
+  }
   const show = obj(actions.showInChat);
   if (show !== null) rows.push({ label: 'Show in chat', icon: 'message-share', command: show });
   // Mark answered, beside Dismiss: one answered in the chat box closes by hand (gx-chat-core
