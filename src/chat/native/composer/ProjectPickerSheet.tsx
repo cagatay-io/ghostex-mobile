@@ -16,7 +16,8 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 
-import type { UnifiedProjectChoice } from '../../../contract/unified/choices';
+import { MessageGlyph } from '../../../components/sessions/icons';
+import { filterProjectChoices, type UnifiedProjectChoice } from '../../../contract/unified/choices';
 import { projectPickerRows } from '../../../contract/unified/projectList';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { Sheet } from './Sheet';
@@ -25,6 +26,7 @@ export function ProjectPickerSheet({
   visible,
   choices,
   title = 'Move to project',
+  newChat = null,
   onClose,
   onDismissed,
   onPick,
@@ -32,6 +34,11 @@ export function ProjectPickerSheet({
   visible: boolean;
   choices: UnifiedProjectChoice[];
   title?: string;
+  /**
+   * The New session sheet's first row, "New Chat" (new-session-place.ts `newSessionSheetChoicesNow`): drawn above the
+   * projects with the message icon, its computers as chips like a project's.
+   */
+  newChat?: UnifiedProjectChoice | null;
   onClose: () => void;
   /** iOS: the sheet finished going away (`Sheet`). */
   onDismissed?: () => void;
@@ -48,11 +55,18 @@ export function ProjectPickerSheet({
     setShownOpen(visible);
     if (visible) setQuery('');
   }
-  const rows = useMemo(() => projectPickerRows(choices, query), [choices, query]);
+  const rows = useMemo(() => {
+    const projects = projectPickerRows(choices, query);
+    if (newChat === null || filterProjectChoices([newChat], query).length === 0) return projects;
+    return [{ kind: 'project' as const, key: newChat.repoKey, choice: newChat }, ...projects];
+  }, [choices, newChat, query]);
   // Chips only mean something with more than one computer.
   const chips = useMemo(
-    () => new Set(choices.flatMap((choice) => choice.machines.map((machine) => machine.machineId))).size > 1,
-    [choices],
+    () => {
+      const all = newChat === null ? choices : [...choices, newChat];
+      return new Set(all.flatMap((choice) => choice.machines.map((machine) => machine.machineId))).size > 1;
+    },
+    [choices, newChat],
   );
   return (
     <Sheet visible={visible} onClose={onClose} onDismissed={onDismissed} title={title} maxHeight="70%">
@@ -84,9 +98,15 @@ export function ProjectPickerSheet({
               <View style={styles.body}>
                 {/* The tile sits on the name's line, not centred on a two-line row ("keep the icon of the project aligned with it's name"). */}
                 <View style={styles.nameLine}>
-                  <View style={styles.tile}>
-                    <Text style={styles.tileText}>{item.choice.label.slice(0, 1).toUpperCase()}</Text>
-                  </View>
+                  {item.choice === newChat ? (
+                    <View style={styles.iconTile}>
+                      <MessageGlyph size={16} color={P.muted} />
+                    </View>
+                  ) : (
+                    <View style={styles.tile}>
+                      <Text style={styles.tileText}>{item.choice.label.slice(0, 1).toUpperCase()}</Text>
+                    </View>
+                  )}
                   <Text numberOfLines={1} style={styles.label}>
                     {item.choice.label}
                   </Text>
@@ -170,6 +190,7 @@ const useStyles = themedStyles((P) => ({
     backgroundColor: P.border,
   },
   tileText: { color: P.muted, fontSize: 11, fontWeight: '600' },
+  iconTile: { width: 20, height: 20, marginRight: 2, alignItems: 'center', justifyContent: 'center' },
   note: { color: P.muted, fontSize: 12 },
   chip: {
     maxWidth: 96,

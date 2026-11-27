@@ -217,8 +217,8 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
             [machineId]: toggled(current[machineId] ?? [], kindCollapseKey),
           },
         });
-      } else if (/\|(parked|working|snoozed)$/u.test(kindCollapseKey)) {
-        // Working and Snoozed start folded like Parked (contract/grouping.ts `FOLDED_FIRST`), so they share its open list.
+      } else if (/\|(parked|working|snoozed|autopilot)$/u.test(kindCollapseKey)) {
+        // Working, Snoozed and Autopilot start folded like Parked (contract/grouping.ts `FOLDED_FIRST`), so they share its open list.
         const current = get().expandedParkedSessionKeysByMachine;
         set({
           expandedParkedSessionKeysByMachine: {
@@ -301,7 +301,7 @@ export const useCollapseStore = create<CollapseState>()((set, get) => {
         const drafts = opened(state.expandedDraftSessionKeysByMachine[machineId], kind);
         if (drafts !== null)
           update.expandedDraftSessionKeysByMachine = { ...state.expandedDraftSessionKeysByMachine, [machineId]: drafts };
-      } else if (/\|(parked|working|snoozed)$/u.test(kind)) {
+      } else if (/\|(parked|working|snoozed|autopilot)$/u.test(kind)) {
         const folded = opened(state.expandedParkedSessionKeysByMachine[machineId], kind);
         if (folded !== null)
           update.expandedParkedSessionKeysByMachine = { ...state.expandedParkedSessionKeysByMachine, [machineId]: folded };

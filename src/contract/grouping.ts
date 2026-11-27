@@ -131,8 +131,10 @@ export type ProjectHeaderItem = {
   actionTarget?: ActionTarget;
   /** In the one list of every computer: the computers whose copies the entry holds, when more than one. */
   machineIds?: string[];
-  /** The home project: its header is Main Hub's row (components/sessions/ChiefRow.tsx). */
+  /** The home project: its header is Ghostex AI's row (components/sessions/ChiefRow.tsx). */
   isHome?: boolean;
+  /** The No project project: the message icon, a Chats heading, a New Chat row and a menu of New Chat alone. */
+  isNoProject?: boolean;
   /** The computer's Chief, on the home project's header; `null` before its first open. */
   chief?: GhostexSession | null;
   /** Legacy per-session groupId carried for sparse payloads. */
@@ -230,6 +232,15 @@ export type MachineFoldInfo =
       role: 'child';
       machineLabel: string;
       machineId: string;
+    }
+  /**
+   * A computer's own Ghostex AI row (Chief of Staff): named by its computer with the computer's icon, one row per
+   * computer, never folded (CDXC:Chief 2026-11-27 in components/sessions/drawerModel.ts `foldHomeMachineRows`).
+   */
+  | {
+      role: 'machine';
+      machineLabel: string;
+      machineId: string;
     };
 
 export type SessionItem = {
@@ -265,7 +276,7 @@ export type SessionItem = {
   listCoordinatorKey?: string;
   /** An Autopilot supervisor row lifted into Main Hub's Autopilot section. */
   isAutopilotSupervisor?: boolean;
-  /** Main Hub per-computer fold role (Ask Ghostex AI, Autopilot supervisor). */
+  /** Ghostex AI's per-computer rows: Ask Ghostex AI by its computer, the Autopilot supervisors' fold. */
   machineFold?: MachineFoldInfo;
 };
 
@@ -354,7 +365,14 @@ export type CoordinatorOlderItem = {
   inSessionGroup?: boolean;
 };
 
-/** Main Hub's quiet "New chat" row at the end of Chats. */
+/**
+ * No project's quiet "New Chat" row at the end of Chats, shown even while it has no chats.
+ *
+ * CDXC:Projects 2026-11-27 DECISION:
+ * User (Q5260 C, Q5263 A, Q5283 A): the row moved with the chats from Main Hub to No project and reads "New Chat",
+ * as the desktop's (apps/desktop/src/app/native_sidebar/rows.rs `render_native_no_project_new_chat_row`). The home
+ * project's heading is Sessions again.
+ */
 export type HomeNewChatItem = {
   type: 'HOME_NEW_CHAT';
   key: string;
@@ -436,8 +454,14 @@ const DEFAULT_SECTION_RULES: SectionRules = { parking: true, groupWorking: false
 /** Sections listed apart from a project's ordinary rows and never inside a session group. */
 const SECTIONS_APART: readonly SessionKindSection[] = ['drafts', 'parked', 'snoozed'];
 
-/** Sections folded until opened (their open state is kept with Parked's in collapseStore). */
-const FOLDED_FIRST: readonly SessionKindSection[] = ['working', 'parked', 'snoozed'];
+/**
+ * Sections folded until opened (their open state is kept with Parked's in collapseStore).
+ *
+ * CDXC:Chief 2026-11-27 DECISION:
+ * User (Q5289 A): Autopilot is its own section in Ghostex AI, "always collapse autopilot section by default", as gx-core
+ * sidebar_view/inputs.rs `SectionCollapse` (autopilot: true) folds it on the desktop.
+ */
+const FOLDED_FIRST: readonly SessionKindSection[] = ['working', 'parked', 'snoozed', 'autopilot'];
 
 /** gx-core `session_is_snoozed`: a wake time still ahead; a past one never hides a session. */
 export function isSnoozedSession(session: GhostexSession, nowMs: number = Date.now()): boolean {
@@ -1343,6 +1367,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
       projectKey,
       projectId,
       isHome: project?.isHome === true,
+      isNoProject: project?.isNoProject === true,
       chief: project?.isHome === true ? (summary.sessions.find((session) => session.isChief) ?? null) : undefined,
       legacyGroupId,
       title: projectTitle,
@@ -1371,7 +1396,9 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     if (collapsed) return;
 
     if (allProjectSessions.length === 0) {
-      if (project?.isHome === true) {
+      // The home project's header is Ghostex AI's row; it has no empty row of its own.
+      if (project?.isHome === true) return;
+      if (project?.isNoProject === true) {
         items.push({
           type: 'HOME_NEW_CHAT',
           key: `home-new-chat:${projectKey}`,
@@ -1460,7 +1487,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
      * only that kind's rows. Drafts and Parked are emitted separately so the
      * ordinary "Show N more" cap cannot hide their disclosures.
      */
-    const isHome = project?.isHome === true;
+    const isNoProject = project?.isNoProject === true;
     let homeChatsSectionSeen = false;
     let homeChatsCollapsed = false;
 
@@ -1492,7 +1519,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
             projectKey,
             section,
             kindCollapseKey,
-            label: isHome && section === 'sessions' ? 'Chats' : SESSION_KIND_LABELS[section],
+            label: isNoProject && section === 'sessions' ? 'Chats' : SESSION_KIND_LABELS[section],
             collapsed: kindCollapsed,
             status: countSectionSessions(
               sectionPool.filter((candidate) => sectionOf(candidate) === section),
@@ -1507,7 +1534,7 @@ export function buildDrawerItems(input: DrawerBuildInput): DrawerItem[] {
     };
 
     const emitHomeNewChatRow = (): void => {
-      if (!isHome) return;
+      if (!isNoProject) return;
       if (homeChatsSectionSeen && homeChatsCollapsed) return;
       items.push({
         type: 'HOME_NEW_CHAT',

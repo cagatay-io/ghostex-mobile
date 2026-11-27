@@ -42,6 +42,7 @@ function parseProjects(value: unknown): GhostexProject[] {
       name: trimmedValue(entry, 'name'),
       path,
       isHome: entry.isHome === true,
+      isNoProject: entry.isNoProject === true ? true : undefined,
       gbotsProject: entry.gbotsProject === true || isObject(entry.gbotsBot) ? true : undefined,
       gbotsBot: parseGbotsBot(entry.gbotsBot),
       autopilotSupervisorProject: entry.autopilotSupervisorProject === true ? true : undefined,

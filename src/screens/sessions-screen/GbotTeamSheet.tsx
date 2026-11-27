@@ -243,7 +243,7 @@ export default function GbotTeamSheet({ target, start, onChanged, onClose }: Gbo
         }
       >
         <Text style={styles.title}>{`Imported ${imported.name}`}</Text>
-        <Text style={styles.body}>{`${imported.bots.length} GBots added under Ghostex AI in Main Hub.`}</Text>
+        <Text style={styles.body}>{`${imported.bots.length} GBots added under Ghostex AI.`}</Text>
         <BotRows bots={imported.bots} />
         {imported.routines > 0 ? (
           <Text style={styles.hint}>

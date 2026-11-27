@@ -539,7 +539,7 @@ function AutopilotBody({
         <SettingsSection name="settings:autopilot:supervisor">
           <LinkRow
             title="Open supervisor"
-            description="Its chat, under Autopilot in Main Hub."
+            description="Its chat, under Autopilot in Ghostex AI."
             onPress={() => openDeepLink(sessionDeepLink({ machineId: machine.id, sessionId: supervisorSession }))}
           />
         </SettingsSection>

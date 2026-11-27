@@ -90,6 +90,8 @@ export type SidebarMenuCommand =
   | { type: 'sessionAction'; sessionId: string; action: 'linkWork'; kind: WorkLinkKind }
   /** The phone's own row: a voice call about this session (`src/voice/callAbout.ts`). */
   | { type: 'voiceCall'; sessionId: string }
+  /** Move to project: a chat in No project's project sheet (./move-to-project.ts). */
+  | { type: 'moveToProject'; sessionId: string }
   /** The Unified list's Snooze row: gxserver's `/api/snoozeSession` at the preset's wake time, then a sleep (`contract/unified/snooze.ts`). */
   | { type: 'snooze'; sessionId: string; preset: SnoozePreset }
   /** The Unified list's Unsnooze row: gxserver's `/api/unsnoozeSession`. */
@@ -472,7 +474,7 @@ export type SessionMenuInput = {
   /** The session's project, whose title and worktree Copy Details quotes; null when unknown. */
   project: Pick<
     GhostexProject,
-    'name' | 'path' | 'worktree' | 'workMode' | 'workLinear' | 'workGithubOff' | 'workTracker'
+    'name' | 'path' | 'worktree' | 'workMode' | 'workLinear' | 'workGithubOff' | 'workTracker' | 'isNoProject'
   > | null;
   /** The computer's gxserver has the voice agent, so the menu offers Voice Call. */
   voiceCall?: boolean;
@@ -944,6 +946,12 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
         }
         return [layoutRow(layout, 'park', command({ type: 'setSessionParked', sessionId: id, parked: !parked }), parked)];
       }
+      case 'moveToProject':
+        // CDXC:Projects 2026-11-27 (./move-to-project.ts): a chat in No project, once it has started (a draft's tray
+        // picks its project), as gx-core session.rs `move_to_project_item` offers it.
+        return project?.isNoProject === true && session.kind === 'agent' && session.isDraft !== true
+          ? [layoutRow(layout, 'moveToProject', { type: 'moveToProject', sessionId: id })]
+          : [];
       case 'coordinator': {
         // CDXC:Coordinators 2026-10-13 SEE-ALSO: the user's decision on `is_sleep_inactive_session` in server/src/coordinators/sleep_threads.rs, which decides which threads sleep (gx-core `coordinator_rows` draws the desktop's twin row). The disabled test is only the phone's Sleep Inactive hint, which never greys out a row gxserver would act on.
         const sleepInactive: SidebarMenuItem | null =

@@ -44,6 +44,7 @@ import {
   LinkGlyph,
   ListGlyph,
   MessageCircleGlyph,
+  MessagePlusGlyph,
   NoteGlyph,
   PaletteGlyph,
   PencilGlyph,
@@ -95,7 +96,7 @@ import {
   type QuickActionRef,
 } from '../../actions/quickActions';
 import { recentProjectsWithoutGbots } from '../../contract/gbotsFilter';
-import { homeProjectIdIn } from '../../contract/chief';
+import { noProjectIdIn } from '../../contract/chief';
 import { projectHeaderOf, type ProjectHeaderItem } from '../../contract/grouping';
 import {
   agentIconTint,
@@ -782,6 +783,12 @@ export function useSessionsScreenMenus({
           workChipActions(machine, ctx.item.session)?.answerCleanup(menuCommand.answer);
           return;
         }
+        case 'moveToProject': {
+          const ctx = scope.session;
+          if (ctx === undefined) throw new Error('Move to project needs a chat.');
+          setOverlay({ kind: 'moveToProject', ctx });
+          return;
+        }
         case 'sessionLinks': {
           const ctx = scope.session;
           if (ctx === undefined) throw new Error('Links need a session.');
@@ -1044,6 +1051,29 @@ export function useSessionsScreenMenus({
     menuPath: readonly string[],
   ): { subtitle?: string; items: ContextMenuItem[] } => {
     const { header } = ctx;
+    /*
+     * CDXC:Projects 2026-11-27 DECISION:
+     * User (Q5282 A): No project's menu is New Chat and Hide only (gx-core sidebar_menu/project.rs). The phone hides
+     * no project, so it keeps New Chat alone.
+     */
+    if (header.isNoProject === true) {
+      return {
+        items: [
+          {
+            kind: 'item',
+            key: 'new-chat',
+            label: 'New Chat',
+            icon: <MessagePlusGlyph size={14} color={menuIconColor} />,
+            onPress: () => {
+              setOverlay(NONE);
+              const primary = resolvePrimaryAgent(header);
+              if (primary !== null) launchAgent(ctx.machine, header, primary);
+              else setOverlay({ kind: 'agentMenu', ctx });
+            },
+          },
+        ],
+      };
+    }
     const summary = summaryFor(ctx.machine.id);
     const order = projectOrderOf(ctx);
     const own: ProjectOwnAction[] = ['newTerminal', 'projectDetails', 'moveProjectUp', 'moveProjectDown', 'refreshSessions'];
@@ -1741,7 +1771,7 @@ export function useSessionsScreenMenus({
 
   /**
    * The header's New session (./new-session-button.tsx): immediately creates a Native draft in the
-   * open session's project, or Main Hub when there is no open session (falling back to gx-core's
+   * open session's project, or No project when there is no open session (falling back to gx-core's
    * `unifiedNewSessionTarget`), and opens its empty chat without showing a picker. With no connected
    * project to start in, returns false so the screen offers Add computer, Add project, or says why.
    */
@@ -1771,13 +1801,14 @@ export function useSessionsScreenMenus({
       resolved = findConnectedHeader(active.machineId, active.projectId);
     }
     if (resolved === null) {
-      // No open session (or its computer is disconnected): prefer Main Hub on the current or first connected computer.
+      // No open session (or its computer is disconnected): a chat in No project on the current or first connected
+      // computer (CDXC:Projects 2026-11-27, Q5260 C: chats without a project live there, not in Ghostex AI).
       const preferredOrder = [
         ...machines.filter((entry) => entry.id === currentMachineId),
         ...machines.filter((entry) => entry.id !== currentMachineId),
       ];
       for (const candidate of preferredOrder) {
-        const homeId = homeProjectIdIn(inventories[candidate.id]?.summary ?? null);
+        const homeId = noProjectIdIn(inventories[candidate.id]?.summary ?? null);
         if (homeId !== null) {
           resolved = findConnectedHeader(candidate.id, homeId);
           if (resolved !== null) break;

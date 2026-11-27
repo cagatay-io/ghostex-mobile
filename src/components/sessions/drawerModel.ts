@@ -260,7 +260,8 @@ function machineBlocks(
     ];
   }
   return withGbotsSection(
-    blocksFromItems(machine.id, items),
+    // One computer: its Ghostex AI row still reads the computer's name (`foldHomeMachineRows`).
+    foldHomeMachineRows(blocksFromItems(machine.id, items), machine.id, [machine], new Set(), selectedSessionKey),
     machine.id,
     inventory.summary,
     collapse,
@@ -384,7 +385,9 @@ export function hideProjectsWithoutSessions(
   showAll: boolean,
 ): { blocks: DrawerBlock[]; emptyProjects: number } {
   if (!hide) return { blocks, emptyProjects: 0 };
-  const hasSessions = (card: ProjectCardBlock): boolean => card.header.isHome === true || card.header.sessionCount > 0;
+  // Ghostex AI's row, and No project with its New Chat row (Q5283 A), stay without sessions.
+  const hasSessions = (card: ProjectCardBlock): boolean =>
+    card.header.isHome === true || card.header.isNoProject === true || card.header.sessionCount > 0;
   let emptyProjects = 0;
   const kept: DrawerBlock[] = [];
   for (const block of blocks) {
@@ -653,15 +656,11 @@ function foldHomeMachineRows(
   };
   const foldCard = (card: ProjectCardBlock): ProjectCardBlock => {
     if (card.header.isHome !== true) return card;
-    let children = [...card.children];
+    let children = nameChiefRows([...card.children]);
     const kinds: Array<{
-      kind: 'chief' | 'autopilot';
+      kind: 'autopilot';
       matches: (item: DrawerItem) => boolean;
     }> = [
-      {
-        kind: 'chief',
-        matches: (item) => item.type === 'SESSION' && (item.nesting?.depth ?? 0) === 0 && item.session.isChief,
-      },
       {
         kind: 'autopilot',
         matches: (item) =>
@@ -754,6 +753,46 @@ function foldHomeMachineRows(
     }
     return { ...card, children };
   };
+  /*
+   * CDXC:Chief 2026-11-27 DECISION:
+   * User (Q5286, Q5287 B): Main Hub is Ghostex AI, and each computer's agent is its own row showing only the computer's
+   * name, with the computer's icon. The "+N" fold of the other computers' Ask Ghostex AI rows is gone: this computer's
+   * row comes first, then the others in list order, each with its threads under it. Autopilot keeps its fold. Mirrors
+   * gx-core sidebar_view/chief.rs (`order_machine_kind`, `name_home_chief_rows`).
+   */
+  function nameChiefRows(children: DrawerItem[]): DrawerItem[] {
+    const indices: number[] = [];
+    for (let i = 0; i < children.length; i++) {
+      const item = children[i];
+      if (item.type === 'SESSION' && (item.nesting?.depth ?? 0) === 0 && item.session.isChief) indices.push(i);
+    }
+    if (indices.length === 0) return children;
+    const onLead = (idx: number): boolean => {
+      const item = children[idx];
+      return item.type === 'SESSION' && item.machineId === leadMachineId;
+    };
+    const ordered = [...indices.filter(onLead), ...indices.filter((idx) => !onLead(idx))];
+    const moved = new Set<number>();
+    const rows: DrawerItem[] = [];
+    for (const idx of ordered) {
+      const end = subtreeEnd(children, idx);
+      for (let sub = idx; sub < end; sub++) {
+        moved.add(sub);
+        const item = children[sub];
+        rows.push(
+          sub === idx && item.type === 'SESSION'
+            ? { ...item, machineFold: { role: 'machine', machineLabel: machineLabel(item.machineId), machineId: item.machineId } }
+            : item,
+        );
+      }
+    }
+    const anchor = indices[0];
+    return [
+      ...children.slice(0, anchor).filter((_, idx) => !moved.has(idx)),
+      ...rows,
+      ...children.slice(anchor).filter((_, idx) => !moved.has(anchor + idx)),
+    ];
+  }
   return blocks.map((block) => {
     if (block.kind === 'project') return { ...block, card: foldCard(block.card) };
     if (block.kind === 'collection') return { ...block, projects: block.projects.map(foldCard) };

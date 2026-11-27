@@ -42,7 +42,7 @@ import {
 import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionCopy } from '../../copy';
 import { useSettingsStore } from '../../settings/store';
-import { useSessionComputerIcon } from '../../machines/computerIcons';
+import { useComputerTabIcon, useSessionComputerIcon } from '../../machines/computerIcons';
 import { mixHexColors, SidebarPalette } from '../../theme/palette';
 import type { MenuAnchor } from './ContextMenu';
 import {
@@ -513,8 +513,12 @@ export default function SessionRow({
   const rowRef = useRef<ViewInstance | null>(null);
   const ink = useSidebarInk();
   const computerIcon = useSessionComputerIcon(machineId);
+  // A computer's own row (Ghostex AI's) draws its computer even with one computer connected.
+  const ownComputerIcon = useComputerTabIcon(machineId ?? '');
   const foldLead = machineFold?.role === 'lead' ? machineFold : null;
   const foldChild = machineFold?.role === 'child' ? machineFold : null;
+  // A computer's Ghostex AI row: its computer's name and icon, at the row's own depth.
+  const machineRow = machineFold?.role === 'child' || machineFold?.role === 'machine' ? machineFold : null;
   const inkStyle = inkStyles(ink);
   // The merged tone of the links badge, the theme's own (`linkBadgeColor`; desktop
   // `session_link_badge_color` picks its light value on a light sidebar too).
@@ -522,8 +526,8 @@ export default function SessionRow({
   const iconId = resolveAgentArtId(session.agentIcon, session.agentName.length > 0 ? session.agentName : session.agent);
   const Icon = AGENT_ICONS[iconId] ?? AGENT_ICONS.terminal;
   const iconSize = iconId === 'terminal' || iconId === 'browser' ? ds(15) : ds(13);
-  const title = foldChild !== null
-    ? foldChild.machineLabel
+  const title = machineRow !== null
+    ? machineRow.machineLabel
     : session.displayTitle.length > 0
       ? session.displayTitle
       : SessionCopy.fallbackTitle;
@@ -574,13 +578,13 @@ export default function SessionRow({
    * title (off by default) bolds the coordinator's title for people who want it.
    */
   const boldCoordinatorTitle = useSettingsStore((state) => state.settings.sessionsBoldCoordinatorTitle);
-  const coordinatorTitle = foldChild === null && session.isCoordinator === true;
+  const coordinatorTitle = machineRow === null && session.isCoordinator === true;
   const threadTitle = foldChild !== null || (!coordinatorTitle && depth > 0);
   const indent = ds((depth + (foldChild !== null ? 1 : 0)) * THREAD_INDENT);
   const iconLeft = (inCard ? ds(5) : ds(26)) + indent;
   const showChevron = foldChild === null && onToggleThreads !== undefined && (nesting?.threadCount ?? 0) > 0;
   const titleIndent = indent + (showChevron ? ds(CHEVRON_EXTRA) : 0);
-  const showTrailingComputerIcon = foldChild === null && foldLead === null && computerIcon !== null;
+  const showTrailingComputerIcon = machineRow === null && foldLead === null && computerIcon !== null;
   const activeBackground = selectedFill(expandedGroupSurface, ink);
   // The desktop's hover fill (appearance.rs `session_hover`) is the phone's pressed state: the chrome ink at 6%.
   const pressedBackground = mixHexColors(ink.light ? '#000000' : '#FFFFFF', expandedGroupSurface, 6);
@@ -708,8 +712,8 @@ export default function SessionRow({
             ]}
           >
             {/* The clock is 18dp inside the 15dp slot, overhanging it evenly, as on the desktop. */}
-            {foldChild !== null ? (
-              <ComputerIconGlyph drawing={computerIcon ?? 'desktop'} size={ds(13)} color={ink.muted} />
+            {machineRow !== null ? (
+              <ComputerIconGlyph drawing={ownComputerIcon ?? computerIcon ?? 'desktop'} size={ds(13)} color={ink.muted} />
             ) : timerClockColor !== null ? (
               <ClockGlyph size={ds(18)} color={timerClockColor} />
             ) : TagIcon !== undefined && tagColor !== null ? (

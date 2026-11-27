@@ -15,6 +15,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CHIEF_LABEL, CHIEF_NAME, chiefCounts, chiefHasDot as hasDot, type ChiefRowModel } from '../../contract/chief';
 import type { GhostexSession } from '../../contract/mobileSummary';
 import { ChevronRightGlyph, FlowerGlyph } from './icons';
+import { ComputerIconGlyph } from './ComputerIconGlyph';
+import { useComputerTabIcon } from '../../machines/computerIcons';
 import { HEADER_CHEVRON_INSET, TOUCH_ROW_HEIGHT, ds, inkStyleSheets, inkWash, useSidebarInk } from './rows';
 import StatusDotStack from './StatusDotStack';
 
@@ -189,9 +191,25 @@ const chiefStyles = inkStyleSheets((ink) =>
  * this place. The desktop draws the same row
  * (apps/desktop/src/app/native_sidebar/chief.rs `render_native_sidebar_chief_placeholder`).
  */
-export function ChiefPlaceholderRow({ onPress, onLongPress }: { onPress: () => void; onLongPress?: () => void }) {
+/**
+ * Ghostex AI's row before its first open: like the opened row, the computer's name and icon (CDXC:Chief 2026-11-27 in
+ * components/sessions/drawerModel.ts `foldHomeMachineRows`), else Ask Ghostex AI and the flower.
+ */
+export function ChiefPlaceholderRow({
+  onPress,
+  onLongPress,
+  machineId,
+  machineLabel,
+}: {
+  onPress: () => void;
+  onLongPress?: () => void;
+  machineId?: string;
+  machineLabel?: string;
+}) {
   const ink = useSidebarInk();
   const styles = chiefStyles(ink);
+  const computerIcon = useComputerTabIcon(machineId ?? '');
+  const named = machineLabel !== undefined && machineLabel.length > 0;
   return (
     <Pressable
       accessibilityRole="button"
@@ -200,9 +218,13 @@ export function ChiefPlaceholderRow({ onPress, onLongPress }: { onPress: () => v
       onLongPress={onLongPress}
       style={({ pressed }) => [styles.other, pressed ? styles.pressed : null]}
     >
-      <FlowerGlyph size={ds(14)} color={ink.muted} />
+      {named ? (
+        <ComputerIconGlyph drawing={computerIcon ?? 'desktop'} size={ds(13)} color={ink.muted} />
+      ) : (
+        <FlowerGlyph size={ds(14)} color={ink.muted} />
+      )}
       <Text numberOfLines={1} style={styles.otherTitle}>
-        {CHIEF_LABEL}
+        {named ? machineLabel : CHIEF_LABEL}
       </Text>
       <Text style={styles.hint}>Start here</Text>
     </Pressable>

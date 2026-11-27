@@ -13,7 +13,7 @@ import { CountBadge } from '../components/common/CountBadge';
 import {
   agentSpaceOfProject,
   newSessionComputersNow,
-  projectChoicesNow,
+  newSessionSheetChoicesNow,
   summaryOfProjectWorkspace,
 } from './sessions-screen/new-session-place';
 import { NewSessionButton, newSessionEmptyList } from './sessions-screen/new-session-button';
@@ -103,6 +103,8 @@ import ChiefRow, { CHIEF_LABEL, CHIEF_NAME } from '../components/sessions/ChiefR
 import ChiefEarlierChatsSheet from '../components/sessions/ChiefEarlierChatsSheet';
 import { NativeModeAnnounceSheet } from '../components/sessions/NativeModeAnnounceSheet';
 import { runGhostexCli } from '../components/sessions/cli';
+import { moveChatToProject, moveToProjectChoicesNow } from './sessions-screen/move-to-project';
+import { openSessionTab } from '../chat/native/sessionShell';
 import {
   chiefRows,
   hasHomeProject,
@@ -1475,6 +1477,11 @@ export default function SessionsScreen({ navigation }: Props) {
   // same row. In the side bar (a system that stands one) the bell and the menu stand there as its entries. On the
   // iPhone Duo's inner display the list/tiles switch stands before the bell, in the side bar as two switch entries.
   // The bell opens the attention list with the number of sessions that need the user.
+  // The New session sheet's rows, read while it is open: New Chat first, then the projects.
+  const newSessionSheet =
+    overlay.kind === 'newSessionProject'
+      ? newSessionSheetChoicesNow(overlay.currentMachineId)
+      : { newChat: null, projects: [] };
   const newSessionButton = (
     <NewSessionButton color={sidebarAppearance.foreground} style={styles.headerButton} onPress={openNewSessionSheet} />
   );
@@ -2144,6 +2151,33 @@ export default function SessionsScreen({ navigation }: Props) {
         />
       ) : null}
 
+      {/* Move to project: the chat's computer's own projects; a pick moves it there and opens it. */}
+      <ProjectPickerSheet
+        visible={overlay.kind === 'moveToProject'}
+        title="Move to project"
+        choices={overlay.kind === 'moveToProject' ? moveToProjectChoicesNow(overlay.ctx.machine.id) : []}
+        onClose={() => setOverlay(NONE)}
+        onPick={(choice) => {
+          if (overlay.kind !== 'moveToProject') return;
+          const { machine, item } = overlay.ctx;
+          const target = choice.machines[0];
+          setOverlay(NONE);
+          if (target === undefined) return;
+          void moveChatToProject(
+            machine,
+            { projectId: item.session.projectId, sessionId: item.session.sessionId },
+            target.projectId,
+          )
+            .then((moved) => openSessionTab(machine, moved.sessionId, moved.projectId))
+            .catch((error: unknown) =>
+              setTransientStatus(error instanceof Error ? error.message : String(error), {
+                title: "Couldn't move the chat",
+                error: true,
+              }),
+            );
+        }}
+      />
+
       {overlay.kind === 'sessionLinks' ? (
         <SessionLinksSheet
           visible
@@ -2484,7 +2518,8 @@ export default function SessionsScreen({ navigation }: Props) {
       <ProjectPickerSheet
         visible={overlay.kind === 'newSessionProject'}
         title="Choose a project"
-        choices={overlay.kind === 'newSessionProject' ? projectChoicesNow(overlay.currentMachineId) : []}
+        choices={newSessionSheet.projects}
+        newChat={newSessionSheet.newChat}
         onClose={() => setOverlay(NONE)}
         onDismissed={() => {
           const work = afterProjectSheet.current;

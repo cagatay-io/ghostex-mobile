@@ -37,6 +37,7 @@ import {
 } from '../../components/sessions/rows';
 import { SessionKindLabelRow } from '../../components/sessions/SectionKindLabelRow';
 import { ChiefPlaceholderRow } from '../../components/sessions/ChiefRow';
+import { machineDisplayLabel, useMachinesStore } from '../../machines/store';
 import GbotsRows from '../../components/sessions/GbotsRows';
 import { MessagePlusGlyph } from '../../components/sessions/icons';
 import SessionRow, { treeAnchorBelowRow } from '../../components/sessions/SessionRow';
@@ -212,7 +213,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
           <View key={child.key} style={styles.homeNewChatBlock}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="New chat in Main Hub"
+              accessibilityLabel="New Chat in No project"
               style={({ pressed }) => [styles.homeNewChatRow, pressed ? homeNewChatStyles.pressed : null]}
               onPress={() => {
                 if (primary !== null) actions.launchPrimary(machineId, header, primary);
@@ -223,7 +224,7 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
                 <MessagePlusGlyph size={ds(14)} color={ink.muted} />
               </View>
               <Text style={[styles.homeNewChatLabel, homeNewChatStyles.label]} numberOfLines={1}>
-                New chat
+                New Chat
               </Text>
             </Pressable>
           </View>
@@ -437,12 +438,15 @@ export default function DrawerBlockView(props: DrawerBlockViewProps): ReactEleme
           onCreateTerminal={() => actions.createProjectTerminal(...acting(header))}
           onOpenAgentMenu={() => actions.agentMenu(...acting(header))}
           home={header.isHome === true ? { onMenu: () => actions.homeMenu(machineId, header) } : undefined}
+          noProject={header.isNoProject === true}
         />
-        {/* Main Hub before Chief of Staff's first open: its row's place (ChiefRow.tsx). */}
+        {/* Ghostex AI before Chief of Staff's first open: its row's place (ChiefRow.tsx). */}
         {header.isHome === true && !header.collapsed && header.chief === null ? (
           <ChiefPlaceholderRow
             onPress={() => actions.openHomeChief(machineId, header)}
             onLongPress={() => actions.openHomeChiefMenu(machineId, header)}
+            machineId={machineId}
+            machineLabel={homeMachineLabel(machineId)}
           />
         ) : null}
         {!header.collapsed && (card.children.length > 0 || card.gbots != null) ? projectFold(card) : null}
@@ -624,3 +628,9 @@ const homeNewChatInkStyles = inkStyleSheets((ink) =>
     pressed: { backgroundColor: ink.light ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' },
   }),
 );
+
+/** A computer's name, as Ghostex AI's row before its first open shows it (CDXC:Chief 2026-11-27, Q5287 B). */
+function homeMachineLabel(machineId: string): string | undefined {
+  const record = useMachinesStore.getState().machines.find((machine) => machine.id === machineId);
+  return record === undefined ? undefined : machineDisplayLabel(record);
+}

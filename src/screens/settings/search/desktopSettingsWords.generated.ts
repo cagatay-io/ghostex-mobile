@@ -127,8 +127,8 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "keywords": []
   },
   "chiefShowOnAllSpaces": {
-    "title": "Show Main Hub on all Spaces",
-    "subtitle": "Show Main Hub and your home folder's sessions at the top of every Space. Off, they stay at the top of the Space you moved them to.",
+    "title": "Show Ghostex AI on all Spaces",
+    "subtitle": "Show Ghostex AI at the top of every Space. Off, it stays at the top of the Space you moved it to.",
     "options": [],
     "keywords": []
   },

@@ -346,8 +346,8 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     page: 'sessionsList',
     section: 'settings:sessions-list:spaces',
     group: 'Spaces',
-    title: 'Show Main Hub on all Spaces',
-    description: 'Main Hub stays at the top of every Space.',
+    title: 'Show Ghostex AI on all Spaces',
+    description: 'Ghostex AI stays at the top of every Space.',
     catalog: 'chiefShowOnAllSpaces',
   },
   {

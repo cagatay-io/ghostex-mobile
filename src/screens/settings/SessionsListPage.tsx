@@ -163,7 +163,7 @@ export default function SessionsListPage() {
               'Active projects',
               'A star before your Spaces lists the projects you are working on from every Space.',
             )}
-            {toggle('chiefShowOnAllSpaces', 'Show Main Hub on all Spaces', 'Main Hub stays at the top of every Space.')}
+            {toggle('chiefShowOnAllSpaces', 'Show Ghostex AI on all Spaces', 'Ghostex AI stays at the top of every Space.')}
           </>
         ) : null}
       </SettingsSection>

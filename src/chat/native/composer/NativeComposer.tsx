@@ -73,6 +73,8 @@ import {
   homeProjectIdForMachine,
   isHomeProject,
   mainHubMachineChoice,
+  NO_PROJECT_NAME,
+  NO_PROJECT_REPO_KEY,
   setCarryCoordinatorDraft,
   takeCarryCoordinatorDraft,
   type PendingDraftTarget,
@@ -320,10 +322,10 @@ export function NativeComposer({
           : mainHubMachineChoice()?.machines.find((entry) => entry.connected)?.machineId ?? null;
       if (targetHome !== null && targetMachine !== null) {
         setPendingTargetHere({
-          repoKey: 'main-hub',
+          repoKey: NO_PROJECT_REPO_KEY,
           machineId: targetMachine,
           projectId: targetHome,
-          label: 'Main Hub',
+          label: NO_PROJECT_NAME,
           isMainHub: true,
         });
       }
@@ -1162,7 +1164,7 @@ export function NativeComposer({
                   machineId: picked.machineId,
                   projectId: picked.projectId,
                   label: choice.label,
-                  isMainHub: choice.repoKey === 'main-hub' || isHomeProject(picked.machineId, picked.projectId),
+                  isMainHub: choice.repoKey === NO_PROJECT_REPO_KEY || isHomeProject(picked.machineId, picked.projectId),
                 });
               }
             }}
@@ -1181,7 +1183,7 @@ export function NativeComposer({
                   machineId: picked.machineId,
                   projectId: picked.projectId,
                   label: choice.label,
-                  isMainHub: choice.repoKey === 'main-hub' || isHomeProject(picked.machineId, picked.projectId),
+                  isMainHub: choice.repoKey === NO_PROJECT_REPO_KEY || isHomeProject(picked.machineId, picked.projectId),
                 });
               }
             }}

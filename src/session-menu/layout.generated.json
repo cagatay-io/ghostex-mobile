@@ -187,6 +187,10 @@
       "icon": "layout-sidebar-right-expand",
       "label": "Move to Group"
     },
+    "moveToProject": {
+      "icon": "folders",
+      "label": "Move to project"
+    },
     "moveToWorkspace": {
       "icon": "switch-horizontal",
       "label": "Move to Workspace"
@@ -658,6 +662,9 @@
         "row": "park"
       },
       {
+        "row": "moveToProject"
+      },
+      {
         "separator": true
       },
       {
@@ -958,6 +965,9 @@
       },
       {
         "row": "park"
+      },
+      {
+        "row": "moveToProject"
       },
       {
         "row": "box"

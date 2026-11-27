@@ -24,7 +24,7 @@
  */
 
 import type { UnifiedProjectChoice } from '../../../contract/unified/choices';
-import { homeProjectIdIn } from '../../../contract/chief';
+import { homeProjectIdIn, noProjectIdIn } from '../../../contract/chief';
 import { useInventoryStore } from '../../../inventory/store';
 import { enabledMachines, machineDisplayLabel, useMachinesStore } from '../../../machines/store';
 import {
@@ -60,22 +60,32 @@ export function takeCarryCoordinatorDraft(): boolean {
   return value;
 }
 
+/**
+ * Where the draft's No project pill sends it on a computer: its No project project, else its home project on a
+ * computer from before No project (CDXC:Projects 2026-11-27 in contract/chief.ts `noProjectIdIn`).
+ */
 export function homeProjectIdForMachine(machineId: string): string | null {
   const summary = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
-  return homeProjectIdIn(summary);
+  return noProjectIdIn(summary);
 }
 
+/** A project the No project pill stands for: No project, or the home project (whose new chats gxserver puts there). */
 export function isHomeProject(machineId: string, projectId: string): boolean {
-  const homeId = homeProjectIdForMachine(machineId);
-  return homeId !== null && homeId === projectId;
+  const summary = useInventoryStore.getState().inventoriesByMachineId[machineId]?.summary ?? null;
+  return projectId.length > 0 && (projectId === noProjectIdIn(summary) || projectId === homeProjectIdIn(summary));
 }
+
+/** The No project pill's words, as the sidebar names the project (gx-core `NO_PROJECT_NAME`, Q5285 A). */
+export const NO_PROJECT_NAME = 'No project';
+/** The pending target key of the No project pill's choice. */
+export const NO_PROJECT_REPO_KEY = 'no-project';
 
 export function mainHubMachineChoice(): UnifiedProjectChoice | null {
   const inventories = useInventoryStore.getState().inventoriesByMachineId;
   const machines = enabledMachines(useMachinesStore.getState())
     .map((machine) => {
       const inventory = inventories[machine.id];
-      const homeId = homeProjectIdIn(inventory?.summary ?? null);
+      const homeId = noProjectIdIn(inventory?.summary ?? null);
       if (homeId === null) return null;
       return {
         machineId: machine.id,
@@ -87,8 +97,8 @@ export function mainHubMachineChoice(): UnifiedProjectChoice | null {
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
   if (machines.length === 0) return null;
   return {
-    repoKey: 'main-hub',
-    label: 'Main Hub',
+    repoKey: NO_PROJECT_REPO_KEY,
+    label: NO_PROJECT_NAME,
     detail: null,
     machines,
     selected: 0,

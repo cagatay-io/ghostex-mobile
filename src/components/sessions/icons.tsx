@@ -1059,6 +1059,21 @@ export function MessagePlusGlyph({ size, color }: GlyphProps) {
   );
 }
 
+/** Tabler message (desktop `titlebar/message.svg`): No project's header and the New session sheet's New Chat row. */
+export function MessageGlyph({ size, color }: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M8 9h8 M8 13h5 M5 19l2.5 -2h9.5a3 3 0 0 0 3 -3v-6a3 3 0 0 0 -3 -3h-10a3 3 0 0 0 -3 3v10.5z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Tabler upload (desktop `titlebar/upload.svg`), the iOS share mark of an arrow out of a tray: Share… in Files. */
 export function ShareGlyph({ size, color }: GlyphProps) {
   return (

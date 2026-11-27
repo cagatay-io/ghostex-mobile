@@ -25,13 +25,17 @@ export const CHIEF_LABEL = 'Ask Ghostex AI';
 export const CHIEF_NAME = 'Ghostex AI';
 
 /**
- * The home project's name on its header and menu: "Main Hub".
+ * The home project's name on its header and menu: "Ghostex AI".
+ *
+ * CDXC:Chief 2026-11-27 DECISION:
+ * User (Q5286): rename Main Hub to Ghostex AI everywhere the user sees it, with each computer's agent as its own row
+ * named by the computer (Q5287 B). Chats without a project moved to No project (Q5260 C).
  *
  * CDXC:Chief 2026-11-08 SEE-ALSO: the DECISION on `native_sidebar_home_menu` in apps/desktop/src/app/native_sidebar/
  * chief.rs. Main Hub is only the home project's header (a tap folds it); Chief of Staff is a session row pinned first
  * under it, whose long press has New Chat and Change Agent.
  */
-export const HOME_LABEL = 'Main Hub';
+export const HOME_LABEL = 'Ghostex AI';
 
 /**
  * What Main Hub is, said where the desktop shows its hover card (apps/desktop/src/app/native_sidebar/chief_row_view.rs
@@ -40,8 +44,8 @@ export const HOME_LABEL = 'Main Hub';
  * CDXC:Chief 2026-11-08 SEE-ALSO: the Q1931 DECISION on `main_hub_tooltip_content` in that file.
  */
 export const MAIN_HUB_EXPLANATION = [
-  "The home for chats that don't belong to a project: quick questions, terminals and agents started in your home folder.",
-  'Ghostex AI, pinned at the top, is the agent that sees and steers every Ghostex agent on this computer, and talks to Ghostex AI on your other computers.',
+  'The agent that sees and steers every Ghostex agent on this computer, and talks to Ghostex AI on your other computers. Each computer has its own row.',
+  'Autopilot and GBots live here too. Chats, terminals and coordinators started without a project are under No project.',
 ] as const;
 
 /** The one dot a Chief's row draws, in the session card's order. */
@@ -80,6 +84,15 @@ export function hasHomeProject(summary: Pick<GhostexMobileSummary, 'projects'> |
 export function homeProjectIdIn(summary: Pick<GhostexMobileSummary, 'projects'> | null | undefined): string | null {
   const id = summary?.projects.find((project) => project.isHome === true)?.projectId?.trim() ?? '';
   return id.length > 0 ? id : null;
+}
+
+/**
+ * Where a new chat with no project starts on a computer: its No project project (`isNoProject`), else its home
+ * project on a computer from before No project (gxserver then starts it in the home folder as before).
+ */
+export function noProjectIdIn(summary: Pick<GhostexMobileSummary, 'projects'> | null | undefined): string | null {
+  const id = summary?.projects.find((project) => project.isNoProject === true)?.projectId?.trim() ?? '';
+  return id.length > 0 ? id : homeProjectIdIn(summary);
 }
 
 /** The computer's Chief session, if it has one. */

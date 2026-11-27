@@ -132,6 +132,18 @@ export function renameSessionCommand(sessionId: string, title: string, projectId
 }
 
 /**
+ * Move to project: `ghostex move-session-to-project --session-id <id> --project-id <id> --to <project id> --json`,
+ * for a chat in No project (screens/sessions-screen/move-to-project.ts). Answers `{ok, session}`, the chat where it is
+ * now.
+ */
+export function moveSessionToProjectCommand(sessionId: string, projectId: string, targetProjectId: string): string {
+  return (
+    `ghostex move-session-to-project --session-id ${shellQuote(requireId(sessionId, 'session id'))}` +
+    `${projectFlag(projectId)} --to ${shellQuote(requireId(targetProjectId, 'project id'))} --json`
+  );
+}
+
+/**
  * The session list's Rename: `ghostex rename-command --session-id <id>
  * [--project-id <id>] --title=<title> --json`. gxserver records the title and,
  * for an agent session, types the agent's own rename command itself (waking a

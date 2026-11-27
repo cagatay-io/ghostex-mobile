@@ -41,6 +41,7 @@ import {
   ChevronDownGlyph,
   ChevronRightGlyph,
   FlowerGlyph,
+  MessageGlyph,
   FolderGlyph,
   MoreGlyph,
   PlusGlyph,
@@ -1112,6 +1113,7 @@ export function ProjectHeaderRow({
   onOpenAgentMenu,
   onMenu,
   home,
+  noProject = false,
   folderProblem,
   onFolderMark,
 }: {
@@ -1145,6 +1147,11 @@ export function ProjectHeaderRow({
    * Staff is a row pinned first under it.
    */
   home?: { onMenu: () => void };
+  /**
+   * The No project project: the message icon (desktop project_header.rs) and no New terminal button, since its header
+   * offers only New Chat (gx-core sidebar_menu/header.rs).
+   */
+  noProject?: boolean;
 }) {
   const ink = useSidebarInk();
   const lightTheme = useAppearance().light;
@@ -1156,6 +1163,8 @@ export function ProjectHeaderRow({
       leading={
         home !== undefined ? (
           <FlowerGlyph size={ds(16)} color={ink.muted} />
+        ) : noProject ? (
+          <MessageGlyph size={ds(16)} color={ink.muted} />
         ) : showProjectIcons ? (
           <ProjectIcon icon={icon} title={title} />
         ) : null
@@ -1189,9 +1198,11 @@ export function ProjectHeaderRow({
           <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
             <MoreGlyph size={ds(14)} color={ink.muted} />
           </HeaderButton>
-          <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
-            <TerminalGlyph size={ds(14)} color={ink.muted} />
-          </HeaderButton>
+          {noProject ? null : (
+            <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
+              <TerminalGlyph size={ds(14)} color={ink.muted} />
+            </HeaderButton>
+          )}
           {primaryAgent !== null ? (
             <AgentSplitButton
               primaryAgent={primaryAgent}

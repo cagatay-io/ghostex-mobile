@@ -54,6 +54,8 @@ export type Overlay =
   | { kind: 'delayedSend'; ctx: SessionContext }
   /** A session's links sheet, from its long-press menu's Links row. */
   | { kind: 'sessionLinks'; ctx: SessionContext }
+  /** Move to project's project sheet, for a chat in No project (./move-to-project.ts). */
+  | { kind: 'moveToProject'; ctx: SessionContext }
   /** An orchestrator's Goal & Instructions or Memory editor (./CoordinatorDetailsSheet.tsx). */
   | { kind: 'coordinatorDetails'; ctx: SessionContext; mode: 'goal' | 'memory' }
   /** An orchestrator's playbook, read-only (./CoordinatorPlaybookSheet.tsx). */

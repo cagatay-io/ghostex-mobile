@@ -38,8 +38,14 @@ export type GhostexProject = {
   projectId: string;
   name?: string;
   path?: string;
-  /** The project at the computer's home folder, whose header is Main Hub's row (server/src/chief/home.rs). */
+  /** The project at the computer's home folder, whose header is Ghostex AI's row (server/src/chief/home.rs). */
   isHome?: boolean;
+  /**
+   * The No project project (`isNoProject`, server/src/no_project/project.rs): every chat started without a project,
+   * run in the home folder. Always drawn, with a New Chat row; the New session sheet lists it first as New Chat.
+   * Not sent by a computer from before it.
+   */
+  isNoProject?: boolean;
   /**
    * A GBot's folder (`gbotsProject`, server/src/gbots/presentation.rs), sent whether GBots are on or off: never one of
    * the user's projects, so no projects list, Space, picker or Unified list shows it (contract/gbots.ts).

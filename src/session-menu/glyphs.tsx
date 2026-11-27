@@ -90,6 +90,11 @@ function PinFilledGlyph({ size, color }: GlyphProps) {
   );
 }
 
+// Move to project (`titlebar/folders.svg`).
+const FoldersGlyph = strokeGlyph([
+  'M9 3h3l2 2h5a2 2 0 0 1 2 2v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2',
+  'M17 16v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2h2',
+]);
 const SwitchHorizontalGlyph = strokeGlyph(['M16 3l4 4l-4 4', 'M10 7l10 0', 'M8 13l-4 4l4 4', 'M4 17l9 0']);
 const ClockCheckGlyph = strokeGlyph(['M20.942 13.021a9 9 0 1 0 -9.407 7.967', 'M12 7v5l3 3', 'M15 19l2 2l4 -4']);
 const PlayerStopGlyph = strokeGlyph([
@@ -156,6 +161,7 @@ const SESSION_MENU_GLYPHS: Readonly<Record<string, (props: GlyphProps) => ReactE
   'file-diff': COMMAND_ICONS.fileDiff,
   'file-export': FileExportGlyph,
   folder: FolderGlyph,
+  folders: FoldersGlyph,
   'git-branch': GitBranchGlyph,
   'git-fork': GitForkGlyph,
   'git-pull-request': GitPullRequestGlyph,

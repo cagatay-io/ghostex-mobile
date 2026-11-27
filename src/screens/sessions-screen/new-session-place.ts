@@ -10,6 +10,7 @@
 
 import { LOCAL_MACHINE_KEY, OTHER_SPACE_ID, spaceFilterKey, spaceOfProject } from '../../contract/unified/build';
 import {
+  defaultMachine,
   unifiedProjectChoices,
   type UnifiedChoiceMachineInput,
   type UnifiedProjectChoice,
@@ -61,6 +62,48 @@ export function projectChoiceInputsNow(): UnifiedChoiceMachineInput[] {
 export function projectChoicesNow(currentMachineId: string): UnifiedProjectChoice[] {
   const { lastMachines, recentRepos } = useUnifiedListStore.getState();
   return unifiedProjectChoices(projectChoiceInputsNow(), lastMachines, recentRepos, currentMachineId, currentMachineId);
+}
+
+/** The New session sheet's first row: "New Chat", a chat in No project on any computer. */
+export const NEW_CHAT_LABEL = 'New Chat';
+
+/**
+ * The New session sheet's rows: "New Chat" first (each computer's No project, on the one you are on), then the
+ * projects without any No project.
+ *
+ * CDXC:Projects 2026-11-27 DECISION:
+ * User (Q5263 A, "Call it 'New Chat'"): the phone lists and starts chats without a project, and its new-session sheet
+ * puts the entry first, named New Chat. A computer from before No project has none, so it adds no chip.
+ */
+export function newSessionSheetChoicesNow(currentMachineId: string): {
+  newChat: UnifiedProjectChoice | null;
+  projects: UnifiedProjectChoice[];
+} {
+  const inventories = useInventoryStore.getState().inventoriesByMachineId;
+  const noProjectIds = new Map<string, string>();
+  for (const machine of enabledMachines(useMachinesStore.getState())) {
+    const project = inventories[machine.id]?.summary?.projects.find((entry) => entry.isNoProject === true);
+    if (project !== undefined) noProjectIds.set(machine.id, project.projectId);
+  }
+  const all = projectChoicesNow(currentMachineId);
+  const isNoProject = (choice: UnifiedProjectChoice): boolean =>
+    choice.machines.some((machine) => noProjectIds.get(machine.machineId) === machine.projectId);
+  const projects = all.filter((choice) => !isNoProject(choice));
+  const machines = all.filter(isNoProject).flatMap((choice) =>
+    choice.machines.filter((machine) => noProjectIds.get(machine.machineId) === machine.projectId),
+  );
+  if (machines.length === 0) return { newChat: null, projects };
+  const newChat: UnifiedProjectChoice = {
+    repoKey: 'no-project',
+    label: NEW_CHAT_LABEL,
+    machines,
+    selected: 0,
+    hasSessions: true,
+    recent: false,
+    detail: null,
+  };
+  newChat.selected = defaultMachine(newChat, {}, currentMachineId);
+  return { newChat, projects };
 }
 
 /**
