@@ -9,9 +9,10 @@
  * (`replyDrafts.ts`, the desktop's `KEPT_REPLIES`): it opens with those words again however it
  * closed, and after a restart of the app; sending drops them.
  *
- * An open Reply belongs to the chat that opened it (`ReplyOwner`: its computer, project and session). Only that
- * chat's sheet draws it and sends it, and only while the reader sees that chat (`useChatInView`); the chat parking,
- * going out of sight or closing closes it.
+ * An open Reply belongs to the chat screen that opened it (`ReplyOwner`: that mounted screen, and its computer,
+ * project and session). Only that screen's sheet draws it, sends it and closes it, and only while the reader sees that
+ * screen (`useChatInView`); the screen parking, going out of sight or closing closes it. Another screen of the same
+ * session (a second Terminal route, opened by a notification over Accounts) neither draws nor closes it.
  *
  * CDXC:Coordinators 2026-11-27 WHY:
  * User, of a question card in a coordinator chat (in German, translated): "when I press on it, it does not come. When I
@@ -67,26 +68,31 @@ export type QuestionReplyTarget = {
   name?: string;
 };
 
-/** The chat a Reply belongs to: the phone's id of its computer, its project and its session. */
-export type ReplyOwner = { machineId: string; projectId: string; sessionId: string };
+/**
+ * The chat screen a Reply belongs to: that mounted screen (`instanceId`, what decides who draws, sends and closes it),
+ * and the phone's id of its computer, its project and its session (where it goes).
+ */
+export type ReplyOwner = { instanceId: string; machineId: string; projectId: string; sessionId: string };
 
 type Opened = { target: QuestionReplyTarget; owner: ReplyOwner; row: string | null; initial: string };
 
 const useQuestionReply = create<{ opened: Opened | null }>(() => ({ opened: null }));
 
 function sameOwner(left: ReplyOwner, right: ReplyOwner): boolean {
-  return left.machineId === right.machineId && left.projectId === right.projectId && left.sessionId === right.sessionId;
+  return left.instanceId === right.instanceId;
 }
 
-/** The chat these views belong to, as a Reply's owner; null outside a chat screen, where no sheet could draw one. */
+/** The chat screen these views belong to, as a Reply's owner; null outside a chat screen, where none could draw. */
 export function useQuestionReplyOwner(): ReplyOwner | null {
   const ui = useOptionalNativeChatUi();
+  const instanceId = ui?.instanceId ?? '';
   const machineId = ui?.homeMachineId ?? null;
   const projectId = ui?.projectId ?? '';
   const sessionId = ui?.sessionId ?? '';
   return useMemo(
-    () => (machineId === null ? null : { machineId, projectId, sessionId }),
-    [machineId, projectId, sessionId],
+    () =>
+      machineId === null || instanceId.length === 0 ? null : { instanceId, machineId, projectId, sessionId },
+    [instanceId, machineId, projectId, sessionId],
   );
 }
 

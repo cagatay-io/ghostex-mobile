@@ -7,7 +7,7 @@
  * viewer and the table preview are `NativeChatOverlays`' (`../cards/overlayStore.ts`).
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, type ReactNode } from 'react';
 
 import type { RustChat } from '../../rust/useRustChat';
 import { ChatShownContext } from '../chatShown';
@@ -65,10 +65,16 @@ export type NativeChatUi = {
    */
   sessionId: string;
   /**
-   * The chat's own project ID; with `homeMachineId` and `sessionId` it names this chat (a question Reply's owner). ''
-   * outside a chat.
+   * The chat's own project ID; with `homeMachineId` and `sessionId` it names this chat's session (where a question
+   * Reply goes). '' outside a chat.
    */
   projectId: string;
+  /**
+   * This mounted chat screen, apart from any other screen of the same session: the app can hold two Terminal routes
+   * of one session (a notification opened over Accounts). A question Reply belongs to the screen that opened it. ''
+   * outside a chat.
+   */
+  instanceId: string;
 };
 
 const UiContext = createContext<NativeChatUi | null>(null);
@@ -99,6 +105,7 @@ export function NativeChatUiProvider({
   children: ReactNode;
 }) {
   const disclosures = useMemo(() => new DisclosureStore(), []);
+  const instanceId = useId();
   const dictationTargets = useMemo(() => new DictationTargets(), []);
   const dispatchRef = useRef(chat.dispatch);
   dispatchRef.current = chat.dispatch;
@@ -178,6 +185,7 @@ export function NativeChatUiProvider({
       homeMachineId,
       sessionId,
       projectId,
+      instanceId,
       disclosures,
       demand,
       dictationTargets,
@@ -196,6 +204,7 @@ export function NativeChatUiProvider({
       requestImage,
       sessionId,
       projectId,
+      instanceId,
       renderVisual,
       renderVisualAsync,
       openPicture,
@@ -278,6 +287,7 @@ function getFallbackNativeChatUi(): NativeChatUi {
       homeMachineId: null,
       sessionId: '',
       projectId: '',
+      instanceId: '',
     };
   }
   return fallbackNativeChatUi;
