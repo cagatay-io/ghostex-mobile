@@ -73,9 +73,35 @@ export function isHiddenName(name: string): boolean {
   return name.startsWith('.');
 }
 
+/**
+ * The Canvas drawings folder, the one part of the project's `.ghostex` folder gxserver lists.
+ *
+ * CDXC:Canvas 2026-11-27 DECISION:
+ * User (Q5293): "Show drawings". Files shows `.ghostex/drawings`, and only that, so drawings can be opened,
+ * dragged or attached from the phone, even while the hidden-files switch is off. gxserver already leaves out the
+ * rest of `.ghostex` (`is_hidden_entry` in packages/project-docs/src/project.rs); a dot-named file inside
+ * `drawings` stays hidden as usual.
+ */
+const GHOSTEX_FOLDER_PATH = '.ghostex';
+const DRAWINGS_FOLDER_PATH = `${GHOSTEX_FOLDER_PATH}/drawings`;
+
+/** Whether a project-relative folder path is `.ghostex` or its drawings folder, both shown while hidden files are off. */
+function isShownGhostexFolder(path: string): boolean {
+  return path === GHOSTEX_FOLDER_PATH || path === DRAWINGS_FOLDER_PATH;
+}
+
+/** Whether a listed file or folder is hidden: its name starts with a dot, unless it leads to the drawings. */
+export function isHiddenEntry(entry: Pick<DocsEntry, 'name' | 'path' | 'kind'>): boolean {
+  if (entry.kind === 'directory' && isShownGhostexFolder(entry.path)) return false;
+  return isHiddenName(entry.name);
+}
+
 /** Whether a shown path (`displayPath`) names a hidden file or lies inside a hidden folder. */
 export function isHiddenPath(displayPath: string): boolean {
-  return displayPath.split('/').some(isHiddenName);
+  if (isShownGhostexFolder(displayPath)) return false;
+  const drawings = `${DRAWINGS_FOLDER_PATH}/`;
+  const path = displayPath.startsWith(drawings) ? displayPath.slice(drawings.length) : displayPath;
+  return path.split('/').some(isHiddenName);
 }
 
 export function browserFile(entry: DocsEntry): BrowserFile {
@@ -114,7 +140,7 @@ export function treeRows(
   const rows: TreeRow[] = [];
   const walk = (path: string, depth: number) => {
     for (const entry of folders.get(path)?.entries ?? []) {
-      if (!showHidden && isHiddenName(entry.name)) continue;
+      if (!showHidden && isHiddenEntry(entry)) continue;
       if (entry.kind === 'file') {
         rows.push({ kind: 'file', key: `file:${entry.path}`, file: browserFile(entry), depth });
         continue;
