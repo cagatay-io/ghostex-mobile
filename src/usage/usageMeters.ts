@@ -71,7 +71,7 @@ export type UsageAccount = {
   readonly usageOnly: boolean;
   /** gxserver's status (`ready`, `loading`, `loginRequired`, `unavailable`, `disabled`, ...). */
   readonly status: string;
-  /** Plan name reported for a usage-only account (e.g. "Google AI Ultra", "Pro"), or empty. */
+  /** Plan name reported for a usage-only account (e.g. "Pro", "Business"), or empty. */
   readonly plan: string;
   /** Labelled details under a usage-only account's meters (Cursor Auto/API/spend, Copilot pools). */
   readonly details: readonly UsageDetail[];
