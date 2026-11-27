@@ -471,6 +471,28 @@ function AnswerChoices({
 }
 
 /**
+ * A folded set of answers opened in place, in the Choices box the Work sheet's opened ask draws
+ * (`chooser="inline"`): one a row, each label whole, wrapping rather than cut. The notice card's
+ * action menu opens its rows in it too (`NoticeCard.tsx`).
+ */
+export function InlineChoices({
+  answers,
+  disabled,
+  onPick,
+}: {
+  answers: JsonRecord[];
+  disabled: boolean;
+  onPick: (command: JsonRecord) => void;
+}) {
+  const styles = useStyles();
+  return (
+    <View style={styles.choicesBox}>
+      <AnswerChoices answers={answers} disabled={disabled} onPick={onPick} />
+    </View>
+  );
+}
+
+/**
  * A pick-several ask's answers (`item ask --multiple`), one a row with a box each, the recommended
  * ones starred, and Send at the foot with how many are ticked ("Send 2"). A row only ticks; nothing
  * is sent until Send (desktop `pick_menu_rows`).

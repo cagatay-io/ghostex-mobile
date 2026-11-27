@@ -38,6 +38,7 @@ import { PermissionDetails } from './PermissionDetails';
 import { SideAnswer, SideQuestionCard } from './SideQuestionCard';
 import { PassthroughCard, TerminalPickerCard } from './TerminalPickerCard';
 import type { CardHostAction } from './types';
+import { InlineChoices } from './workItemParts';
 import { FoldChevron } from '../transcript/foldChevron';
 import { InfoHint } from '../transcript/QuestionForm';
 
@@ -60,6 +61,8 @@ export function NoticeCard({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [moreKey, setMoreKey] = useState<string | null>(null);
   const [choiceWidths, setChoiceWidths] = useState<Record<string, number>>({});
+  // The notice whose action menu is open, by key, so a new notice opens with it shut.
+  const [menuKey, setMenuKey] = useState<string | null>(null);
   const dialogInput = useDialogInput(obj(notice?.dialog));
   if (notice === null || document.noticeVisible !== true) return null;
 
@@ -499,6 +502,44 @@ export function NoticeCard({
       </Text>,
     );
   }
+  /*
+   * CDXC:AgentProviders 2026-11-27 DECISION: User: "I want the options there shown as one dropdown under choices, not as
+   * individual buttons, if you get my point, so we can fit this even if the screen is narrower." A notice with an
+   * `actionMenu` (the usage-limit card with no account to move to, the early usage warning) draws every footer button
+   * as one neutral button on its own line under the text, opening the items in place one a row, each label whole.
+   * SEE-ALSO: packages/gx-chat-core/src/questions/account_wait.rs (`wait_action_menu`, `decorate_usage_warning`),
+   * apps/desktop/src/app/native_chat/notice.rs
+   */
+  const menu = actionMenuEntries(notice, dispatch, onHostAction);
+  if (menu !== null) {
+    const menuOpen = menuKey === key;
+    body.push(
+      <View key="action-menu" style={styles.actionMenu}>
+        <View style={styles.actionMenuButton}>
+          <ToneButton
+            kind="secondary"
+            label={menu.label}
+            accessibilityLabel={`${menu.label}, ${menu.entries.length} ${menu.entries.length === 1 ? 'choice' : 'choices'}`}
+            disabled={busy}
+            trailing={<Glyph name={menuOpen ? 'chevron-up' : 'chevron-down'} size={14} color={look.P.foreground} />}
+            onPress={() => setMenuKey(menuOpen ? null : key)}
+          />
+        </View>
+        {menuOpen ? (
+          <InlineChoices
+            answers={menu.entries.map((entry, index) => ({ label: entry.label, command: { pick: index } }))}
+            disabled={busy}
+            onPick={(command) => {
+              const entry = menu.entries[num(command, 'pick') ?? -1];
+              if (entry === undefined) return;
+              setMenuKey(null);
+              entry.run();
+            }}
+          />
+        ) : null}
+      </View>,
+    );
+  }
   return (
     <ToneCard
       tone={str(notice, 'tone')}
@@ -525,11 +566,52 @@ export function NoticeCard({
               ]
             : undefined
       }
-      footerEnd={[...actions, ...footerEnd]}
+      footerEnd={menu !== null ? [] : [...actions, ...footerEnd]}
       accessibilityLabel={collapsed ? 'Show all options' : 'Show less'}
       onPressHeader={foldable ? () => setExpandedKey(collapsed ? key : null) : undefined}
     />
   );
+}
+
+/** One row of a notice's action menu: its whole label and what picking it does. */
+type ActionMenuEntry = { label: string; run: () => void };
+
+/**
+ * A notice's `actionMenu` (gx-chat-core questions/account_wait.rs `wait_action_menu`), as the rows the phone can act on, or null
+ * when it has none. A sign-in or Accounts row opens the computer's Accounts screen, Pick an account the account panel, Not now
+ * closes the card, and any other row sends its `answer`. A row whose app action this chat cannot run is left out.
+ */
+function actionMenuEntries(
+  notice: Record<string, unknown>,
+  dispatch: RustChat['dispatch'],
+  onHostAction: CardHostAction | undefined,
+): { label: string; entries: ActionMenuEntry[] } | null {
+  const actionMenu = obj(notice.actionMenu);
+  if (actionMenu === null) return null;
+  const entries: ActionMenuEntry[] = [];
+  for (const raw of arr(actionMenu.items)) {
+    const item = obj(raw);
+    const label = str(item, 'label');
+    if (item === null || label.length === 0) continue;
+    const kind = str(item, 'kind');
+    if (kind === 'accountSignIn' || kind === 'openAccountsSettings') {
+      if (!onHostAction) continue;
+      const accountId = kind === 'accountSignIn' ? str(item, 'accountId') : '';
+      entries.push({
+        label,
+        run: () => onHostAction('openAccountsSettings', accountId.length > 0 ? { accountId } : undefined),
+      });
+    } else if (kind === 'pickAccount') {
+      if (!onHostAction) continue;
+      entries.push({ label, run: () => onHostAction('switchAccount') });
+    } else if (kind === 'dismiss') {
+      entries.push({ label, run: () => dispatch({ type: 'dismissNotice' }) });
+    } else {
+      entries.push({ label, run: () => dispatch({ type: 'answer', answer: asJson(item.answer) }) });
+    }
+  }
+  if (entries.length === 0) return null;
+  return { label: str(actionMenu, 'label') || 'Choose what to do', entries };
 }
 
 /** The themed styles a terminal dialog draws with, read by the card that owns it. */
@@ -844,6 +926,14 @@ const useStyles = themedStyles((P) => ({
   collapsedChoice: {
     flex: 1,
     minWidth: 0,
+  },
+  actionMenu: {
+    gap: 8,
+  },
+  // The menu's button on its own line, at the card's left edge.
+  actionMenuButton: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
   },
   dialogBody: {
     maxHeight: 256,
