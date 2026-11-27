@@ -899,7 +899,7 @@ function WaitingMusicSection() {
         <>
           <ToggleRow
             label="Waiting music"
-            detail="Plays quietly in a voice agent call while the agent thinks or runs a tool for more than 1.5 seconds, and fades out when it speaks or you talk."
+            detail="After the agent first speaks in a call, plays quietly if it thinks or runs a tool for 1.5 seconds. Fades out when the agent speaks or you talk."
             value={settings.enabled}
             onValueChange={(enabled) => void changeWaitingMusic({ enabled })}
           />
