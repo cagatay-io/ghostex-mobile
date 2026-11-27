@@ -37,6 +37,7 @@ import { arr, asJson, isTrue, num, obj, str } from './json';
 import { usePageCountRefresh } from './pageCounts';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { TranscriptEnvProvider, type TranscriptEnv } from '../transcript/context';
+import { useQuestionReplyOwner } from '../transcript/QuestionReply';
 import { LinkWords } from '../transcript/LinkWords';
 import { askColor, tint } from './askCard';
 import {
@@ -583,6 +584,8 @@ type BoardMenuProps = {
   chat: RustChat;
   document: ChatDocument;
   onDone: () => void;
+  /** Takes a Reply's opening to run once this sheet has gone (`WorkAnswerLine`'s `afterSheet`); none: at once. */
+  afterSheet?: (open: () => void) => void;
   /** The card to scroll to and ring for a moment (desktop `scroll_into_view`). */
   focus?: BoardFocus | null;
 };
@@ -669,7 +672,7 @@ function GroupBlinkOutline({ light }: { light: boolean }) {
   );
 }
 
-function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMenuProps) {
+function CoordinatorBoardList({ chat, document, onDone, afterSheet, focus = null }: BoardMenuProps) {
   const styles = useStyles();
   const P = useTranscriptTheme();
   // Where each group sits in the list and each card in its group, so a board pill's card can be
@@ -724,6 +727,8 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
   const { width: screenWidth, fontScale } = useWindowDimensions();
   // The chat the dock registered, so a Reply from here keeps its draft (`replyDrafts.ts`).
   const scope = replyDraftScopeOf(chat.dispatch);
+  // A Reply from here opens in this chat.
+  const owner = useQuestionReplyOwner();
   // The Topic being rewritten in place, and its words so far.
   const [topicDraft, setTopicDraft] = useState<string | null>(null);
   const board = obj(document.coordinatorBoard);
@@ -1092,6 +1097,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                                   chat.dispatch(asJson(toggle) as unknown as UserAction);
                                 }}
                                 context={obj(actions?.context)}
+                                afterSheet={afterSheet}
                                 before={(kind) => (kind === 'reply' ? onDone() : undefined)}
                               />
                             </View>
@@ -1115,7 +1121,9 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                                 }}
                                 onReply={(target) => {
                                   onDone();
-                                  openWorkReply(target, scope);
+                                  const open = () => openWorkReply(target, owner, scope);
+                                  if (afterSheet !== undefined) afterSheet(open);
+                                  else open();
                                 }}
                               />
                             </>
@@ -1198,6 +1206,7 @@ function CoordinatorBoardList({ chat, document, onDone, focus = null }: BoardMen
                           pills={pills}
                           scope={scope}
                           dispatch={dispatchFromLine as never}
+                          afterSheet={afterSheet}
                           before={(kind) => (kind === 'reply' ? onDone() : undefined)}
                           context={obj(actions?.context)}
                         />

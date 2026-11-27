@@ -18,9 +18,10 @@
  */
 
 import { plural } from '../../../plural';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
+  Platform,
   Pressable,
   Text,
   View,
@@ -36,7 +37,13 @@ import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { Sheet } from '../composer/Sheet';
 import { askColor, tint } from './askCard';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { openQuestionReply } from '../transcript/QuestionReply';
+import { useChatInView } from '../transcript/context';
+import {
+  openQuestionReply,
+  useDropWaitingReply,
+  useQuestionReplyOwner,
+  type ReplyOwner,
+} from '../transcript/QuestionReply';
 import { Markdown } from '../transcript/markdown/Markdown';
 import { messageCommands } from '../transcript/markdown/runCommands';
 import { replyDraftRow, SESSION_REPLY_ROW, useReplyDraft, type ReplyDraftScope } from './replyDrafts';
@@ -190,17 +197,20 @@ function replyLabel(replied: string): string {
   return replied.length > 32 ? `${replied.slice(0, 31).trimEnd()}…` : replied;
 }
 
-/** Opens a work item's Reply sheet, which keeps its draft for the chat (`replyDrafts.ts`). */
-export function openWorkReply(reply: JsonRecord, scope: ReplyDraftScope | null): void {
-  openQuestionReply({
-    form: typeof reply.form === 'string' ? reply.form : null,
-    tag: str(reply, 'tag'),
-    name: str(reply, 'name'),
-    ...(typeof reply.item === 'string' ? { item: reply.item, key: str(reply, 'key') } : {}),
-    ...(typeof reply.questions === 'string' ? { questions: reply.questions, to: str(reply, 'to') } : {}),
-    scope,
-    arrow: true,
-  });
+/** Opens a work item's Reply sheet in `owner`'s chat, which keeps its draft for the chat (`replyDrafts.ts`). */
+export function openWorkReply(reply: JsonRecord, owner: ReplyOwner | null, scope: ReplyDraftScope | null): void {
+  openQuestionReply(
+    {
+      form: typeof reply.form === 'string' ? reply.form : null,
+      tag: str(reply, 'tag'),
+      name: str(reply, 'name'),
+      ...(typeof reply.item === 'string' ? { item: reply.item, key: str(reply, 'key') } : {}),
+      ...(typeof reply.questions === 'string' ? { questions: reply.questions, to: str(reply, 'to') } : {}),
+      scope,
+      arrow: true,
+    },
+    owner,
+  );
 }
 
 /**
@@ -559,6 +569,7 @@ export function WorkAnswerLine({
   scope,
   dispatch,
   before,
+  afterSheet,
   question = '',
   chooser = 'sheet',
   initialChoosing = false,
@@ -583,6 +594,11 @@ export function WorkAnswerLine({
   dispatch: (action: never) => void;
   /** Runs before a Reply or an answer goes (the Work sheet closes for the Reply sheet). */
   before?: (kind: 'reply' | 'answer') => void;
+  /**
+   * The sheet this line stands in, which closes for the Reply (`before`): it is handed the Reply's opening to run once
+   * it has gone, as iOS cannot present the Reply sheet over a sheet still closing (`ChatPills.tsx` `openAfterDismiss`).
+   */
+  afterSheet?: (open: () => void) => void;
   /** The ask, over the answers in the Choose an answer sheet. */
   question?: string;
   chooser?: 'sheet' | 'inline';
@@ -636,6 +652,32 @@ export function WorkAnswerLine({
     setLineWidth((was) => (was === next ? was : next));
   }, []);
   const row = reply !== null ? replyDraftRow(reply as never) : null;
+  // A Reply opens in the chat this line is drawn in.
+  const owner = useQuestionReplyOwner();
+  /*
+   * A Reply picked in the Choices sheet opens once that sheet has gone on iOS, which cannot present the Reply sheet
+   * over one still closing (the Details and Work sheets' way, `afterSheet`); Android opens it at once. A sheet this
+   * line stands in (`afterSheet`) takes it instead: when it goes, the Choices sheet in it has gone too. A Reply still
+   * waiting when the chat goes out of sight, or changes where it goes (`useDropWaitingReply`), is dropped.
+   */
+  const replyAfterChoices = useRef<(() => void) | null>(null);
+  const inView = useChatInView();
+  useEffect(() => {
+    if (!inView) replyAfterChoices.current = null;
+  }, [inView]);
+  useDropWaitingReply(replyAfterChoices);
+  const choicesDismissed = () => {
+    const open = replyAfterChoices.current;
+    replyAfterChoices.current = null;
+    open?.();
+  };
+  const openReply = (target: JsonRecord, fromChoicesSheet = false) => {
+    before?.('reply');
+    const open = () => openWorkReply(target, owner, scope);
+    if (afterSheet !== undefined) afterSheet(open);
+    else if (fromChoicesSheet && Platform.OS === 'ios') replyAfterChoices.current = open;
+    else open();
+  };
   const replyDraftText = useReplyDraft(scope, row !== null ? SESSION_REPLY_ROW : null);
   const given = answers.some((answer) => isTrue(answer, 'picked'));
   const locked = given || answers.some((answer) => isTrue(answer, 'locked'));
@@ -653,8 +695,7 @@ export function WorkAnswerLine({
         disabled={(busy || locked) && replied.length === 0}
         onPress={() => {
           if (replied.length > 0) return;
-          before?.('reply');
-          openWorkReply(reply, scope);
+          openReply(reply);
         }}
       />
     ) : null;
@@ -808,8 +849,7 @@ export function WorkAnswerLine({
       ? () => {
           if (busy || locked) return;
           setChoosing(false);
-          before?.('reply');
-          openWorkReply(reply, scope);
+          openReply(reply, chooser === 'sheet');
         }
       : undefined;
   const list = multiple ? (
@@ -879,7 +919,12 @@ export function WorkAnswerLine({
       </View>
       {fold && chooser === 'inline' && choosing ? <View style={styles.choicesBox}>{list}</View> : null}
       {fold && chooser === 'sheet' ? (
-        <Sheet visible={choosing} onClose={() => setChoosing(false)} title={CHOOSE_ANSWER}>
+        <Sheet
+          visible={choosing}
+          onClose={() => setChoosing(false)}
+          onDismissed={choicesDismissed}
+          title={CHOOSE_ANSWER}
+        >
           {question.length > 0 ? <Text style={[styles.choiceQuestion, { color: P.cardMuted }]}>{question}</Text> : null}
           {list}
         </Sheet>

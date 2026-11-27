@@ -138,6 +138,11 @@ export type NativeChatScreenProps = {
    * nothing, takes no touches, closes its sheets and the keyboard, and tells the core it is hidden.
    */
   parked?: boolean;
+  /**
+   * Whether the screen this chat is on is the focused one (the navigator's `isFocused`): another screen pushed over it
+   * leaves the chat mounted and `visible`, but out of the reader's sight, so it shows no question Reply.
+   */
+  screenFocused?: boolean;
   /** Bumped by the terminal header's Search Conversation; each new value opens the search bar. */
   openSearchRequestId?: number;
   /** Bumped by the header's Session Note; each new value opens the note. */
@@ -168,6 +173,7 @@ export default function NativeChatScreen({
   onHostAction,
   visible,
   parked = false,
+  screenFocused = true,
   openSearchRequestId = 0,
   openSessionNoteRequestId = 0,
   onQueueCountChange,
@@ -814,7 +820,13 @@ export default function NativeChatScreen({
   const subagentOpen = document?.subagent !== undefined && document.subagent !== null;
 
   return (
-    <NativeChatUiProvider chat={chat} shown={visible} sessionId={sessionId}>
+    <NativeChatUiProvider
+      chat={chat}
+      shown={visible}
+      sessionId={sessionId}
+      projectId={projectId}
+      inView={visible && !parked && screenFocused}
+    >
       <ForkFromMessageProvider value={forkFromMessage}>
         <DictatedFormBoxes chat={chat} />
         <ChatPlacementProvider value={placement}>

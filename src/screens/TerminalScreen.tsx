@@ -1447,6 +1447,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
               }
               onHostAction={chatHostActionFor(paneChatTarget, chatProjectId)}
               visible
+              screenFocused={isFocused}
               inPane
               focusRequestId={composerFocusRequestId}
               openSearchRequestId={chatSearchRequestId}
@@ -1569,6 +1570,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
               <SplitPaneChat
                 tab={tab}
                 focused={sideBySide.focus === side}
+                screenFocused={isFocused}
                 sideKeys={side === 'left' ? sideBySide.left : sideBySide.right}
                 onSelect={handleSelectTab}
                 hostActions={activeChatHostActions}
@@ -1681,6 +1683,7 @@ export default function TerminalScreen({ navigation, route }: Props) {
                   hostActions={activeChatHostActions}
                   onHostAction={activeChatHostAction}
                   visible={chatModeActive && twoPanes === null}
+                  screenFocused={isFocused}
                   openSearchRequestId={chatSearchRequestId}
                   openSessionNoteRequestId={chatSessionNoteRequestId}
                   onQueueCountChange={handleChatQueueCount}

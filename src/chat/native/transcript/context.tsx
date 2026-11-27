@@ -7,7 +7,7 @@
  * viewer and the table preview are `NativeChatOverlays`' (`../cards/overlayStore.ts`).
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, type ReactNode } from 'react';
 
 import type { RustChat } from '../../rust/useRustChat';
 import { ChatShownContext } from '../chatShown';
@@ -64,24 +64,48 @@ export type NativeChatUi = {
    * Copy reference names it (`question:G9jt7.Q4933`, gx-chat-core `item_references.rs`). '' outside a chat.
    */
   sessionId: string;
+  /**
+   * The chat's own project ID; with `homeMachineId` and `sessionId` it names this chat's session (where a question
+   * Reply goes). '' outside a chat.
+   */
+  projectId: string;
+  /**
+   * This mounted chat screen, apart from any other screen of the same session: the app can hold two Terminal routes
+   * of one session (a notification opened over Accounts). A question Reply belongs to the screen that opened it. ''
+   * outside a chat.
+   */
+  instanceId: string;
 };
 
 const UiContext = createContext<NativeChatUi | null>(null);
+/**
+ * Whether the reader sees this chat: its screen is focused, it is not parked (`WarmChats.tsx`) and it is visible. Only
+ * then does it show a question's Reply sheet (`QuestionReply.tsx`). Its own context, so a chat that parks or comes back
+ * redraws only what reads it, not every row that reads `NativeChatUi`.
+ */
+const InViewContext = createContext(false);
 
 export function NativeChatUiProvider({
   chat,
   shown = true,
   sessionId = '',
+  projectId = '',
+  inView = shown,
   children,
 }: {
   chat: RustChat;
   /** The chat's own session ID (`NativeChatUi.sessionId`). */
   sessionId?: string;
+  /** The chat's own project ID (`NativeChatUi.projectId`). */
+  projectId?: string;
   /** Whether the chat is on screen; its views that animate forever stop while it is not (`chatShown.ts`). */
   shown?: boolean;
+  /** Whether the reader sees the chat (`useChatInView`); `shown` when not given. */
+  inView?: boolean;
   children: ReactNode;
 }) {
   const disclosures = useMemo(() => new DisclosureStore(), []);
+  const instanceId = useId();
   const dictationTargets = useMemo(() => new DictationTargets(), []);
   const dispatchRef = useRef(chat.dispatch);
   dispatchRef.current = chat.dispatch;
@@ -160,6 +184,8 @@ export function NativeChatUiProvider({
       issueLinkBase,
       homeMachineId,
       sessionId,
+      projectId,
+      instanceId,
       disclosures,
       demand,
       dictationTargets,
@@ -177,6 +203,8 @@ export function NativeChatUiProvider({
       issueLinkBase,
       requestImage,
       sessionId,
+      projectId,
+      instanceId,
       renderVisual,
       renderVisualAsync,
       openPicture,
@@ -185,7 +213,9 @@ export function NativeChatUiProvider({
   );
   return (
     <UiContext.Provider value={value}>
-      <ChatShownContext.Provider value={shown}>{children}</ChatShownContext.Provider>
+      <ChatShownContext.Provider value={shown}>
+        <InViewContext.Provider value={inView}>{children}</InViewContext.Provider>
+      </ChatShownContext.Provider>
     </UiContext.Provider>
   );
 }
@@ -213,6 +243,11 @@ export function DictatedFormBoxes({ chat }: { chat: RustChat }): null {
 /** The chat screen's shared drawing state, or null outside `NativeChatScreen` (Markdown in a card). */
 export function useOptionalNativeChatUi(): NativeChatUi | null {
   return useContext(UiContext);
+}
+
+/** Whether the reader sees this chat (`InViewContext`); false outside a chat screen. */
+export function useChatInView(): boolean {
+  return useContext(InViewContext);
 }
 
 /** The computer this chat runs on (`NativeChatUi.homeMachineId`), or null outside a chat screen. */
@@ -251,6 +286,8 @@ function getFallbackNativeChatUi(): NativeChatUi {
       issueLinkBase: null,
       homeMachineId: null,
       sessionId: '',
+      projectId: '',
+      instanceId: '',
     };
   }
   return fallbackNativeChatUi;
