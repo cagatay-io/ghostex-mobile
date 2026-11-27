@@ -129,6 +129,7 @@ export function unifiedMachineInput(computer: UnifiedComputer, alone: boolean): 
         worktreeParentPath: parent === '' ? null : (pathById.get(parent) ?? null),
         parentProjectId: parent === '' ? null : parent,
         collectionId: collections.get(project.projectId) ?? null,
+        repos: project.repos,
       };
     }),
     sessions: visibleSessions(summary.sessions).map((session) => unifiedSessionInput(session, summary.capabilities)),

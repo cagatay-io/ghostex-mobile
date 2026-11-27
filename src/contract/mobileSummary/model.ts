@@ -84,6 +84,11 @@ export type GhostexProject = {
   workTracker?: 'linear' | 'github';
   /** The worktree's name and branch, which Copy Details quotes; absent for a plain project. */
   worktree?: { name: string; branch: string };
+  /**
+   * The repos of a project that spans several (a folder of repos, a .code-workspace file or a repo with
+   * submodules), by name (`repos` on the wire); absent for one repo or from an older computer.
+   */
+  repos?: string[];
   /** `launchSettings.workspaceId`; absent = the default workspace (a worktree follows its parent's). */
   workspaceId?: string;
   /** Shown in every workspace (the Ghostex config folder's project, where Help chats live). */

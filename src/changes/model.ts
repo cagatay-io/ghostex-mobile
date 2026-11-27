@@ -47,8 +47,20 @@ export type ChangedFile = {
   tooLarge: boolean;
 };
 
+/** One repo of a project that spans several (`changesDiff`'s `repos`), drawn as a header over its files. */
+export type RepoGroup = {
+  name: string;
+  /** Its place in the project, the front of its files' paths (`api`, `../lib`, empty for the project folder's own repo). */
+  rel: string;
+  branch: string | null;
+};
+
 export type ChangesData = {
   files: ChangedFile[];
+  /** The repos of a project that spans several, in the project's order; empty for one repo. */
+  repos: RepoGroup[];
+  /** The files with uncommitted work (`uncommittedPaths`), what a Commit takes. */
+  uncommittedPaths: string[];
   baseLabel: string;
   branch: string | null;
   onDefaultBranch: boolean;
@@ -77,6 +89,24 @@ export function folderOf(path: string): string {
   return slash < 0 ? '' : path.slice(0, slash + 1);
 }
 
+/**
+ * The repo a project path is in: the one with the longest place in front of it. A path that IS a
+ * repo's place (a submodule's pointer) belongs to the repo holding it.
+ */
+export function repoIndexOf(repos: readonly RepoGroup[], path: string): number {
+  let best = -1;
+  repos.forEach((repo, index) => {
+    const inside = repo.rel.length === 0 || path.startsWith(`${repo.rel}/`);
+    if (inside && (best < 0 || repo.rel.length > repos[best].rel.length)) best = index;
+  });
+  return best;
+}
+
+/** How many repos the given paths touch. */
+export function repoCount(repos: readonly RepoGroup[], paths: readonly string[]): number {
+  return new Set(paths.map((path) => repoIndexOf(repos, path)).filter((index) => index >= 0)).size;
+}
+
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
@@ -89,10 +119,31 @@ export function changesAnswerFrom(answer: unknown): ChangesAnswer {
   for (const path of stringList(record.tooLargePaths)) {
     files.push({ path, status: 'added', binary: true, additions: 0, deletions: 0, hunks: [], tooLarge: true });
   }
+  const repos: RepoGroup[] =
+    record.multiRepo === true && Array.isArray(record.repos)
+      ? record.repos.map((repo) => {
+          const item = typeof repo === 'object' && repo !== null ? (repo as Record<string, unknown>) : {};
+          return {
+            name: typeof item.name === 'string' ? item.name : '',
+            rel: typeof item.rel === 'string' ? item.rel : '',
+            branch: typeof item.branch === 'string' ? item.branch : null,
+          };
+        })
+      : [];
+  if (repos.length > 0) {
+    // Each repo's files together, in the project's order of repos (a stable sort keeps git's order inside).
+    const order = (path: string): number => {
+      const index = repoIndexOf(repos, path);
+      return index < 0 ? repos.length : index;
+    };
+    files.sort((a, b) => order(a.path) - order(b.path));
+  }
   return {
     kind: 'repo',
     data: {
       files,
+      repos,
+      uncommittedPaths: stringList(record.uncommittedPaths),
       baseLabel: text('baseLabel') ?? 'HEAD',
       branch: text('branch'),
       onDefaultBranch: record.onDefaultBranch === true,
@@ -504,6 +555,8 @@ function displayText(text: string): string {
 export type ChangesRow =
   /** The "N files changed" heading over the file list; tapping it folds the list. */
   | { kind: 'listHeading'; key: string; open: boolean }
+  /** A repo's header over its files, in a project that spans several repos. */
+  | { kind: 'repo'; key: string; repoIndex: number }
   | { kind: 'listItem'; key: string; fileIndex: number }
   /** A file's header in the stream, pinned while its lines scroll; tapping it folds the file. */
   | { kind: 'file'; key: string; fileIndex: number; folded: boolean }
@@ -539,6 +592,7 @@ export type ChangesRow =
  */
 export const ROW_HEIGHTS: Record<ChangesRow['kind'], number> = {
   listHeading: 40,
+  repo: 40,
   listItem: 34,
   file: 52,
   gap: 24,
@@ -578,10 +632,23 @@ export function buildRows(
 ): ChangesRow[] {
   const width = Math.max(8, Math.floor(columns));
   const rows: ChangesRow[] = [{ kind: 'listHeading', key: 'list', open: listOpen }];
+  // A repo's header goes before its first file, in the list and in the stream.
+  const repoBefore = (fileIndex: number, where: string): void => {
+    if (data.repos.length === 0) return;
+    const repo = repoIndexOf(data.repos, data.files[fileIndex].path);
+    const previous = fileIndex === 0 ? -2 : repoIndexOf(data.repos, data.files[fileIndex - 1].path);
+    if (repo >= 0 && repo !== previous) {
+      rows.push({ kind: 'repo', key: `${where}:${data.repos[repo].rel}`, repoIndex: repo });
+    }
+  };
   if (listOpen) {
-    data.files.forEach((file, fileIndex) => rows.push({ kind: 'listItem', key: `item:${file.path}`, fileIndex }));
+    data.files.forEach((file, fileIndex) => {
+      repoBefore(fileIndex, 'repo-list');
+      rows.push({ kind: 'listItem', key: `item:${file.path}`, fileIndex });
+    });
   }
   data.files.forEach((file, fileIndex) => {
+    repoBefore(fileIndex, 'repo');
     const isFolded = folded.has(file.path);
     rows.push({ kind: 'file', key: `file:${file.path}`, fileIndex, folded: isFolded });
     if (isFolded) return;

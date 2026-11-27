@@ -335,7 +335,11 @@ export function UnifiedCard({
   const lastBranch = useRef('');
   if (branch.length > 0) lastBranch.current = branch;
   const placeholder = branch.length === 0 && !row.noSourceControl;
-  const shownBranch = branch.length > 0 ? branch : lastBranch.current.length > 0 ? lastBranch.current : SessionCopy.noBranch;
+  const knownBranch = branch.length > 0 ? branch : lastBranch.current.length > 0 ? lastBranch.current : SessionCopy.noBranch;
+  // CDXC:Sidebar 2026-11-27 DECISION: User picked "The phone gets the same" (Q5270): a session of a
+  // project that spans several repos names them after its branch ("add-order-refunds · api, web"),
+  // as the desktop's worktree line does (gx-core `RowWorktree::line`).
+  const shownBranch = row.repos !== undefined && row.repos.length > 0 ? `${knownBranch} · ${row.repos.join(', ')}` : knownBranch;
   const hasScreenArt = useHasScreenArtBackdrop(ink.light);
   const openMenu = (): void => {
     cardRef.current?.measureInWindow((x, y, width, height) => onMenu({ x, y, width, height }));

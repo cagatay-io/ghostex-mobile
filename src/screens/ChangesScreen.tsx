@@ -20,18 +20,21 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { Glyph } from '../chat/native/transcript/icons';
 import { MONO_FONT, themedStyles, useTranscriptTheme, type TranscriptTheme } from '../chat/native/transcript/theme';
+import { sessionChatRpc } from '../chat/rust/transport';
 import { ChangesUnsupportedError, readChanges } from '../changes/client';
 import {
   buildRows,
   fileName,
   folderOf,
   lineSegments,
+  repoCount,
+  repoIndexOf,
   ROW_HEIGHTS,
   rowOffsets,
   sliceSegments,
@@ -368,6 +371,149 @@ function ScopeMenu({
   );
 }
 
+/** What one repo did on the last Commit: what it did, or git's reason it failed. */
+type RepoOutcome = { name: string; rel: string; failed: boolean; text: string };
+type RepoResults = { rows: RepoOutcome[]; message: string } | { error: string; message: string };
+
+function repoResultsFrom(result: unknown, message: string): RepoResults {
+  const record = typeof result === 'object' && result !== null ? (result as Record<string, unknown>) : {};
+  const repos = Array.isArray(record.repos) ? record.repos : [];
+  return {
+    message,
+    rows: repos.map((repo) => {
+      const item = typeof repo === 'object' && repo !== null ? (repo as Record<string, unknown>) : {};
+      const error = typeof item.error === 'string' ? item.error : null;
+      return {
+        name: typeof item.name === 'string' ? item.name : '',
+        rel: typeof item.rel === 'string' ? item.rel : '',
+        failed: error !== null,
+        text: error ?? ChangesCopy.committed,
+      };
+    }),
+  };
+}
+
+/**
+ * The commit bar of a project that spans several repos: one Commit makes a commit in each repo with
+ * changes ("Commit 2 repos"), and the list after it says what each repo did; a failed repo keeps its
+ * files and offers Try again with the same message.
+ *
+ * CDXC:Changes 2026-11-27 DECISION: User picked "The phone gets the same" (Q5270) for projects that
+ * span several repos, so the phone's Changes, otherwise read-only (CDXC:Changes 2026-10-25), shows the
+ * repo headers and this commit bar for them. It commits every uncommitted file; picking files and
+ * Commit & Push stay on the desktop.
+ */
+function RepoCommitBar({
+  data,
+  commit,
+  bottomInset,
+}: {
+  data: ChangesData;
+  commit: (message: string, filePaths: string[] | null) => Promise<RepoResults>;
+  bottomInset: number;
+}) {
+  const styles = useStyles();
+  const theme = useTranscriptTheme();
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<RepoResults | null>(null);
+  const count = repoCount(data.repos, data.uncommittedPaths);
+  const run = (sent: string, filePaths: string[] | null): void => {
+    setBusy(true);
+    setResults(null);
+    void commit(sent, filePaths)
+      .then((next) => {
+        setResults(next);
+        if (!('error' in next)) setMessage('');
+      })
+      .finally(() => setBusy(false));
+  };
+  /** A repo's uncommitted files, what its Try again commits. */
+  const filesOf = (rel: string): string[] => {
+    const repo = data.repos.findIndex((candidate) => candidate.rel === rel);
+    return data.uncommittedPaths.filter((path) => repoIndexOf(data.repos, path) === repo);
+  };
+  const retry = (rel: string, sent: string): void => {
+    const paths = filesOf(rel);
+    if (paths.length > 0) run(sent, paths);
+  };
+  if (count === 0 && results === null) return null;
+  const failed = results !== null && !('error' in results) ? results.rows.filter((row) => row.failed).length : 0;
+  return (
+    <View style={[styles.commitBar, { paddingBottom: bottomInset + 10 }]}>
+      {results !== null ? (
+        <View style={styles.resultsCard}>
+          <View style={styles.resultsTitleRow}>
+            <Text style={styles.resultsTitle}>
+              {'error' in results
+                ? ChangesCopy.commitCouldNot
+                : failed > 0
+                  ? ChangesCopy.commitFailed(failed, results.rows.length)
+                  : ChangesCopy.commitDone(results.rows.length)}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={ChangesCopy.close}
+              onPress={() => setResults(null)}
+              hitSlop={10}
+            >
+              <Glyph name="x" size={14} color={theme.muted} />
+            </Pressable>
+          </View>
+          {'error' in results ? (
+            <Text style={[styles.resultText, { color: theme.error }]}>{results.error}</Text>
+          ) : (
+            results.rows.map((row) => (
+              <View key={row.rel} style={styles.resultRow}>
+                <Glyph name={row.failed ? 'x' : 'check'} size={12} color={row.failed ? theme.error : theme.muted} />
+                <Text style={styles.resultName}>{row.name}</Text>
+                <Text style={[styles.resultText, { color: row.failed ? theme.error : theme.muted }]}>{row.text}</Text>
+                {row.failed && filesOf(row.rel).length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={() => retry(row.rel, results.message)}
+                    style={({ pressed }) => [styles.smallButton, pressed && { backgroundColor: theme.neutralFillPressed }]}
+                  >
+                    <Text style={styles.smallButtonText}>{ChangesCopy.tryAgain}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))
+          )}
+        </View>
+      ) : null}
+      {count > 0 ? (
+        <View style={styles.commitRow}>
+          <TextInput
+            value={message}
+            onChangeText={setMessage}
+            placeholder={ChangesCopy.commitMessage}
+            placeholderTextColor={theme.muted}
+            editable={!busy}
+            multiline
+            style={styles.commitInput}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => run(message.trim(), null)}
+            style={({ pressed }) => [
+              styles.commitButton,
+              (pressed || busy) && { backgroundColor: theme.neutralFillPressed },
+            ]}
+          >
+            {busy ? <ActivityIndicator size="small" color={theme.muted} /> : null}
+            <Text style={styles.commitButtonText}>
+              {busy ? ChangesCopy.committing : ChangesCopy.commitRepos(count)}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function ChangesScreen({ navigation, route }: Props) {
   const { machineId, projectId, projectName } = route.params;
   return <ChangesView machineId={machineId} projectId={projectId} projectName={projectName} navigation={navigation} />;
@@ -531,6 +677,24 @@ export function ChangesView({ machineId, projectId, projectName, navigation, con
     }
   }, [data, pendingJump, rows]);
 
+  /** One commit per repo with changes (`runGitShipWorkflow`), then a fresh read of the diff. */
+  const commitRepos = useCallback(
+    async (message: string, filePaths: string[] | null): Promise<RepoResults> => {
+      const target = machineRef.current;
+      if (target === undefined) return { error: ChangesCopy.machineMissing, message };
+      const answer = await sessionChatRpc(
+        target,
+        'runGitShipWorkflow',
+        { projectId, commit: { message, filePaths } },
+        180_000,
+      );
+      refresh();
+      if (answer.error !== null) return { error: answer.error.message, message };
+      return repoResultsFrom(answer.result, message);
+    },
+    [projectId, refresh],
+  );
+
   const copyLine = useCallback((text: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     void Clipboard.setStringAsync(text);
@@ -560,6 +724,32 @@ export function ChangesView({ machineId, projectId, projectName, navigation, con
               <Counts file={data} colors={colors} />
             </Pressable>
           );
+        case 'repo': {
+          const repo = data.repos[item.repoIndex];
+          const files = data.files.filter((file) => repoIndexOf(data.repos, file.path) === item.repoIndex);
+          return (
+            <View style={styles.repoHeader}>
+              <Glyph name="folders" size={14} color={theme.muted} />
+              <Text numberOfLines={1} style={styles.repoName}>
+                {repo.name}
+              </Text>
+              {repo.branch !== null ? (
+                <Text numberOfLines={1} style={styles.repoBranch}>
+                  {ChangesCopy.onBranch(repo.branch)}
+                </Text>
+              ) : null}
+              <Text style={styles.repoCount}>{ChangesCopy.repoFiles(files.length)}</Text>
+              <View style={styles.spacer} />
+              <Counts
+                file={{
+                  additions: files.reduce((sum, file) => sum + file.additions, 0),
+                  deletions: files.reduce((sum, file) => sum + file.deletions, 0),
+                }}
+                colors={colors}
+              />
+            </View>
+          );
+        }
         case 'listItem': {
           const file = data.files[item.fileIndex];
           return (
@@ -747,6 +937,9 @@ export function ChangesView({ machineId, projectId, projectName, navigation, con
         maxToRenderPerBatch={40}
         windowSize={15}
       />
+      {allData !== null && allData.repos.length > 0 && error === null ? (
+        <RepoCommitBar data={allData} commit={commitRepos} bottomInset={bottomInset} />
+      ) : null}
       {scopeOpen ? (
         <ScopeMenu
           scope={scope}
@@ -972,4 +1165,67 @@ const useStyles = themedStyles((t) => ({
     borderColor: t.menuBorder,
   },
   toastText: { color: t.menuForeground, fontSize: 13, fontWeight: '500' },
+  repoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    height: ROW_HEIGHTS.repo,
+    minWidth: 0,
+  },
+  repoName: { color: t.foreground, fontSize: 14, fontWeight: '600', flexShrink: 0 },
+  repoBranch: { color: t.muted, fontSize: 12.5, flexShrink: 1, minWidth: 0 },
+  repoCount: { color: t.muted, fontSize: 12.5 },
+  commitBar: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: t.border,
+    backgroundColor: t.background,
+  },
+  commitRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  commitInput: {
+    flex: 1,
+    minHeight: 38,
+    maxHeight: 110,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: t.border,
+    color: t.foreground,
+    fontSize: 14,
+  },
+  commitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: t.neutralFill,
+  },
+  commitButtonText: { color: t.foreground, fontSize: 14, fontWeight: '600' },
+  resultsCard: {
+    padding: 10,
+    gap: 6,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: t.border,
+  },
+  resultsTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  resultsTitle: { color: t.foreground, fontSize: 13.5, fontWeight: '600' },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  resultName: { color: t.foreground, fontSize: 13, fontWeight: '600' },
+  resultText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  smallButton: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 7,
+    backgroundColor: t.neutralFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallButtonText: { color: t.foreground, fontSize: 12.5, fontWeight: '600' },
 }));

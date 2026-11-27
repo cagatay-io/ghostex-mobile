@@ -55,6 +55,7 @@ function parseProjects(value: unknown): GhostexProject[] {
       worktree: isObject(entry.worktree)
         ? { name: trimmedValue(entry.worktree, 'name'), branch: trimmedValue(entry.worktree, 'branch') }
         : undefined,
+      repos: parseRepoNames(entry.repos),
       workspaceId: trimmedValue(entry, 'workspaceId') || undefined,
       everyWorkspace: entry.everyWorkspace === true ? true : undefined,
       gitRemoteOriginUrl: trimmedValue(entry, 'gitRemoteOriginUrl') || undefined,
@@ -65,6 +66,13 @@ function parseProjects(value: unknown): GhostexProject[] {
     });
   }
   return projects;
+}
+
+/** `repos: [{name, rel, kind}]` to the repos' names, or undefined when the project has one repo. */
+function parseRepoNames(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const names = value.flatMap((repo) => (isObject(repo) && typeof repo.name === 'string' ? [repo.name] : []));
+  return names.length > 1 ? names : undefined;
 }
 
 function parseGbotsBot(value: unknown): GhostexGbotsBot | undefined {

@@ -1483,6 +1483,18 @@ export const ChangesCopy = {
   testFilesHidden: (count: number) => (count === 1 ? '1 test file hidden' : `${count} test files hidden`),
   showTests: 'Show',
   onlyTestFiles: 'Only test files changed.',
+  repoFiles: (count: number) => (count === 1 ? '1 file' : `${count} files`),
+  onBranch: (branch: string) => `on ${branch}`,
+  commitRepos: (count: number) => (count === 1 ? 'Commit 1 repo' : `Commit ${count} repos`),
+  committing: 'Committing…',
+  commitMessage: 'Commit message (empty: the agent writes it)',
+  commitDone: (count: number) => (count === 1 ? 'Done in 1 repo' : `Done in ${count} repos`),
+  commitFailed: (failed: number, total: number) =>
+    `${failed} of ${total} ${total === 1 ? 'repo' : 'repos'} didn’t finish`,
+  commitCouldNot: 'Could not commit',
+  committed: 'Committed',
+  tryAgain: 'Try again',
+  close: 'Close',
 };
 
 /** The Beads screens: a project's beads as the desktop Beads view's Tree shows them, and one bead full screen. */

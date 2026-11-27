@@ -79,6 +79,11 @@ const GLYPHS = {
     'M14 13l2 2l2 -2m-2 2v-6',
   ],
   folder: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+  /** A project that spans several repos (the Changes screen's repo headers). */
+  folders: [
+    'M9 3h3l2 2h5a2 2 0 0 1 2 2v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2',
+    'M17 16v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2h2',
+  ],
   /** A Changes view review comment pill (`comment` in reference-visual.json). */
   comment: ['M8 9h8', 'M8 13h6', 'M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z'],
   // One of the user's earlier messages (`message` in reference-visual.json, core `message_numbers.rs`).

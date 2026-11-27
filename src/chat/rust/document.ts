@@ -97,6 +97,18 @@ export type WorktreeTray = {
     menuTitle?: string;
     menu: { [key: string]: unknown }[] | null;
   } | null;
+  /**
+   * A new worktree in a project that spans several repos (`repos_part` in the core): "2 of 3 repos"
+   * and the menu whose checked rows are the repos the worktree session gets. Absent for one repo.
+   */
+  repos?: {
+    label: string;
+    glyph: string;
+    tooltip?: string;
+    menuTitle?: string;
+    menu: { [key: string]: unknown }[];
+    picked: string[];
+  } | null;
 };
 
 /** The Run on row above a new thread's composer (gx-chat-core `menus/run_location.rs`). */

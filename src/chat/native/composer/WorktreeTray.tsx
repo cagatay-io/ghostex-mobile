@@ -75,7 +75,7 @@ function detailSearch(detail: NonNullable<Tray['detail']>): MenuSearch | null {
 }
 
 function glyphName(name: string | undefined, fallback: GlyphName): GlyphName {
-  const known: GlyphName[] = ['folder-open', 'git-fork', 'stack', 'cloud', 'star-filled', 'git-branch', 'folder'];
+  const known: GlyphName[] = ['folder-open', 'git-fork', 'stack', 'cloud', 'star-filled', 'git-branch', 'folder', 'folders'];
   return known.find((glyph) => glyph === name) ?? fallback;
 }
 
@@ -173,6 +173,22 @@ export function WorktreeTray({
       full: detail.tooltip ?? detail.label,
       onPress:
         menu === null ? null : () => openRows(detail.menuTitle ?? detail.label, menuRows(menu), detailSearch(detail)),
+    });
+  }
+  // CDXC:Worktrees 2026-11-27 DECISION: User picked "The phone gets the same" (Q5270): a new
+  // worktree in a project that spans several repos shows the repos part after the base branch,
+  // "2 of 3 repos", whose menu picks the repos the worktree session gets.
+  const repos = noProject ? null : tray.repos;
+  if (repos) {
+    choice.push({
+      id: 'repos',
+      glyph: glyphName(repos.glyph, 'folders'),
+      star: false,
+      prefix: null,
+      label: repos.label,
+      muted: false,
+      full: repos.tooltip ?? repos.label,
+      onPress: () => openRows(repos.menuTitle ?? 'Repos', menuRows(repos.menu)),
     });
   }
   const rows: [Part[], Part[]] = [place, choice];

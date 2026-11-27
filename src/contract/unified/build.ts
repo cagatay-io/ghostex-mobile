@@ -121,6 +121,8 @@ export type UnifiedProjectInput = {
   parentProjectId: string | null;
   /** The project's collection, which a grouped project takes its Space from. */
   collectionId: string | null;
+  /** The repos of a project that spans several, by name; absent for one repo. */
+  repos?: string[];
 };
 
 export type UnifiedSpaceInput = {
@@ -197,6 +199,8 @@ export type UnifiedRow<S = unknown> = {
   cameBackMs: number;
   /** The card says its folder is not under git ([`noSourceControl`]). */
   noSourceControl: boolean;
+  /** Its project spans several repos: their names, after the branch on the card ("refunds · api, web"). */
+  repos?: string[];
   /** The threads nested under it (tree.ts), busy first; empty for every other row. */
   threads: UnifiedRow<S>[];
   /** On a thread: drawn while its coordinator is open. Always set on a card. */
@@ -462,6 +466,7 @@ export function buildUnifiedList<S>(
             status: unifiedStatus(session),
             cameBackMs: cameBackMs(session),
             noSourceControl: noSourceControl(project, session),
+            repos: project.repos,
             threads: [],
             shown: true,
             matched: false,
