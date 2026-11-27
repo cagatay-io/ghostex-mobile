@@ -97,8 +97,8 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
     "keywords": []
   },
   "chatComposerContextRing": {
-    "title": "Context ring in the chat box",
-    "subtitle": "Show how full the agent's context is as a ring in the chat box. Off, it stays in ••• › More › Context window.",
+    "title": "Context ring in the phone's chat box",
+    "subtitle": "Show how full the agent's context is as a ring in the phone's chat box. Off, it stays in ••• › More. On the computer the Session Details button at the top of the window shows it.",
     "options": [],
     "keywords": []
   },
@@ -375,7 +375,7 @@ export const DESKTOP_SETTINGS_WORDS: Readonly<Record<string, DesktopSettingWords
   },
   "experiencePreset": {
     "title": "Experience",
-    "subtitle": "How many buttons and details Ghostex shows. Chill: a simple chat box and a calm chat. Regular: pick the model, the mode and the effort as you chat. Advanced: for people who use terminals more. Pick one to try it in the preview first; nothing changes until Apply. Each area below follows it; change one and it says Custom.",
+    "subtitle": "How many buttons and details Ghostex shows. Chill: a simple chat box and a calm chat. Regular: pick the model, the mode and the effort as you chat. Advanced: for people who use terminals more, and it shows the Power User Flags at the bottom of Settings pages. Pick one to try it in the preview first; nothing changes until Apply. Each area below follows it; change one and it says Custom.",
     "options": [
       "Chill",
       "chill",
