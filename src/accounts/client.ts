@@ -48,7 +48,7 @@ export type AccountsAnswer<T> =
   | { ok: true; value: T }
   | { ok: false; unreachable: boolean; message: string };
 
-/** One saved account on the computer (managed Claude/Codex or usage-only Gemini/Cursor/Copilot). */
+/** One saved account on the computer (managed Claude/Codex or usage-only Cursor/Copilot). */
 export type ManagedAccount = UsageAccount & {
   /** gxserver's state: `ready`, `loginRequired`, `identityChanged`, `unavailable`, `disabled`… */
   readonly status: string;
@@ -96,7 +96,7 @@ export async function readManagedAccounts(
   const managedRows = arr(obj(answer.value)?.accounts).filter(
     (row) => isManagedProvider(str(row, 'provider')) && isTrue(row, 'registered'),
   );
-  // Usage-only accounts (Gemini, Cursor, Copilot, etc.) arrive under `usageAccounts`; older computers omit it.
+  // Usage-only accounts (Cursor, Copilot, etc.) arrive under `usageAccounts`; older computers omit it.
   const normalizedUsage = withUsageAccounts({ accounts: [], usageAccounts: arr(obj(answer.value)?.usageAccounts) });
   const usageRows = arr(obj(normalizedUsage)?.accounts).filter((row) => isTrue(row, 'registered'));
   const rows = [...managedRows, ...usageRows];

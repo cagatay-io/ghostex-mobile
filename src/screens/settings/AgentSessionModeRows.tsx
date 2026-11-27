@@ -173,8 +173,8 @@ export function AgentSessionModeRows() {
           })}
           <Caption>
             Terminal-based runs in an interactive terminal with instant switching between Chat and Terminal. Native
-            runs through a structured host for faster mobile chat and live approvals. Applies to chats started or
-            resumed after you change it.
+            runs through a structured host for faster mobile chat and live approvals; Native Antigravity needs
+            Antigravity CLI 1.5.1 or newer. Applies to chats started or resumed after you change it.
           </Caption>
           {saveError !== null ? <NoticeCard tone="error" title="Could not save Session mode" detail={saveError} /> : null}
         </>

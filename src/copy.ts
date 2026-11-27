@@ -1910,7 +1910,7 @@ export const PanesCopy = {
 } as const;
 
 /**
- * The usage of a computer's saved accounts (Claude, Codex, and usage-only accounts such as Gemini, Cursor and
+ * The usage of a computer's saved accounts (Claude, Codex, and usage-only accounts such as Cursor and
  * Copilot), in a usage pane and full screen: the chat Accounts panel's head, meters and sentences
  * (`AccountsPanel.tsx`), and the computer it is for.
  */
@@ -1956,7 +1956,7 @@ export const UsageCopy = {
   resetsLeft: (count: number) =>
     count === 0 ? 'No limit resets left' : `${count} limit ${count === 1 ? 'reset' : 'resets'} left`,
   /** Known provider display names for Home Screen widget bars and fallbacks. */
-  provider: { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', cursor: 'Cursor', copilot: 'Copilot' },
+  provider: { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', copilot: 'Copilot' },
   /** A Home Screen widget bar: the provider's or, with several accounts of one provider, the account's name. */
   widgetBar: (owner: string, window: string) => `${owner} ${window}`,
 } as const;

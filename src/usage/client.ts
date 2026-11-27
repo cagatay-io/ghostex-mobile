@@ -65,7 +65,7 @@ export async function setSignInIgnored(
 
 /** The accounts with core-projected meters at the time of the answer, for the usage pane. */
 export async function readAccountUsage(machine: MachineConnectionTarget, refresh: boolean): Promise<UsageAccount[]> {
-  // The computer's CLIProxyAPI hub accounts and usage-only accounts (Gemini, Cursor, Copilot, etc.)
+  // The computer's CLIProxyAPI hub accounts and usage-only accounts (Cursor, Copilot, etc.)
   // show under its Claude and Codex accounts (`withHubAccounts`, `withUsageAccounts`).
   const answer = withUsageAccounts(withHubAccounts(await readAccountsAnswer(machine, refresh)));
   const nowMs = Date.now();

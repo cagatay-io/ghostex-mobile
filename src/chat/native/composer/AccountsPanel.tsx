@@ -94,7 +94,7 @@ export function AccountsPanel({ panel, onCommand }: { panel: JsonRecord; onComma
 
 /**
  * The panel lists only the session agent's own accounts (gx-chat-core's CDXC:AgentProviders
- * 2026-11-06): usage-only accounts (Cursor, Gemini, Copilot) stay in the sidebar meters and
+ * 2026-11-06): usage-only accounts (Cursor, Copilot) stay in the sidebar meters and
  * Settings > Accounts, never in a chat's account switcher.
  */
 function SessionBlocks({

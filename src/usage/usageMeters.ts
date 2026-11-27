@@ -1,7 +1,7 @@
 /**
  * The usage pane's account identity and filtering. The chat core's `accountUsageColumns` returns
  * every account's columns in input order; this joins those rows before keeping the saved, enabled
- * Claude, Codex, and usage-only accounts (Gemini, Cursor, Copilot, etc. from gxserver's
+ * Claude, Codex, and usage-only accounts (Cursor, Copilot, etc. from gxserver's
  * `usageAccounts`). Window labels, percentages and reset times for Claude and Codex belong to the
  * core; usage-only accounts reuse desktop's concise window labels (`5h`, `7d`, `Mo`, `Claude/GPT 5h`,
  * `Claude/GPT 7d`, etc.) and clean fallback countdowns.
@@ -16,7 +16,13 @@ import { UsageCopy } from '../copy';
 /** The managed providers in `accounts` (Claude Swap, Codex Swap, CLIProxyAPI hubs). */
 const MANAGED_PROVIDERS = ['claude', 'codex'] as const;
 /** Known usage-only providers in `usageAccounts` (`server/src/accounts/usage_only/`). */
-const KNOWN_USAGE_ONLY_PROVIDERS = ['gemini', 'cursor', 'copilot'] as const;
+const KNOWN_USAGE_ONLY_PROVIDERS = ['cursor', 'copilot'] as const;
+/**
+ * Usage-only providers Ghostex retired (2026-11-27, `server/src/accounts/usage_only/retire.rs`): it reads no
+ * Antigravity or Gemini usage, since Antigravity offers other apps only ACP, which has no usage yet. A computer
+ * on an older Ghostex may still send them; the phone shows them nowhere.
+ */
+const RETIRED_USAGE_ONLY_PROVIDERS: ReadonlySet<string> = new Set(['antigravity', 'gemini']);
 export type UsageProvider =
   | (typeof MANAGED_PROVIDERS)[number]
   | (typeof KNOWN_USAGE_ONLY_PROVIDERS)[number]
@@ -61,7 +67,7 @@ export type UsageAccount = {
    * my claude accounts". The phone's usage pane and Accounts screen name how many are left under the meters.
    */
   readonly resets: number | null;
-  /** True for usage-only accounts from `usageAccounts` (Gemini, Cursor, Copilot, etc.). */
+  /** True for usage-only accounts from `usageAccounts` (Cursor, Copilot, etc.). */
   readonly usageOnly: boolean;
   /** gxserver's status (`ready`, `loading`, `loginRequired`, `unavailable`, `disabled`, ...). */
   readonly status: string;
@@ -82,7 +88,7 @@ const LIGHT_MONOCHROME_ICONS = new Set<AgentIconId>([
   'zcode',
 ]);
 
-/** Maps an account provider (`claude`, `codex`, `gemini`, `cursor`, `copilot`, ...) to its agent icon id. */
+/** Maps an account provider (`claude`, `codex`, `cursor`, `copilot`, ...) to its agent icon id. */
 export function usageProviderIconId(provider: string): AgentIconId {
   return resolveAgentIconId(provider);
 }
@@ -92,7 +98,7 @@ export function usageProviderIconColor(iconId: AgentIconId, light: boolean, fore
   return light && LIGHT_MONOCHROME_ICONS.has(iconId) ? foreground : agentIconTint(iconId);
 }
 
-/** Display label for any account provider (`Claude`, `Codex`, `Gemini`, `Cursor`, `Copilot`, ...). */
+/** Display label for any account provider (`Claude`, `Codex`, `Cursor`, `Copilot`, ...). */
 export function usageProviderLabel(provider: string): string {
   const key = provider.trim().toLowerCase();
   const known = UsageCopy.provider[key as keyof typeof UsageCopy.provider];
@@ -258,9 +264,10 @@ export function withHubAccounts(answer: unknown): unknown {
 }
 
 /**
- * The answer with each usage-only account (`usageAccounts`, e.g. Gemini, Cursor, Copilot from
+ * The answer with each usage-only account (`usageAccounts`, e.g. Cursor, Copilot from
  * `server/src/accounts/usage_only/`) appended to `accounts` so the chat core projects its windows
- * alongside Claude and Codex. Older computers that omit `usageAccounts` pass through untouched.
+ * alongside Claude and Codex, without the retired Antigravity and Gemini ones. Older computers that
+ * omit `usageAccounts` pass through untouched.
  */
 export function withUsageAccounts(answer: unknown): unknown {
   const root = obj(answer);
@@ -273,7 +280,7 @@ export function withUsageAccounts(answer: unknown): unknown {
     const record = obj(raw);
     if (record === null) continue;
     const provider = str(record, 'provider').trim().toLowerCase();
-    if (provider.length === 0) continue;
+    if (provider.length === 0 || RETIRED_USAGE_ONLY_PROVIDERS.has(provider)) continue;
     const id = str(record, 'id').trim();
     if (id.length > 0 && seen.has(id)) continue;
     if (id.length > 0) seen.add(id);
@@ -376,7 +383,7 @@ export const MAX_USAGE_BARS = 6;
 
 /**
  * The Home Screen widget's usage bars: the pane's accounts in the pane's order, one bar per usage window with the
- * pane's window name, the first six. A bar is named by its provider ("Claude 5h", "Gemini 5h"), or by its account
+ * pane's window name, the first six. A bar is named by its provider ("Claude 5h", "Cursor Mo"), or by its account
  * where the computer has more than one account of that provider ("Work 5h"). A window without a readable percent
  * gets no bar rather than an empty one; the reset travels as a time, so the widget can count down to it.
  */
