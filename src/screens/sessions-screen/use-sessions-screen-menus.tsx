@@ -259,6 +259,12 @@ export type SessionsScreenMenusDeps = {
   ) => Promise<void>;
   sessionsForProject: (target: MachineRecord, header: ProjectHeaderItem) => GhostexSession[];
   setOverlay: (overlay: Overlay) => void;
+  /**
+   * Closes the long-press session menu, then runs `work` once the menu has gone (iOS; at once on Android), for a row
+   * whose work presents a modal of its own; dropped with a notice if the menu does not report that it has gone in
+   * time (SessionsScreen.tsx `afterSessionMenu`).
+   */
+  closeSessionMenuThen: (work: () => void) => void;
   setTransientStatus: (message: string | null, options?: { title?: string }) => void;
   /** The Unified list's Snooze (a wake time) and Unsnooze (`null`), through gxserver. */
   snoozeSession?: (target: MachineRecord, session: GhostexSession, wakeAt: Date | null) => Promise<void>;
@@ -286,6 +292,7 @@ export function useSessionsScreenMenus({
   runSessionCommand,
   sessionsForProject,
   setOverlay,
+  closeSessionMenuThen,
   setTransientStatus,
   snoozeSession,
   workChipActions,
@@ -865,8 +872,7 @@ export function useSessionsScreenMenus({
             return;
           }
           if (menuCommand.action === 'makeMain') {
-            setOverlay(NONE);
-            void makeMainCoordinator(machine, ctx.item.session);
+            closeSessionMenuThen(() => void makeMainCoordinator(machine, ctx.item.session));
             return;
           }
           if (menuCommand.action === 'unlinkLead' || menuCommand.action === 'stopLeading') {

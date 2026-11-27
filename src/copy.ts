@@ -386,6 +386,11 @@ export const ShortRepliesCopy = {
 export const ContextMenuCopy = {
   /** The dimmed screen around the menu, as VoiceOver names it: a tap on it closes the menu. */
   close: 'Close menu',
+  /**
+   * A session menu row whose work waits for the menu to go (Make Main Coordinator), when the menu did not report
+   * that it had gone in time: the work was dropped, not started (SessionsScreen.tsx `SESSION_MENU_DISMISS_LIMIT_MS`).
+   */
+  notStarted: "Didn't start, try again",
 } as const;
 
 /** Session search (the Sessions header's search button), worded as the desktop's Sessions search. */

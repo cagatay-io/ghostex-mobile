@@ -160,6 +160,7 @@ import {
 } from '../contract/grouping';
 import { EMPTY_SIDEBAR_SPACES, NO_SUMMARY_CAPABILITIES, type GhostexSession } from '../contract/mobileSummary';
 import {
+  ContextMenuCopy,
   DuoChromeCopy,
   NewSessionCopy,
   ProgressCopy,
@@ -283,6 +284,12 @@ const MAIN_HUB_NOTES: ContextMenuItem[] = [
   { kind: 'separator', key: 'main-hub-note-end' },
 ];
 
+/**
+ * How long a session menu closed by a row that waits for it (`afterSessionMenu`) may take to report its dismissal
+ * before the row's work is dropped: a working value, well over the menu's fade.
+ */
+const SESSION_MENU_DISMISS_LIMIT_MS = 1500;
+
 export default function SessionsScreen({ navigation }: Props) {
   const headerPlacement = useHeaderPlacement();
   const isFocused = useIsFocused();
@@ -333,9 +340,60 @@ export default function SessionsScreen({ navigation }: Props) {
     [sidebarAppearance.background],
   );
 
-  const [overlay, setOverlay] = useState<Overlay>(NONE);
+  const [overlay, setOverlayState] = useState<Overlay>(NONE);
   /** What a pick in the agent menu's project list opens once the sheet has gone. */
   const afterProjectSheet = useRef<(() => void) | null>(null);
+  /**
+   * What a session menu row starts once the menu has gone (iOS), and that menu, drawn hidden until its dismissal
+   * reports back. Such a row presents a modal of its own (Make Main Coordinator's progress), and a presentation
+   * started while the menu's modal is still dismissing can throw or never settle (ContextMenu `onDismissed`).
+   * Unmounted at once, as every other row still has it, the menu never reports its dismissal. Android has no
+   * `onDismiss`, so the work runs at once.
+   *
+   * While such a menu is going, a long press opens no session menu: a menu opened over the dismissing one would
+   * take its place, and its dismissal would no longer say which menu had gone. If the dismissal is not reported
+   * within `SESSION_MENU_DISMISS_LIMIT_MS`, the work is dropped, never started, and the notice says so.
+   */
+  const afterSessionMenu = useRef<(() => void) | null>(null);
+  const sessionMenuDismissLimit = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [closingSessionMenu, setClosingSessionMenu] = useState<Extract<Overlay, { kind: 'sessionMenu' }> | null>(
+    null,
+  );
+  const setOverlay = useCallback((next: Overlay): void => {
+    if (next.kind === 'sessionMenu' && afterSessionMenu.current !== null) return;
+    setOverlayState(next);
+  }, []);
+  const closeSessionMenuThen = (work: () => void): void => {
+    const shown = overlay.kind === 'sessionMenu' ? overlay : null;
+    setOverlay(NONE);
+    if (Platform.OS !== 'ios' || shown === null) {
+      work();
+      return;
+    }
+    afterSessionMenu.current = work;
+    setClosingSessionMenu(shown);
+    sessionMenuDismissLimit.current = setTimeout(() => {
+      sessionMenuDismissLimit.current = null;
+      afterSessionMenu.current = null;
+      setClosingSessionMenu(null);
+      setTransientStatus(ContextMenuCopy.notStarted);
+    }, SESSION_MENU_DISMISS_LIMIT_MS);
+  };
+  const onSessionMenuDismissed = (): void => {
+    if (sessionMenuDismissLimit.current !== null) clearTimeout(sessionMenuDismissLimit.current);
+    sessionMenuDismissLimit.current = null;
+    const work = afterSessionMenu.current;
+    afterSessionMenu.current = null;
+    setClosingSessionMenu(null);
+    work?.();
+  };
+  useEffect(
+    () => () => {
+      if (sessionMenuDismissLimit.current !== null) clearTimeout(sessionMenuDismissLimit.current);
+    },
+    [],
+  );
+  const sessionMenu = overlay.kind === 'sessionMenu' ? overlay : closingSessionMenu;
   /** New session › Cloud Box with the computer off: the first message the phone starts the box with. */
   const [phoneBoxStart, setPhoneBoxStart] = useState<PhoneBoxStart | null>(null);
   // New session › Where (This computer or Cloud Box) for the project whose agent menu is open.
@@ -980,6 +1038,7 @@ export default function SessionsScreen({ navigation }: Props) {
     runSessionCommand,
     sessionsForProject,
     setOverlay,
+    closeSessionMenuThen,
     setTransientStatus,
     workChipActions,
   });
@@ -2106,20 +2165,21 @@ export default function SessionsScreen({ navigation }: Props) {
         onClose={() => setSessionSearch(null)}
       />
 
-      {overlay.kind === 'sessionMenu' ? (
+      {sessionMenu !== null ? (
         <ContextMenu
-          visible
-          title={sessionTitle(overlay.ctx.item.session)}
-          {...sessionMenuView(overlay.ctx, overlay.menuPath)}
+          visible={overlay.kind === 'sessionMenu'}
+          title={sessionTitle(sessionMenu.ctx.item.session)}
+          {...sessionMenuView(sessionMenu.ctx, sessionMenu.menuPath)}
           // A Cloud Box session's row holds the box's actions: the computer's session actions would
           // reach the computer, not the box (cloudBoxes/menu.tsx).
           {...cloudBoxRowMenu(
-            overlay.ctx,
-            () => void attach(overlay.ctx.machine, overlay.ctx.item.session),
+            sessionMenu.ctx,
+            () => void attach(sessionMenu.ctx.machine, sessionMenu.ctx.item.session),
             (message) => setTransientStatus(message),
             () => setOverlay(NONE),
           )}
           onClose={() => setOverlay(NONE)}
+          onDismissed={onSessionMenuDismissed}
         />
       ) : null}
 
