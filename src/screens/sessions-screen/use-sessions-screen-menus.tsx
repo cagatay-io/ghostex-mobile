@@ -1076,8 +1076,11 @@ export function useSessionsScreenMenus({
     }
     const summary = summaryFor(ctx.machine.id);
     const order = projectOrderOf(ctx);
-    const own: ProjectOwnAction[] = ['newTerminal', 'projectDetails', 'moveProjectUp', 'moveProjectDown', 'refreshSessions'];
-    if (actionsEntryOf(ctx) !== null) own.push('projectActions');
+    // Ghostex AI's project options start no work in the home folder (Q5299, gx-core sidebar_menu/header.rs).
+    const home = header.isHome === true;
+    const own: ProjectOwnAction[] = ['projectDetails', 'moveProjectUp', 'moveProjectDown', 'refreshSessions'];
+    if (!home) own.unshift('newTerminal');
+    if (!home && actionsEntryOf(ctx) !== null) own.push('projectActions');
     if (header.projectId.length > 0 && header.projectPath.length > 0) own.push('files');
     if (header.projectId.length > 0) own.push('automations');
     const ownDisabled: ProjectOwnAction[] = [];

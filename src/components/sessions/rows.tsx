@@ -1145,6 +1145,10 @@ export function ProjectHeaderRow({
    * The home project's header is Main Hub (CDXC:Chief 2026-11-08 in contract/chief.ts): the flower and "Main Hub"; a tap
    * folds it like any project, and a long press opens Main Hub's menu (what it is, then the project's options). Chief of
    * Staff is a row pinned first under it.
+   *
+   * CDXC:Chief 2026-11-27 DECISION:
+   * User (Q5299): the Ghostex AI header keeps only what belongs to Ghostex AI: no New terminal button and no agent
+   * split (New chat, Terminal, Coordinator); its ⋯ opens the same menu as the long press.
    */
   home?: { onMenu: () => void };
   /**
@@ -1195,15 +1199,18 @@ export function ProjectHeaderRow({
         />
       ) : (
         <View style={buttonStyles.actions}>
-          <HeaderButton accessibilityLabel={`${title} options`} onAnchorPress={onMenu}>
+          <HeaderButton
+            accessibilityLabel={`${home !== undefined ? HOME_LABEL : title} options`}
+            onAnchorPress={home !== undefined ? () => home.onMenu() : onMenu}
+          >
             <MoreGlyph size={ds(14)} color={ink.muted} />
           </HeaderButton>
-          {noProject ? null : (
+          {noProject || home !== undefined ? null : (
             <HeaderButton accessibilityLabel={`New terminal in ${title}`} onPress={onCreateTerminal}>
               <TerminalGlyph size={ds(14)} color={ink.muted} />
             </HeaderButton>
           )}
-          {primaryAgent !== null ? (
+          {primaryAgent !== null && home === undefined ? (
             <AgentSplitButton
               primaryAgent={primaryAgent}
               onLaunchPrimary={onLaunchPrimary}
