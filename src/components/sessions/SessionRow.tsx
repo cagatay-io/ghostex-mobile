@@ -113,11 +113,21 @@ const THREAD_INDENT = 16;
 const CHEVRON_EXTRA = 17;
 
 /**
+ * Whether the row draws as asleep (dimmed, quieter icon and time).
+ *
+ * CDXC:SessionSleep 2026-11-27 DECISION: User: "I really want users to not worry about "sleeping"". A Native chat whose idle agent Ghostex stopped looks like any idle chat, as on the desktop (apps/desktop/src/app/gx_store/sidebar_snapshot.rs).
+ */
+function looksAsleep(session: GhostexSession): boolean {
+  return session.isSleeping && session.nonCliMode !== true;
+}
+
+/**
  * Re-renders the row when the time it draws next reads differently
  * (nextLabelDeadline): every second while a countdown runs, and only when the
  * relative time's digit changes otherwise. Returns the clock the labels read.
  * The session wall's tiles show the same label with the same clock.
  */
+
 export function useRowLabelClock(session: GhostexSession): number {
   const [, wake] = useReducer((tick: number) => tick + 1, 0);
   const nowMs = Date.now();
@@ -654,7 +664,7 @@ export default function SessionRow({
 
   return (
     <Animated.View
-      style={[styles.rowGap, { opacity: flashOpacity }, dimSleeping && session.isSleeping ? styles.dimmed : null]}
+      style={[styles.rowGap, { opacity: flashOpacity }, dimSleeping && looksAsleep(session) ? styles.dimmed : null]}
     >
       <Pressable
         ref={rowRef}
@@ -692,7 +702,7 @@ export default function SessionRow({
                 ? styles.iconTimer
                 : active && !draftPencil
                   ? styles.iconActive
-                  : session.isSleeping || draftPencil
+                  : looksAsleep(session) || draftPencil
                     ? null
                     : styles.iconAwake,
             ]}
@@ -913,7 +923,7 @@ export default function SessionRow({
                   {quotaBadge !== null ? <QuotaCountdownBadge badge={quotaBadge} /> : null}
                   {indicator !== null ? <ActivityDot kind={indicator} /> : null}
                   {timeLabel !== null ? (
-                    <Text style={[styles.trailingText, session.isSleeping ? inkStyle.timeSleeping : inkStyle.time]}>
+                    <Text style={[styles.trailingText, looksAsleep(session) ? inkStyle.timeSleeping : inkStyle.time]}>
                       {timeLabel}
                     </Text>
                   ) : null}

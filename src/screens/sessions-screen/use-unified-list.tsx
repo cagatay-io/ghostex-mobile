@@ -114,8 +114,10 @@ export function makeSnoozeSession(deps: {
       );
       return;
     }
-    if (wakeAt !== null) await deps.runBulkSessionActions(target, [lifecycleSessionAction(session, true)]);
-    else await deps.refreshMachine(target);
+    // A snoozed Native chat is not put to sleep: Ghostex stops its idle agent by itself (CDXC:SessionSleep 2026-11-27 in sidebar-menus.ts `canSleep`).
+    if (wakeAt !== null && session.nonCliMode !== true) {
+      await deps.runBulkSessionActions(target, [lifecycleSessionAction(session, true)]);
+    } else await deps.refreshMachine(target);
   };
 }
 

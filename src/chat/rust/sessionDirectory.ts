@@ -36,7 +36,8 @@ export function currentSessionDirectory(): ChatKnownSession[] {
         mainCoordinator: session.isMainCoordinator === true,
         // The composer's `+` picker shows each session's state, newest first.
         activity: session.activity,
-        lifecycleState: session.isSleeping ? 'sleeping' : session.status,
+        // A released Native chat reads like any idle chat (CDXC:SessionSleep 2026-11-27 in components/sessions/SessionRow.tsx).
+        lifecycleState: session.isSleeping ? (session.nonCliMode === true ? 'running' : 'sleeping') : session.status,
         activeAt: session.lastInteractionAt || session.lastActiveAt,
         computer,
         projectName: session.projectName,

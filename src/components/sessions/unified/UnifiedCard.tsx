@@ -344,7 +344,17 @@ export function UnifiedCard({
     <View style={styles.cardGap}>
       <SwipeRevealRow
         revealWidth={SWIPE_ACTION_WIDTH * swipeActions.length}
-        actions={<CardActions actions={swipeActions} onSnooze={onSnooze} onPark={onPark} onSleep={onSleep} />}
+        actions={
+          <CardActions
+            // A Native chat has no Sleep (CDXC:SessionSleep 2026-11-27 in screens/sessions-screen/sidebar-menus.ts `canSleep`).
+            actions={
+              row.session.source?.nonCliMode === true ? swipeActions.filter((action) => action !== 'sleep') : swipeActions
+            }
+            onSnooze={onSnooze}
+            onPark={onPark}
+            onSleep={onSleep}
+          />
+        }
       >
         <Pressable
           ref={cardRef}

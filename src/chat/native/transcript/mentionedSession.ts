@@ -38,8 +38,11 @@ export function serverOfRef(globalRef: string): string {
 }
 
 /** The state word gx-chat-core's `session_choice` gives a session (the `+` picker's). */
-export function mentionState(session: Pick<GhostexSession, 'activity' | 'isSleeping' | 'status'>): MentionState {
-  if (session.isSleeping || session.status === 'sleeping') return 'Sleeping';
+export function mentionState(
+  session: Pick<GhostexSession, 'activity' | 'isSleeping' | 'status'> & Partial<Pick<GhostexSession, 'nonCliMode'>>,
+): MentionState {
+  // A released Native chat reads Idle (CDXC:SessionSleep 2026-11-27 in components/sessions/SessionRow.tsx).
+  if (session.nonCliMode !== true && (session.isSleeping || session.status === 'sleeping')) return 'Sleeping';
   if (session.activity === 'working') return 'Working';
   if (session.activity === 'attention') return 'Needs you';
   return 'Idle';

@@ -299,7 +299,11 @@ export default function SessionSearchSheet({
               style={
                 item.kind === 'closed'
                   ? [styles.statusDot, styles.statusDotClosed]
-                  : [styles.statusDot, { backgroundColor: item.session.isSleeping ? STATUS_DOT : STATUS_DOT_OPEN }]
+                  : [styles.statusDot, {
+                      // A released Native chat's dot reads open (CDXC:SessionSleep 2026-11-27 in components/sessions/SessionRow.tsx).
+                      backgroundColor:
+                        item.session.isSleeping && item.session.nonCliMode !== true ? STATUS_DOT : STATUS_DOT_OPEN,
+                    }]
               }
             />
           </>

@@ -182,6 +182,7 @@ import {
   buildProjectMenu,
   buildSessionMenu,
   isInactiveSession,
+  isSleepableSession,
   isRunningSession as isRunningMenuSession,
   isBrowserSession as isBrowserMenuSession,
   type ProjectOwnAction,
@@ -689,7 +690,10 @@ export function useSessionsScreenMenus({
         const sessions = sessionsForProject(machine, requireProject().header);
         void runBulkSessionActions(
           machine,
-          sessions.filter(isSleepingSession).map((session) => lifecycleSessionAction(session, false)),
+          sessions
+            .filter(isSleepableSession)
+            .filter(isSleepingSession)
+            .map((session) => lifecycleSessionAction(session, false)),
         );
         return;
       }
@@ -697,7 +701,10 @@ export function useSessionsScreenMenus({
         const sessions = sessionsForProject(machine, requireProject().header);
         void runBulkSessionActions(
           machine,
-          sessions.filter(isInactiveSession).map((session) => lifecycleSessionAction(session, true)),
+          sessions
+            .filter(isSleepableSession)
+            .filter(isInactiveSession)
+            .map((session) => lifecycleSessionAction(session, true)),
         );
         return;
       }
@@ -1078,8 +1085,9 @@ export function useSessionsScreenMenus({
     const summary = summaryFor(ctx.machine.id);
     const state = summary?.projectCollectionsState ?? null;
     const sessions = collectionMemberSessions(ctx);
-    const awake = sessions.filter(isRunningSession);
-    const sleeping = sessions.filter(isSleepingSession);
+    // Native chats are never slept or woken from a menu (CDXC:SessionSleep 2026-11-27 in sidebar-menus.ts `canSleep`).
+    const awake = sessions.filter(isSleepableSession).filter(isRunningSession);
+    const sleeping = sessions.filter(isSleepableSession).filter(isSleepingSession);
     // A coordinator's thread is never pinned (CDXC:Coordinators 2026-11-25 in contract/coordinatorTree.ts).
     const unpinned = sessions.filter((session) => !session.isPinned && !staysUnderCoordinator(session));
     const pinned = sessions.filter((session) => session.isPinned);
@@ -1228,8 +1236,8 @@ export function useSessionsScreenMenus({
   /** Named session-group header menu — desktop group-head menu. */
   const groupMenuItems = (ctx: GroupContext): ContextMenuItem[] => {
     const sessions = groupMemberSessions(ctx);
-    const running = sessions.filter(isRunningSession);
-    const sleeping = sessions.filter(isSleepingSession);
+    const running = sessions.filter(isSleepableSession).filter(isRunningSession);
+    const sleeping = sessions.filter(isSleepableSession).filter(isSleepingSession);
     const allSleeping = running.length === 0 && sleeping.length > 0;
     const nonBrowser = sessions.filter((session) => !isBrowserSession(session));
     const items: ContextMenuItem[] = [];
@@ -1295,7 +1303,9 @@ export function useSessionsScreenMenus({
       const session = summary?.sessions.find((entry) => entry.sessionId === sessionId);
       return session === undefined ? [] : [session];
     });
-    const sleepable = parked.filter((session) => !isBrowserMenuSession(session) && isRunningMenuSession(session));
+    const sleepable = parked.filter(
+      (session) => !isBrowserMenuSession(session) && isSleepableSession(session) && isRunningMenuSession(session),
+    );
     return [
       {
         kind: 'item',

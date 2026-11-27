@@ -147,6 +147,13 @@ export type GhostexSession = {
   isChief: boolean;
   /** gxserver is switching it between Native and Terminal-based (`switchingHostMode`): its chat keeps its view and says so above the chat box. */
   switchingHostMode?: boolean;
+  /**
+   * A Native chat (gxserver's `nonCliMode`; absent from an older computer). Ghostex stops its idle
+   * agent by itself and starts it again when a message is sent, so it has no Sleep row, no
+   * sleeping look and opening it never wakes it, while `isSleeping` still says whether its agent
+   * runs (server/src/session_native_release.rs).
+   */
+  nonCliMode?: true;
   /** A GBot's chat (`gbotsChat`), while GBots are on: drawn under its bot's row (contract/gbots.ts). */
   gbotsChat?: GhostexGbotsChat;
   /**

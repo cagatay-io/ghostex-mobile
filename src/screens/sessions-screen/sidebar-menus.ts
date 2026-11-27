@@ -238,6 +238,11 @@ export function isInactiveSession(session: GhostexSession): boolean {
   return !isBrowserSession(session) && isRunningSession(session) && status !== 'working' && status !== 'attention';
 }
 
+/** A session a Sleep or Wake menu row may act on: never a Native chat, which Ghostex stops and starts by itself (`canSleep` above). */
+export function isSleepableSession(session: GhostexSession): boolean {
+  return session.nonCliMode !== true;
+}
+
 function sessionAgentIcon(session: GhostexSession): string {
   return (session.agentIcon.length > 0 ? session.agentIcon : session.agent).trim().toLowerCase();
 }
@@ -358,7 +363,8 @@ function sessionCapabilities(session: GhostexSession): SessionCapabilities {
     canOpenNote: terminal && hasProject && session.agentSessionId.trim().length > 0,
     canPark: terminal && hasProject,
     canRename: terminal,
-    canSleep: isRunningSession(session) || isSleepingSession(session),
+    // CDXC:SessionSleep 2026-11-27 DECISION: User: "don't show sleep as an option if a chat is a native chat please" (gx-core sidebar_menu/capabilities.rs).
+    canSleep: session.nonCliMode !== true && (isRunningSession(session) || isSleepingSession(session)),
     canTag: terminal,
   };
 }
@@ -1042,6 +1048,7 @@ export function sessionMenuPlaces(input: SessionMenuInput, layout: SessionMenuLa
         const sleepable = below
           .filter(
             (entry) =>
+              isSleepableSession(entry) &&
               isRunningSession(entry) &&
               !hasBackgroundWork(entry) &&
               !hasQuestion(entry.pendingQuestionCount, capabilities.awaitingAnswer && entry.awaitingAnswer),
@@ -1178,10 +1185,11 @@ export function buildProjectMenu(input: ProjectMenuInput, layout: SessionMenuLay
     }
     return menu;
   }
-  const sleeping = input.sessions.some(isSleepingSession);
-  const running = input.sessions.some(isRunningSession);
+  const sleepable = input.sessions.filter(isSleepableSession);
+  const sleeping = sleepable.some(isSleepingSession);
+  const running = sleepable.some(isRunningSession);
   const allSleeping = sleeping && !running;
-  const hasInactive = input.sessions.some(isInactiveSession);
+  const hasInactive = sleepable.some(isInactiveSession);
   const fill = (id: string): SidebarMenuItem[] => {
     switch (id) {
       case 'projectDetails': {

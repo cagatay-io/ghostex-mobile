@@ -110,7 +110,11 @@ export function deriveIsLive(
  * from normalized activity then status; else !live && sleepish → "sleep"; else
  * first non-empty non-"running" activity/status; else "idle".
  */
-export function displayStatus(session: Pick<GhostexSession, 'activity' | 'status' | 'isSleeping' | 'isLive'>): string {
+export function displayStatus(
+  session: Pick<GhostexSession, 'activity' | 'status' | 'isSleeping' | 'isLive'> & Partial<Pick<GhostexSession, 'nonCliMode'>>,
+): string {
+  // CDXC:SessionSleep 2026-11-27 DECISION: User: "I really want users to not worry about "sleeping"". A Native chat whose idle agent Ghostex stopped reads as idle everywhere (counts, notification rows, mentions); `isSleeping` keeps the truth for the code that needs it.
+  if (session.nonCliMode === true && session.isSleeping && !session.isLive) return 'idle';
   if (session.isSleeping && !session.isLive) return 'sleep';
   const activityState = normalizeStatusToken(session.activity);
   const statusState = normalizeStatusToken(session.status);

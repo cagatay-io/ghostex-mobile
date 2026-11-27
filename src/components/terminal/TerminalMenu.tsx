@@ -195,7 +195,8 @@ function terminalMenu(props: TerminalMenuProps, layout: SessionMenuLayout): Side
       case 'delayedSend':
         return agentActionsEnabled ? own(id) : [];
       case 'sleep':
-        return agentActionsEnabled ? own(id, { alt: sleeping }) : [];
+        // A Native chat has no Sleep (CDXC:SessionSleep 2026-11-27 in screens/sessions-screen/sidebar-menus.ts `canSleep`).
+        return agentActionsEnabled && session?.nonCliMode !== true ? own(id, { alt: sleeping }) : [];
       case 'fork':
         return agentActionsEnabled && forkEnabled ? own(id) : [];
       case 'export':
