@@ -18,9 +18,10 @@
  */
 
 import { plural } from '../../../plural';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
+  Platform,
   Pressable,
   Text,
   View,
@@ -36,6 +37,7 @@ import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { Sheet } from '../composer/Sheet';
 import { askColor, tint } from './askCard';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { useChatInView } from '../transcript/context';
 import { openQuestionReply, useQuestionReplyOwner, type ReplyOwner } from '../transcript/QuestionReply';
 import { Markdown } from '../transcript/markdown/Markdown';
 import { messageCommands } from '../transcript/markdown/runCommands';
@@ -647,10 +649,27 @@ export function WorkAnswerLine({
   const row = reply !== null ? replyDraftRow(reply as never) : null;
   // A Reply opens in the chat this line is drawn in.
   const owner = useQuestionReplyOwner();
-  const openReply = (target: JsonRecord) => {
+  /*
+   * A Reply picked in the Choices sheet opens once that sheet has gone on iOS, which cannot present the Reply sheet
+   * over one still closing (the Details and Work sheets' way, `afterSheet`); Android opens it at once. A sheet this
+   * line stands in (`afterSheet`) takes it instead: when it goes, the Choices sheet in it has gone too. A Reply still
+   * waiting when the chat goes out of sight is dropped.
+   */
+  const replyAfterChoices = useRef<(() => void) | null>(null);
+  const inView = useChatInView();
+  useEffect(() => {
+    if (!inView) replyAfterChoices.current = null;
+  }, [inView]);
+  const choicesDismissed = () => {
+    const open = replyAfterChoices.current;
+    replyAfterChoices.current = null;
+    open?.();
+  };
+  const openReply = (target: JsonRecord, fromChoicesSheet = false) => {
     before?.('reply');
     const open = () => openWorkReply(target, owner, scope);
     if (afterSheet !== undefined) afterSheet(open);
+    else if (fromChoicesSheet && Platform.OS === 'ios') replyAfterChoices.current = open;
     else open();
   };
   const replyDraftText = useReplyDraft(scope, row !== null ? SESSION_REPLY_ROW : null);
@@ -824,7 +843,7 @@ export function WorkAnswerLine({
       ? () => {
           if (busy || locked) return;
           setChoosing(false);
-          openReply(reply);
+          openReply(reply, chooser === 'sheet');
         }
       : undefined;
   const list = multiple ? (
@@ -894,7 +913,12 @@ export function WorkAnswerLine({
       </View>
       {fold && chooser === 'inline' && choosing ? <View style={styles.choicesBox}>{list}</View> : null}
       {fold && chooser === 'sheet' ? (
-        <Sheet visible={choosing} onClose={() => setChoosing(false)} title={CHOOSE_ANSWER}>
+        <Sheet
+          visible={choosing}
+          onClose={() => setChoosing(false)}
+          onDismissed={choicesDismissed}
+          title={CHOOSE_ANSWER}
+        >
           {question.length > 0 ? <Text style={[styles.choiceQuestion, { color: P.cardMuted }]}>{question}</Text> : null}
           {list}
         </Sheet>
