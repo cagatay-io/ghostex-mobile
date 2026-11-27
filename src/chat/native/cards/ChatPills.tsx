@@ -66,6 +66,7 @@ import { approvalsWaitingLine } from './relayedApprovals';
 import { SidebarPalette } from '../../../theme/palette';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { useChatInView } from '../transcript/context';
+import { useDropWaitingReply } from '../transcript/QuestionReply';
 import { hiddenPageCount, hiddenPageDescription, hiddenPageWaiting, type HiddenPage } from './hiddenPages';
 
 /** How often the open Chat Resources list redraws so its ages stay current (desktop `AGE_REFRESH`). */
@@ -766,8 +767,8 @@ export function PillMenuSheet({
   const hostAfterDismiss = useRef<string | null>(null);
   /**
    * A Reply picked in the Work sheet (which closes for it) waits for the sheet to go on iOS too, so its own sheet is
-   * not dropped; Android opens it at once. One still waiting when the chat goes out of sight is dropped, so it does not
-   * come up when the chat is seen again.
+   * not dropped; Android opens it at once. One still waiting when the chat goes out of sight, or changes where it goes
+   * (`useDropWaitingReply`), is dropped, so it does not come up when the chat is seen again, nor in another session.
    */
   const replyAfterDismiss = useRef<(() => void) | null>(null);
   const replyAfterSheet = (openReply: () => void) => {
@@ -778,6 +779,7 @@ export function PillMenuSheet({
   useEffect(() => {
     if (!inView) replyAfterDismiss.current = null;
   }, [inView]);
+  useDropWaitingReply(replyAfterDismiss);
   const onDismissed = () => {
     const action = openAfterDismiss.current;
     openAfterDismiss.current = null;

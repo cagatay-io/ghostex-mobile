@@ -49,6 +49,7 @@ import { askColor, tint } from './askCard';
 import { AgentMark } from './agentMark';
 import { toneColor } from './CoordinatorBoard';
 import { QuestionFlashFrame } from '../transcript/OpenQuestions';
+import { useDropWaitingReply } from '../transcript/QuestionReply';
 import { CODE_SIZE, MONO_FONT, PROSE_LINE, PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import {
   TranscriptEnvProvider,
@@ -332,7 +333,8 @@ export function WorkDock({
    * A Reply picked in the row's sheet opens once the sheet has gone on iOS, which cannot present the Reply sheet over
    * one still closing and drops it without a word (the Work sheet's way, `ChatPills.tsx` `openAfterDismiss`); Android's
    * sheets are dialogs that open over a closing one, so it opens at once. A Reply still waiting when the chat goes out
-   * of sight is dropped: it does not come up when the chat is seen again.
+   * of sight, or changes where it goes (`useDropWaitingReply`), is dropped: it does not come up when the chat is seen
+   * again, nor in another session.
    */
   const replyAfterDismiss = useRef<(() => void) | null>(null);
   const replyAfterSheet = (open: () => void) => {
@@ -348,6 +350,7 @@ export function WorkDock({
   useEffect(() => {
     if (!inView) replyAfterDismiss.current = null;
   }, [inView]);
+  useDropWaitingReply(replyAfterDismiss);
   const [all, setAll] = useState(false);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
   const [recentOpen, setRecentOpen] = useState(false);

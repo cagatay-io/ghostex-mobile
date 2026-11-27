@@ -38,7 +38,12 @@ import { Sheet } from '../composer/Sheet';
 import { askColor, tint } from './askCard';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
 import { useChatInView } from '../transcript/context';
-import { openQuestionReply, useQuestionReplyOwner, type ReplyOwner } from '../transcript/QuestionReply';
+import {
+  openQuestionReply,
+  useDropWaitingReply,
+  useQuestionReplyOwner,
+  type ReplyOwner,
+} from '../transcript/QuestionReply';
 import { Markdown } from '../transcript/markdown/Markdown';
 import { messageCommands } from '../transcript/markdown/runCommands';
 import { replyDraftRow, SESSION_REPLY_ROW, useReplyDraft, type ReplyDraftScope } from './replyDrafts';
@@ -653,13 +658,14 @@ export function WorkAnswerLine({
    * A Reply picked in the Choices sheet opens once that sheet has gone on iOS, which cannot present the Reply sheet
    * over one still closing (the Details and Work sheets' way, `afterSheet`); Android opens it at once. A sheet this
    * line stands in (`afterSheet`) takes it instead: when it goes, the Choices sheet in it has gone too. A Reply still
-   * waiting when the chat goes out of sight is dropped.
+   * waiting when the chat goes out of sight, or changes where it goes (`useDropWaitingReply`), is dropped.
    */
   const replyAfterChoices = useRef<(() => void) | null>(null);
   const inView = useChatInView();
   useEffect(() => {
     if (!inView) replyAfterChoices.current = null;
   }, [inView]);
+  useDropWaitingReply(replyAfterChoices);
   const choicesDismissed = () => {
     const open = replyAfterChoices.current;
     replyAfterChoices.current = null;

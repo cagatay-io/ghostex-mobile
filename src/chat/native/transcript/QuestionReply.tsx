@@ -10,9 +10,11 @@
  * closed, and after a restart of the app; sending drops them.
  *
  * An open Reply belongs to the chat screen that opened it (`ReplyOwner`: that mounted screen, and its computer,
- * project and session). Only that screen's sheet draws it, sends it and closes it, and only while the reader sees that
- * screen (`useChatInView`); the screen parking, going out of sight or closing closes it. Another screen of the same
- * session (a second Terminal route, opened by a notification over Accounts) neither draws nor closes it.
+ * project and session). Only that screen's sheet draws it, sends it and closes it, only while that screen still has
+ * that computer, project and session, and only while the reader sees that screen (`useChatInView`); the screen
+ * parking, going out of sight, closing or changing where it goes (its project found anew) closes it, and drops one
+ * still waiting for a sheet to go (`useDropWaitingReply`). Another screen of the same session (a second Terminal
+ * route, opened by a notification over Accounts) neither draws nor closes it.
  *
  * CDXC:Coordinators 2026-11-27 WHY:
  * User, of a question card in a coordinator chat (in German, translated): "when I press on it, it does not come. When I
@@ -22,7 +24,7 @@
  * next chat that mounted.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { create } from 'zustand';
 
 import type { RustChat } from '../../rust/useRustChat';
@@ -69,8 +71,8 @@ export type QuestionReplyTarget = {
 };
 
 /**
- * The chat screen a Reply belongs to: that mounted screen (`instanceId`, what decides who draws, sends and closes it),
- * and the phone's id of its computer, its project and its session (where it goes).
+ * The chat screen a Reply belongs to: that mounted screen (`instanceId`), and the phone's id of its computer, its
+ * project and its session (where it goes). All four decide who draws, sends and closes it.
  */
 export type ReplyOwner = { instanceId: string; machineId: string; projectId: string; sessionId: string };
 
@@ -78,8 +80,20 @@ type Opened = { target: QuestionReplyTarget; owner: ReplyOwner; row: string | nu
 
 const useQuestionReply = create<{ opened: Opened | null }>(() => ({ opened: null }));
 
+/*
+ * CDXC:Coordinators 2026-11-27 WHY:
+ * User decision, of a Reply that opened in a chat screen whose project was found anew while it waited (in German,
+ * translated): "If the target changes (computer, project, session), a waiting or open answer is dropped." One mounted
+ * screen keeps its tab while its project is looked up again from the inventory, and a session's id is unique only
+ * within its project, so the same screen with another project can be another session: its Reply must not go there.
+ */
 function sameOwner(left: ReplyOwner, right: ReplyOwner): boolean {
-  return left.instanceId === right.instanceId;
+  return (
+    left.instanceId === right.instanceId &&
+    left.machineId === right.machineId &&
+    left.projectId === right.projectId &&
+    left.sessionId === right.sessionId
+  );
 }
 
 /** The chat screen these views belong to, as a Reply's owner; null outside a chat screen, where none could draw. */
@@ -104,6 +118,20 @@ export function openQuestionReply(target: QuestionReplyTarget, owner: ReplyOwner
   const scope = target.scope ?? null;
   const row = replyDraftRow(target) ?? SESSION_REPLY_ROW;
   useQuestionReply.setState({ opened: { target, owner, row, initial: replyDraft(scope, row) } });
+}
+
+/**
+ * Drops `waiting` (a Reply's opening that waits for a sheet to go) when this chat screen's Reply owner is no longer the
+ * one it was: the late `onDismissed` then opens nothing, in neither the old session nor the new one.
+ */
+export function useDropWaitingReply(waiting: { current: (() => void) | null }): void {
+  const owner = useQuestionReplyOwner();
+  const was = useRef(owner);
+  useEffect(() => {
+    const before = was.current;
+    was.current = owner;
+    if (before !== null && (owner === null || !sameOwner(before, owner))) waiting.current = null;
+  }, [owner, waiting]);
 }
 
 /** Closes the open Reply when `owner`'s chat owns it; another chat's stays. */
@@ -159,7 +187,7 @@ export function QuestionReplyHost({ chat }: { chat: RustChat }) {
   useEffect(() => {
     if (owned && !inView && self !== null) closeQuestionReplyOf(self);
   }, [owned, inView, self]);
-  // This chat closing closes its Reply with it.
+  // This chat closing, or changing where it goes (another project, computer or session), closes its Reply with it.
   useEffect(() => {
     if (self === null) return undefined;
     return () => closeQuestionReplyOf(self);
