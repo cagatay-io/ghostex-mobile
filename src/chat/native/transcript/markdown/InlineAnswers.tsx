@@ -15,7 +15,7 @@ import { useTranscriptEnv, useTranscriptFlags } from '../context';
 import { arr, obj, str, type JsonRecord } from '../json';
 import { QuestionFlashFrame } from '../OpenQuestions';
 import { useQuestionFormState } from '../QuestionForm';
-import { openQuestionReply } from '../QuestionReply';
+import { openQuestionReply, useQuestionReplyOwner } from '../QuestionReply';
 import { replyDraftScopeOf, SESSION_REPLY_ROW, useReplyDraft } from '../../cards/replyDrafts';
 
 /** The reader's own answer as the status quotes it: its first line, at most 48 characters. */
@@ -50,6 +50,8 @@ function withAlpha(color: string, alpha: number): string {
 
 export function InlineAnswers({ mark }: { mark: JsonRecord }) {
   const { theme, dispatch } = useTranscriptEnv();
+  // Its ✎ opens the Reply in the chat this question is drawn in.
+  const owner = useQuestionReplyOwner();
   const formId = str(mark, 'form');
   const form = useQuestionFormState(formId);
   // Asked by a work item too: drawn once, as its ask card (gx-chat-core work_cards.rs `card_tags`).
@@ -186,7 +188,9 @@ export function InlineAnswers({ mark }: { mark: JsonRecord }) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Write your own answer"
-                onPress={() => openQuestionReply({ form: formId, tag, name: shortName(str(mark, 'question')) })}
+                onPress={() =>
+                  openQuestionReply({ form: formId, tag, name: shortName(str(mark, 'question')) }, owner)
+                }
                 style={({ pressed }) => [
                   styles.segment,
                   stacked && styles.stackedSegment,

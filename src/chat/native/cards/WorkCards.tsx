@@ -15,6 +15,7 @@ import * as Clipboard from 'expo-clipboard';
 import {
   Animated,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -53,6 +54,7 @@ import {
   TranscriptEnvProvider,
   TranscriptFlagsProvider,
   transcriptFlags,
+  useChatInView,
   useTranscriptFlags,
   type TranscriptEnv,
 } from '../transcript/context';
@@ -326,6 +328,26 @@ export function WorkDock({
   const dispatch = chat.dispatch;
   // The row whose ask is shown in its sheet (`DockRow` with `onClose`), by key.
   const [sheetKey, setSheetKey] = useState<string | null>(null);
+  /*
+   * A Reply picked in the row's sheet opens once the sheet has gone on iOS, which cannot present the Reply sheet over
+   * one still closing and drops it without a word (the Work sheet's way, `ChatPills.tsx` `openAfterDismiss`); Android's
+   * sheets are dialogs that open over a closing one, so it opens at once. A Reply still waiting when the chat goes out
+   * of sight is dropped: it does not come up when the chat is seen again.
+   */
+  const replyAfterDismiss = useRef<(() => void) | null>(null);
+  const replyAfterSheet = (open: () => void) => {
+    if (Platform.OS === 'ios') replyAfterDismiss.current = open;
+    else open();
+  };
+  const sheetDismissed = () => {
+    const open = replyAfterDismiss.current;
+    replyAfterDismiss.current = null;
+    open?.();
+  };
+  const inView = useChatInView();
+  useEffect(() => {
+    if (!inView) replyAfterDismiss.current = null;
+  }, [inView]);
   const [all, setAll] = useState(false);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
   const [recentOpen, setRecentOpen] = useState(false);
@@ -660,10 +682,21 @@ export function WorkDock({
             )}
           </View>
         </View>
-        <Sheet visible={sheetRow !== null} onClose={() => setSheetKey(null)} maxHeight="85%">
+        <Sheet
+          visible={sheetRow !== null}
+          onClose={() => setSheetKey(null)}
+          onDismissed={sheetDismissed}
+          maxHeight="85%"
+        >
           {sheetRow !== null ? (
             <ScrollView style={styles.askSheet} contentContainerStyle={styles.askSheetContent}>
-              <DockRow row={sheetRow} chat={chat} scope={scope} onClose={() => setSheetKey(null)} />
+              <DockRow
+                row={sheetRow}
+                chat={chat}
+                scope={scope}
+                onClose={() => setSheetKey(null)}
+                afterSheet={replyAfterSheet}
+              />
             </ScrollView>
           ) : null}
         </Sheet>
@@ -1153,12 +1186,15 @@ function DockRow({
   scope,
   onShow,
   onClose,
+  afterSheet,
 }: {
   row: JsonRecord;
   chat: RustChat;
   scope: ReplyDraftScope | null;
   onShow?: () => void;
   onClose?: () => void;
+  /** In the sheet: takes its Reply's opening to run once the sheet has gone (`WorkAnswerLine`'s `afterSheet`). */
+  afterSheet?: (open: () => void) => void;
 }) {
   const styles = useStyles();
   const P = useTranscriptTheme();
@@ -1300,6 +1336,7 @@ function DockRow({
           question={str(row, 'title')}
           scope={scope}
           dispatch={dispatch as never}
+          afterSheet={afterSheet}
           before={onClose === undefined ? undefined : () => onClose()}
           pills={pills}
           logos={logos}

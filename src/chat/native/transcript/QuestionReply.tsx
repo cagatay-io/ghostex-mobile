@@ -8,13 +8,24 @@
  * A work item's Reply (the dock's and the Work panel's) keeps what was typed and not sent
  * (`replyDrafts.ts`, the desktop's `KEPT_REPLIES`): it opens with those words again however it
  * closed, and after a restart of the app; sending drops them.
+ *
+ * An open Reply belongs to the chat that opened it (`ReplyOwner`: its computer, project and session). Only that
+ * chat's sheet draws it and sends it, and only while the reader sees that chat (`useChatInView`); the chat parking,
+ * going out of sight or closing closes it.
+ *
+ * CDXC:Coordinators 2026-11-27 WHY:
+ * User, of a question card in a coordinator chat (in German, translated): "when I press on it, it does not come. When I
+ * then go to the session list, it comes up at some point at random … this one bug can always be reproduced". The
+ * open Reply was one store for the whole app: every chat kept warm drew it as its own sheet (and could send it into
+ * its own session), and nothing closed it when its chat parked or closed, so a Reply that never showed came up in the
+ * next chat that mounted.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 
 import type { RustChat } from '../../rust/useRustChat';
-import { useTranscriptEnv } from './context';
+import { useChatInView, useOptionalNativeChatUi, useTranscriptEnv } from './context';
 import { ReplySheet } from './ReplySheet';
 import {
   dropReplyDrafts,
@@ -56,20 +67,43 @@ export type QuestionReplyTarget = {
   name?: string;
 };
 
-type Opened = { target: QuestionReplyTarget; row: string | null; initial: string };
+/** The chat a Reply belongs to: the phone's id of its computer, its project and its session. */
+export type ReplyOwner = { machineId: string; projectId: string; sessionId: string };
+
+type Opened = { target: QuestionReplyTarget; owner: ReplyOwner; row: string | null; initial: string };
 
 const useQuestionReply = create<{ opened: Opened | null }>(() => ({ opened: null }));
 
-export function openQuestionReply(target: QuestionReplyTarget): void {
+function sameOwner(left: ReplyOwner, right: ReplyOwner): boolean {
+  return left.machineId === right.machineId && left.projectId === right.projectId && left.sessionId === right.sessionId;
+}
+
+/** The chat these views belong to, as a Reply's owner; null outside a chat screen, where no sheet could draw one. */
+export function useQuestionReplyOwner(): ReplyOwner | null {
+  const ui = useOptionalNativeChatUi();
+  const machineId = ui?.homeMachineId ?? null;
+  const projectId = ui?.projectId ?? '';
+  const sessionId = ui?.sessionId ?? '';
+  return useMemo(
+    () => (machineId === null ? null : { machineId, projectId, sessionId }),
+    [machineId, projectId, sessionId],
+  );
+}
+
+/** Opens `target`'s Reply in `owner`'s chat; with no owner (outside a chat) there is none to open. */
+export function openQuestionReply(target: QuestionReplyTarget, owner: ReplyOwner | null): void {
+  if (owner === null) return;
   // A work item's own Reply (no question tag) answers the item: "W7: words".
   if (target.tag.length === 0 && (target.item ?? '').length === 0 && (target.questions ?? '').length === 0) return;
   const scope = target.scope ?? null;
   const row = replyDraftRow(target) ?? SESSION_REPLY_ROW;
-  useQuestionReply.setState({ opened: { target, row, initial: replyDraft(scope, row) } });
+  useQuestionReply.setState({ opened: { target, owner, row, initial: replyDraft(scope, row) } });
 }
 
-function closeQuestionReply(): void {
-  useQuestionReply.setState({ opened: null });
+/** Closes the open Reply when `owner`'s chat owns it; another chat's stays. */
+function closeQuestionReplyOf(owner: ReplyOwner): void {
+  const { opened } = useQuestionReply.getState();
+  if (opened !== null && sameOwner(opened.owner, owner)) useQuestionReply.setState({ opened: null });
 }
 
 /** The tags Reply in chat box's pill names for `target` and whether it answers them (gx-chat-core `answer_pills::pill`). */
@@ -108,7 +142,22 @@ function addToChatBox(
 
 export function QuestionReplyHost({ chat }: { chat: RustChat }) {
   const { dispatch } = useTranscriptEnv();
-  const opened = useQuestionReply((store) => store.opened);
+  const self = useQuestionReplyOwner();
+  const inView = useChatInView();
+  const stored = useQuestionReply((store) => store.opened);
+  const owned = stored !== null && self !== null && sameOwner(stored.owner, self);
+  // Another chat's Reply, or this chat's while the reader does not see it, is not drawn here.
+  const opened = owned && inView ? stored : null;
+  // This chat out of sight (parked, its terminal shown, another screen over it) closes its Reply, also one that
+  // opened while it was: it never comes up later by itself.
+  useEffect(() => {
+    if (owned && !inView && self !== null) closeQuestionReplyOf(self);
+  }, [owned, inView, self]);
+  // This chat closing closes its Reply with it.
+  useEffect(() => {
+    if (self === null) return undefined;
+    return () => closeQuestionReplyOf(self);
+  }, [self]);
   const target = opened?.target ?? null;
   // Every Reply keeps the session's one draft: a question in the transcript has no scope of its
   // own, so it takes its chat's (the dock registers it, `replyDrafts.ts`).
@@ -122,11 +171,14 @@ export function QuestionReplyHost({ chat }: { chat: RustChat }) {
   const direct =
     target !== null && target.arrow === true && chat.state?.document?.inboxReplyInChat === true && namesATag(target);
   useEffect(() => {
-    if (!direct || target === null) return;
-    closeQuestionReply();
+    if (!direct || target === null || self === null) return;
+    closeQuestionReplyOf(self);
     // The sheet's kept words stay for its next opening: nothing of them goes in.
     addToChatBox(chat, target, '', null, null);
-  }, [direct, target, chat]);
+  }, [direct, target, chat, self]);
+  const close = () => {
+    if (self !== null) closeQuestionReplyOf(self);
+  };
   return (
     <ReplySheet
       quote={target !== null && !direct ? '' : null}
@@ -134,10 +186,10 @@ export function QuestionReplyHost({ chat }: { chat: RustChat }) {
       chat={chat}
       initialText={initial}
       onChangeText={scope !== null && row !== null ? (text) => keepReplyDraft(scope, row, text) : undefined}
-      onClose={closeQuestionReply}
+      onClose={close}
       extras={{ machine: chat.machine, uploadFiles: chat.uploadFiles }}
       onReply={(_, reply, action) => {
-        closeQuestionReply();
+        close();
         const text = reply.trim();
         if (target === null) return;
         // Reply in chat box: what it answers goes into the chat box as a pill inside the text, by

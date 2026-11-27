@@ -30,7 +30,7 @@ import { RIGHT_TO_LEFT_TEXT, startsRightToLeft } from './textDirection';
 import { MarkedSection, useMarkedEmoji, useMarkedStyle } from './MarkedSections';
 import { SessionPill } from '../SessionPill';
 import type { MentionTarget } from '../mentionedSession';
-import { openQuestionReply } from '../QuestionReply';
+import { openQuestionReply, useQuestionReplyOwner } from '../QuestionReply';
 
 /** One `markdownReferences` entry; `record` is the whole entry (a `session` pill reads its logo and state). */
 type Reference = { label: string; kind: string; state: string; title: string; record: JsonRecord };
@@ -309,12 +309,14 @@ function QuestionTagPill({ reference, href, context }: { reference: Reference; h
   // On its own one-click question the tag answers it there instead of jumping (desktop
   // `here_tag`, gx-chat-core `jump_to_tag`).
   const here = reference.record.here === true ? str(reference.record, 'tag') : '';
+  // Its Reply opens in the chat this tag is drawn in.
+  const owner = useQuestionReplyOwner();
   return (
     <Text>
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={reference.title}
-        onPress={() => (here.length > 0 ? openQuestionReply({ form: null, tag: here }) : context.openLink(href))}
+        onPress={() => (here.length > 0 ? openQuestionReply({ form: null, tag: here }, owner) : context.openLink(href))}
         {...(context.longPressLink !== undefined ? { onLongPress: () => context.longPressLink?.(href) } : {})}
         style={({ pressed }) => [
           styles.questionTag,

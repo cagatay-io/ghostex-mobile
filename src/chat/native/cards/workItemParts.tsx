@@ -36,7 +36,7 @@ import { arr, isTrue, obj, str, type JsonRecord } from './json';
 import { Sheet } from '../composer/Sheet';
 import { askColor, tint } from './askCard';
 import { PROSE_SIZE, themedStyles, useTranscriptTheme } from '../transcript/theme';
-import { openQuestionReply } from '../transcript/QuestionReply';
+import { openQuestionReply, useQuestionReplyOwner, type ReplyOwner } from '../transcript/QuestionReply';
 import { Markdown } from '../transcript/markdown/Markdown';
 import { messageCommands } from '../transcript/markdown/runCommands';
 import { replyDraftRow, SESSION_REPLY_ROW, useReplyDraft, type ReplyDraftScope } from './replyDrafts';
@@ -190,17 +190,20 @@ function replyLabel(replied: string): string {
   return replied.length > 32 ? `${replied.slice(0, 31).trimEnd()}…` : replied;
 }
 
-/** Opens a work item's Reply sheet, which keeps its draft for the chat (`replyDrafts.ts`). */
-export function openWorkReply(reply: JsonRecord, scope: ReplyDraftScope | null): void {
-  openQuestionReply({
-    form: typeof reply.form === 'string' ? reply.form : null,
-    tag: str(reply, 'tag'),
-    name: str(reply, 'name'),
-    ...(typeof reply.item === 'string' ? { item: reply.item, key: str(reply, 'key') } : {}),
-    ...(typeof reply.questions === 'string' ? { questions: reply.questions, to: str(reply, 'to') } : {}),
-    scope,
-    arrow: true,
-  });
+/** Opens a work item's Reply sheet in `owner`'s chat, which keeps its draft for the chat (`replyDrafts.ts`). */
+export function openWorkReply(reply: JsonRecord, owner: ReplyOwner | null, scope: ReplyDraftScope | null): void {
+  openQuestionReply(
+    {
+      form: typeof reply.form === 'string' ? reply.form : null,
+      tag: str(reply, 'tag'),
+      name: str(reply, 'name'),
+      ...(typeof reply.item === 'string' ? { item: reply.item, key: str(reply, 'key') } : {}),
+      ...(typeof reply.questions === 'string' ? { questions: reply.questions, to: str(reply, 'to') } : {}),
+      scope,
+      arrow: true,
+    },
+    owner,
+  );
 }
 
 /**
@@ -559,6 +562,7 @@ export function WorkAnswerLine({
   scope,
   dispatch,
   before,
+  afterSheet,
   question = '',
   chooser = 'sheet',
   initialChoosing = false,
@@ -583,6 +587,11 @@ export function WorkAnswerLine({
   dispatch: (action: never) => void;
   /** Runs before a Reply or an answer goes (the Work sheet closes for the Reply sheet). */
   before?: (kind: 'reply' | 'answer') => void;
+  /**
+   * The sheet this line stands in, which closes for the Reply (`before`): it is handed the Reply's opening to run once
+   * it has gone, as iOS cannot present the Reply sheet over a sheet still closing (`ChatPills.tsx` `openAfterDismiss`).
+   */
+  afterSheet?: (open: () => void) => void;
   /** The ask, over the answers in the Choose an answer sheet. */
   question?: string;
   chooser?: 'sheet' | 'inline';
@@ -636,6 +645,14 @@ export function WorkAnswerLine({
     setLineWidth((was) => (was === next ? was : next));
   }, []);
   const row = reply !== null ? replyDraftRow(reply as never) : null;
+  // A Reply opens in the chat this line is drawn in.
+  const owner = useQuestionReplyOwner();
+  const openReply = (target: JsonRecord) => {
+    before?.('reply');
+    const open = () => openWorkReply(target, owner, scope);
+    if (afterSheet !== undefined) afterSheet(open);
+    else open();
+  };
   const replyDraftText = useReplyDraft(scope, row !== null ? SESSION_REPLY_ROW : null);
   const given = answers.some((answer) => isTrue(answer, 'picked'));
   const locked = given || answers.some((answer) => isTrue(answer, 'locked'));
@@ -653,8 +670,7 @@ export function WorkAnswerLine({
         disabled={(busy || locked) && replied.length === 0}
         onPress={() => {
           if (replied.length > 0) return;
-          before?.('reply');
-          openWorkReply(reply, scope);
+          openReply(reply);
         }}
       />
     ) : null;
@@ -808,8 +824,7 @@ export function WorkAnswerLine({
       ? () => {
           if (busy || locked) return;
           setChoosing(false);
-          before?.('reply');
-          openWorkReply(reply, scope);
+          openReply(reply);
         }
       : undefined;
   const list = multiple ? (

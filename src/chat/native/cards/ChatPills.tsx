@@ -65,6 +65,7 @@ import { RelayedApprovalsMenu } from './RelayedApprovalCard';
 import { approvalsWaitingLine } from './relayedApprovals';
 import { SidebarPalette } from '../../../theme/palette';
 import { themedStyles, useTranscriptTheme } from '../transcript/theme';
+import { useChatInView } from '../transcript/context';
 import { hiddenPageCount, hiddenPageDescription, hiddenPageWaiting, type HiddenPage } from './hiddenPages';
 
 /** How often the open Chat Resources list redraws so its ages stay current (desktop `AGE_REFRESH`). */
@@ -763,6 +764,20 @@ export function PillMenuSheet({
   };
   /** Autopilot's settings row navigates away; on iOS that waits for this sheet's modal to go too. */
   const hostAfterDismiss = useRef<string | null>(null);
+  /**
+   * A Reply picked in the Work sheet (which closes for it) waits for the sheet to go on iOS too, so its own sheet is
+   * not dropped; Android opens it at once. One still waiting when the chat goes out of sight is dropped, so it does not
+   * come up when the chat is seen again.
+   */
+  const replyAfterDismiss = useRef<(() => void) | null>(null);
+  const replyAfterSheet = (openReply: () => void) => {
+    if (Platform.OS === 'ios') replyAfterDismiss.current = openReply;
+    else openReply();
+  };
+  const inView = useChatInView();
+  useEffect(() => {
+    if (!inView) replyAfterDismiss.current = null;
+  }, [inView]);
   const onDismissed = () => {
     const action = openAfterDismiss.current;
     openAfterDismiss.current = null;
@@ -770,6 +785,9 @@ export function PillMenuSheet({
     const host = hostAfterDismiss.current;
     hostAfterDismiss.current = null;
     if (host !== null) onHost?.(host);
+    const reply = replyAfterDismiss.current;
+    replyAfterDismiss.current = null;
+    reply?.();
   };
   /** An Autopilot row: the toggle runs in the core, the settings row on the chat screen. */
   const runAutopilotRow = (command: { [key: string]: unknown }) => {
@@ -810,7 +828,13 @@ export function PillMenuSheet({
       {open === 'threads' ? (
         <CoordinatorThreadsMenu chat={chat} document={document} onDone={close} />
       ) : open === 'board' ? (
-        <CoordinatorBoardMenu chat={chat} document={document} onDone={close} focus={boardFocus} />
+        <CoordinatorBoardMenu
+          chat={chat}
+          document={document}
+          onDone={close}
+          afterSheet={replyAfterSheet}
+          focus={boardFocus}
+        />
       ) : open === INTRO_PILL ? (
         <CoordinatorIntroMenu
           chat={chat}

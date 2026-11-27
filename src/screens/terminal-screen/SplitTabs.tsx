@@ -131,6 +131,8 @@ export function SplitChatPanes({ tabs, view, dividerColor, onFocus, renderPane, 
 export type SplitPaneChatProps = {
   tab: TerminalTab;
   focused: boolean;
+  /** Whether the terminal screen is the focused screen (the chat's `screenFocused`). */
+  screenFocused: boolean;
   /** This side's tabs, for the transcript's sideways swipe between them. */
   sideKeys: readonly string[];
   onSelect: (sessionKey: string) => void;
@@ -166,6 +168,7 @@ function useFocusedRequests(requestId: number, focused: boolean): number {
 export function SplitPaneChat({
   tab,
   focused,
+  screenFocused,
   sideKeys,
   onSelect,
   hostActions,
@@ -234,6 +237,7 @@ export function SplitPaneChat({
       hostActions={hostActions}
       onHostAction={onHostAction}
       visible
+      screenFocused={screenFocused}
       openSearchRequestId={searchRequests}
       openSessionNoteRequestId={noteRequests}
       onQueueCountChange={focused ? onQueueCountChange : undefined}
