@@ -1260,6 +1260,8 @@ export function previousSessionsCommand(options: {
   cursor?: string;
   projectId?: string;
   limit: number;
+  /** Also match what was said in each chat (`--chat-search`); an older ghostex ignores it. */
+  chatSearch?: boolean;
 }): string {
   const parts = ['ghostex previous-sessions'];
   const query = options.query?.trim() ?? '';
@@ -1269,6 +1271,7 @@ export function previousSessionsCommand(options: {
   const projectId = options.projectId?.trim() ?? '';
   if (projectId.length > 0) parts.push(`--project-id ${shellQuote(projectId)}`);
   parts.push(`--limit ${Math.max(1, Math.floor(options.limit))}`);
+  if (options.chatSearch === true && query.length > 0) parts.push('--chat-search');
   parts.push('--json');
   return parts.join(' ');
 }

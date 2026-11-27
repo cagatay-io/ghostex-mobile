@@ -14,7 +14,7 @@
  * keyboard dismissed, so it does not jump between the halves.
  */
 
-import { useMemo, useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAppearance, type Appearance } from '../../theme/useAppearance';
 
 import {
@@ -26,7 +26,9 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
   type TextInputInstance,
+  type TextStyle,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,10 +39,11 @@ import { resolveSessionTag } from '../../contract/sessionTags';
 import { SessionSearchCopy } from '../../copy';
 import { useInventoryStore } from '../../inventory/store';
 import { machineDisplayLabel, type MachineRecord } from '../../machines/store';
-import { fetchClosedSessions } from '../../sessions/closedSessions';
+import { searchClosedSessions } from '../../sessions/closedSessions';
 import {
   searchSessions,
   sessionSearchRelativeTime,
+  type ChatMatch,
   type ClosedSession,
   type SessionSearchRow,
   type SessionSearchSource,
@@ -76,6 +79,35 @@ const ROW_SELECTED = 'rgba(255,255,255,0.075)';
 const GLYPH_TILE = 'rgba(255,255,255,0.07)';
 const STATUS_DOT = 'rgba(255,255,255,0.20)';
 const STATUS_DOT_OPEN = '#FFFFFF';
+/** The fill behind the search words, the desktop Quick Access's (`search_hit`). */
+const SEARCH_HIT = 'rgba(255,255,255,0.13)';
+
+/** `text` with the search words (`ranges`) in `hitStyle`: the hit fill, semibold, the title colour. */
+function Highlighted({
+  text,
+  ranges,
+  hitStyle,
+}: {
+  text: string;
+  ranges: readonly [number, number][];
+  hitStyle: StyleProp<TextStyle>;
+}) {
+  if (ranges.length === 0) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  ranges.forEach(([start, end], index) => {
+    if (start < at || end > text.length) return;
+    if (start > at) parts.push(text.slice(at, start));
+    parts.push(
+      <Text key={index} style={hitStyle}>
+        {text.slice(start, end)}
+      </Text>,
+    );
+    at = end;
+  });
+  if (at < text.length) parts.push(text.slice(at));
+  return <>{parts}</>;
+}
 /** Each keystroke would be an SSH round trip per computer; wait for a pause in typing. */
 const CLOSED_QUERY_DEBOUNCE_MS = 300;
 
@@ -102,6 +134,7 @@ export default function SessionSearchSheet({
   const { height: windowHeight } = useWindowDimensions();
   const panelBottom = keyboardUp ? 8 : fold !== null ? windowHeight - fold.top + FOLD_CLEARANCE : insets.bottom + 8;
   const [closedByMachine, setClosedByMachine] = useState<Record<string, ClosedSession[]>>({});
+  const [chatMatchesByMachine, setChatMatchesByMachine] = useState<Record<string, ChatMatch[]>>({});
   const [closedLoading, setClosedLoading] = useState(false);
   const [closedFailures, setClosedFailures] = useState<string[]>([]);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
@@ -128,6 +161,7 @@ export default function SessionSearchSheet({
     if (!visible) {
       closedGeneration.current += 1;
       setClosedByMachine({});
+      setChatMatchesByMachine({});
       setClosedFailures([]);
       setClosedLoading(false);
       return undefined;
@@ -141,21 +175,27 @@ export default function SessionSearchSheet({
           try {
             return {
               machine,
-              sessions: await fetchClosedSessions(machine, query, nowMs, historyProjectId ?? undefined),
+              found: await searchClosedSessions(machine, query, nowMs, historyProjectId ?? undefined),
             };
           } catch {
-            return { machine, sessions: null };
+            return { machine, found: null };
           }
         }),
       ).then((answers) => {
         if (generation !== closedGeneration.current) return;
         const next: Record<string, ClosedSession[]> = {};
+        const chats: Record<string, ChatMatch[]> = {};
         const failures: string[] = [];
-        for (const { machine, sessions } of answers) {
-          if (sessions === null) failures.push(machineDisplayLabel(machine));
-          else next[machine.id] = sessions;
+        for (const { machine, found } of answers) {
+          if (found === null) {
+            failures.push(machineDisplayLabel(machine));
+          } else {
+            next[machine.id] = found.sessions;
+            chats[machine.id] = found.chatMatches;
+          }
         }
         setClosedByMachine(next);
+        setChatMatchesByMachine(chats);
         setClosedFailures(failures);
         setClosedLoading(false);
       });
@@ -181,10 +221,11 @@ export default function SessionSearchSheet({
             projectLabel: session.projectName.trim(),
           })),
           closed: closedByMachine[machine.id] ?? [],
+          chatMatches: chatMatchesByMachine[machine.id] ?? [],
         },
       ];
     });
-  }, [reporting, inventoriesByMachineId, closedByMachine]);
+  }, [reporting, inventoriesByMachineId, closedByMachine, chatMatchesByMachine]);
 
   const nowMs = Date.now();
   const groups = useMemo(
@@ -261,7 +302,13 @@ export default function SessionSearchSheet({
     const time = sessionSearchRelativeTime(item.timestamp, nowMs);
     const closed = item.kind === 'closed';
     const restoring = restoringKey === item.key;
-    const label = [item.title, item.projectLabel, closed ? SessionSearchCopy.closedLabel : '']
+    const chat = item.chatLine;
+    const label = [
+      item.title,
+      item.projectLabel,
+      closed ? SessionSearchCopy.closedLabel : '',
+      chat === null ? '' : `${chat.who}: ${chat.text}`,
+    ]
       .filter((part) => part.length > 0)
       .join(', ');
     return (
@@ -277,13 +324,22 @@ export default function SessionSearchSheet({
         onPress={() => open(item)}
       >
         {glyph}
-        <View style={styles.rowText}>
-          <Text style={styles.rowTitle} numberOfLines={1} ellipsizeMode="tail">
-            {item.title}
-          </Text>
-          {item.projectLabel.length > 0 ? (
-            <Text style={styles.rowProject} numberOfLines={1} ellipsizeMode="tail">
-              {item.projectLabel}
+        <View style={styles.rowBody}>
+          <View style={styles.rowText}>
+            <Text style={styles.rowTitle} numberOfLines={1} ellipsizeMode="tail">
+              <Highlighted text={item.title} ranges={item.titleHighlights} hitStyle={styles.hit} />
+            </Text>
+            {item.projectLabel.length > 0 ? (
+              <Text style={styles.rowProject} numberOfLines={1} ellipsizeMode="tail">
+                {item.projectLabel}
+              </Text>
+            ) : null}
+          </View>
+          {chat !== null ? (
+            // CDXC:Sessions 2026-11-27: the words a chat matched by, under its title, as the desktop draws them.
+            <Text style={styles.rowChat} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={styles.rowChatWho}>{`${chat.who}: `}</Text>
+              <Highlighted text={chat.text} ranges={chat.highlights} hitStyle={styles.hit} />
             </Text>
           ) : null}
         </View>
@@ -403,11 +459,14 @@ export default function SessionSearchSheet({
             sections={sections}
             keyExtractor={(row) => row.key}
             renderItem={renderRow}
-            renderSectionHeader={({ section }) => (
-              <Text style={styles.sectionHeading} numberOfLines={1}>
-                {section.title}
-              </Text>
-            )}
+            renderSectionHeader={({ section }) =>
+              // A search is one list with no heading (sessionSearch.ts `searchSessions`).
+              section.title.length === 0 ? null : (
+                <Text style={styles.sectionHeading} numberOfLines={1}>
+                  {section.title}
+                </Text>
+              )
+            }
             stickySectionHeadersEnabled={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
@@ -507,7 +566,26 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     alignItems: 'center',
     gap: 11,
     paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 8,
+  },
+  rowBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  rowChat: {
+    color: appearance.muted,
+    fontSize: 12.5,
+  },
+  rowChatWho: {
+    color: appearance.foreground,
+    fontWeight: '600',
+  },
+  hit: {
+    color: appearance.foreground,
+    backgroundColor: SEARCH_HIT,
+    fontWeight: '600',
   },
   rowSelected: {
     backgroundColor: ROW_SELECTED,
@@ -527,7 +605,6 @@ const createStyles = (appearance: Appearance) => StyleSheet.create({
     justifyContent: 'center',
   },
   rowText: {
-    flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'baseline',

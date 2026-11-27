@@ -3,9 +3,12 @@
  * which day heading, as the desktop Quick Access Sessions tab decides it.
  *
  * CDXC:Sessions 2026-09-30 SEE-ALSO:
+ * CDXC:Sessions 2026-11-27 DECISION: User (Q5274): "Bring chat search to the phone's Sessions search in the same change: search the words through the computer as you described and show the same matched-words line under each chat, matching the desktop's one list." With a query the computer also matches what was said in each chat (`ghostex previous-sessions --chat-search`, gxserver's chat index): closed rows carry `chatMatch`, open sessions' matches come as `chatMatches`, and the list is one list, best match first, with the matched words under each chat, as gx-core `visible_items` / `session_groups` order and draw it. A computer whose ghostex predates this sends neither, and the search reads as before.
+ *
  * Port of the desktop's session search rules in packages/gx-core/src/quick_access/sessions.rs (`filter_sessions`, `normalize_search_value`, `matches_token`, `visible_items`, `session_groups`) and packages/gx-core/src/quick_access/session_titles.rs (`is_default_session_search_title`), themselves ported from packages/core-ui/previous-session-search.ts. The phone reaches gx-chat-core through UniFFI but not gx-core, so the rules are mirrored here: a change to how the desktop matches, filters, orders or groups sessions changes this file in the same commit. The mobile summary carries no session `detail`, so that one search field is absent on the phone. Closed sessions come from the computer's `ghostex previous-sessions` (server/src/ghostex_cli/previous_sessions.rs, over `/api/listPreviousSessions`) and go through `filter_previous` and `dedupe_previous` here, as the desktop's do.
  */
 
+import { sessionAgentName } from '../contract/mobileSummary/agentIcons';
 import { effectiveSessionTag, resolveSessionTag } from '../contract/sessionTags';
 import type { GhostexCustomSessionTags, GhostexSession } from '../contract/mobileSummary';
 import { SessionSearchCopy } from '../copy';
@@ -284,6 +287,15 @@ function searchText(fields: SearchFields, catalog: GhostexCustomSessionTags | un
     .join(' ');
 }
 
+/** Whether every query word is in the searchable title text as typed (gx-core `title_match`). */
+function titleHoldsWords(fields: SearchFields, query: string, catalog: GhostexCustomSessionTags | undefined): boolean {
+  const text = searchText(fields, catalog);
+  return normalizeSessionSearchValue(query)
+    .split(/\s+/)
+    .filter((token) => token.length > 0)
+    .every((token) => text.includes(token));
+}
+
 /** `filter_sessions`: default titles never match; every query token must. */
 function filterSearchable<T>(
   items: readonly T[],
@@ -342,9 +354,67 @@ export type ClosedSession = {
   restoreUnavailableReason: string;
   externalSession: boolean;
   forkBranchCount: number;
+  /** The chat words that matched the query (`--chat-search`), when they did. */
+  chatMatch: ChatMatch | null;
 };
 
-export type ClosedSessionsPage = { sessions: ClosedSession[]; cursor: string | null };
+/** A chat whose words matched the query: the words from near the match and whose they are. */
+export type ChatMatch = {
+  projectId: string;
+  sessionId: string;
+  snippet: string;
+  /** `user` (the person) or `assistant` (the agent). */
+  source: string;
+  /** gxserver's match quality: whole words 1, word starts 0.8, inside words 0.3, a phrase +0.25. */
+  quality: number;
+  /** Where the search words are in `snippet`, as string index ranges. */
+  highlights: [number, number][];
+};
+
+export type ClosedSessionsPage = {
+  sessions: ClosedSession[];
+  cursor: string | null;
+  /** Every chat match of the query, open sessions' included (`chatMatches`). */
+  chatMatches: ChatMatch[];
+};
+
+/** gxserver's UTF-8 byte ranges as string index ranges of `text`. */
+function byteRangesToIndexRanges(text: string, ranges: unknown): [number, number][] {
+  if (!Array.isArray(ranges)) return [];
+  const indexAtByte = new Map<number, number>();
+  let bytes = 0;
+  let index = 0;
+  for (const character of text) {
+    indexAtByte.set(bytes, index);
+    const point = character.codePointAt(0) ?? 0;
+    bytes += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+    index += character.length;
+  }
+  indexAtByte.set(bytes, index);
+  const out: [number, number][] = [];
+  for (const range of ranges) {
+    if (!Array.isArray(range) || typeof range[0] !== 'number' || typeof range[1] !== 'number') continue;
+    const start = indexAtByte.get(range[0]);
+    const end = indexAtByte.get(range[1]);
+    if (start !== undefined && end !== undefined && start < end) out.push([start, end]);
+  }
+  return out;
+}
+
+function parseChatMatch(value: unknown, projectId: string, sessionId: string): ChatMatch | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const snippet = typeof row.snippet === 'string' ? row.snippet : '';
+  if (snippet.length === 0) return null;
+  return {
+    projectId,
+    sessionId,
+    snippet,
+    source: text(row, 'source'),
+    quality: typeof row.quality === 'number' ? row.quality : 0,
+    highlights: byteRangesToIndexRanges(snippet, row.highlights),
+  };
+}
 
 function text(row: Record<string, unknown>, key: string): string {
   const value = row[key];
@@ -378,10 +448,18 @@ export function parseClosedSessionsPage(json: Record<string, unknown> | null): C
       restoreUnavailableReason: text(row, 'restoreUnavailableReason'),
       externalSession: row.externalSession === true,
       forkBranchCount: typeof row.forkBranchCount === 'number' ? row.forkBranchCount : 0,
+      chatMatch: parseChatMatch(row.chatMatch, projectId, sessionId),
     });
   }
   const cursor = typeof json?.cursor === 'string' && json.cursor.length > 0 ? json.cursor : null;
-  return { sessions, cursor };
+  const chatMatches: ChatMatch[] = [];
+  for (const entry of Array.isArray(json?.chatMatches) ? json.chatMatches : []) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue;
+    const row = entry as Record<string, unknown>;
+    const found = parseChatMatch(row, text(row, 'projectId'), text(row, 'sessionId'));
+    if (found !== null && found.projectId.length > 0 && found.sessionId.length > 0) chatMatches.push(found);
+  }
+  return { sessions, cursor, chatMatches };
 }
 
 function closedFields(session: ClosedSession): SearchFields {
@@ -443,6 +521,15 @@ export type SessionSearchSource = {
   open: readonly { session: GhostexSession; projectLabel: string }[];
   /** Closed sessions the computer reported for this query, newest closed first. */
   closed: readonly ClosedSession[];
+  /** The chats whose words matched this query, open sessions' included. */
+  chatMatches?: readonly ChatMatch[];
+};
+
+/** A row's second line: whose words matched, the words, and where the search words are in them. */
+export type SessionSearchChatLine = {
+  who: string;
+  text: string;
+  highlights: [number, number][];
 };
 
 type SessionSearchRowBase = {
@@ -456,6 +543,12 @@ type SessionSearchRowBase = {
   agentName: string;
   sessionTag: string;
   isFavorite: boolean;
+  /** Where the search words are in `title`; empty without a query. */
+  titleHighlights: [number, number][];
+  /** The chat words that matched the search, drawn under the title. */
+  chatLine: SessionSearchChatLine | null;
+  /** How well the row matches the query (`match_score`); 0 without one. */
+  score: number;
 };
 
 export type SessionSearchRow =
@@ -511,6 +604,59 @@ function withMachine(projectLabel: string, machineLabel: string): string {
   return [projectLabel, machineLabel].filter((part) => part.length > 0).join(' · ');
 }
 
+/** Where `words` are in `text`, ignoring case, as merged index ranges (gx-core `word_highlights`). */
+function wordRanges(text: string, words: readonly string[]): [number, number][] {
+  const lower = text.toLowerCase();
+  if (lower.length !== text.length) return [];
+  const ranges: [number, number][] = [];
+  for (const word of words) {
+    if (word.length === 0) continue;
+    let from = 0;
+    for (;;) {
+      const at = lower.indexOf(word, from);
+      if (at < 0) break;
+      ranges.push([at, at + word.length]);
+      from = at + word.length;
+    }
+  }
+  ranges.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+  const merged: [number, number][] = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last !== undefined && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push([range[0], range[1]]);
+  }
+  return merged;
+}
+
+/** The query's words, lowercased, the way gxserver splits them. */
+function searchWords(query: string): string[] {
+  return query
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+}
+
+/**
+ * `match_score`: a title that holds the words beats any chat match; a chat match ranks by the
+ * computer's quality; a title that matched only as a typo ranks between word starts and inside words.
+ */
+function matchScore(titleMatched: boolean, titleExact: boolean, chat: ChatMatch | null): number {
+  const quality = chat?.quality ?? 0;
+  if (!titleMatched) return quality;
+  return titleExact ? 2 + quality : Math.max(0.5, quality);
+}
+
+function chatLine(found: ChatMatch | null, agentName: string, words: readonly string[]): SessionSearchChatLine | null {
+  if (found === null) return null;
+  return {
+    who: found.source === 'user' ? 'You' : agentName.length > 0 ? agentName : 'Agent',
+    text: found.snippet,
+    highlights: found.highlights.length > 0 ? found.highlights : wordRanges(found.snippet, words),
+  };
+}
+
 export type SessionSearchOptions = {
   /** Closed sessions only (a project's History, mirroring gx-core `SessionScope::Closed`). */
   closedOnly?: boolean;
@@ -519,8 +665,9 @@ export type SessionSearchOptions = {
 };
 
 /**
- * The sessions a query keeps, open and closed, newest first (open by last use,
- * closed by when they closed) and grouped by day. Every query token must match;
+ * The sessions a query keeps, open and closed. Without a query: newest first (open by last use,
+ * closed by when they closed) and grouped by day. With one: one list, best match first, chats
+ * matched by their words included (`chatMatches`, each closed row's `chatMatch`). Every query token must match;
  * with no query, open sessions named only by a creation default stay out and
  * closed ones older than two weeks do, as on the desktop.
  */
@@ -535,32 +682,43 @@ export function searchSessions(
   const projectId = options?.projectId?.trim() ?? '';
   const hasProjectFilter = projectId.length > 0;
   const cutoff = nowMs - CLOSED_SESSIONS_VISIBLE_WINDOW_MS;
+  const words = searchWords(query.trim());
   const rows: SessionSearchRow[] = [];
   for (const source of sources) {
     const catalog = source.customSessionTags;
+    const chatByKey = new Map<string, ChatMatch>();
+    if (!queryEmpty) {
+      for (const found of source.chatMatches ?? []) chatByKey.set(`${found.projectId}\u0000${found.sessionId}`, found);
+    }
     if (!closedOnly) {
       const openPool = hasProjectFilter
         ? source.open.filter((entry) => entry.session.projectId === projectId)
         : source.open;
-      for (const { session, projectLabel } of filterSearchable(
-        openPool,
-        (entry) => openFields(entry.session),
-        query,
-        catalog,
-      )) {
+      const titleMatched = new Set(filterSearchable(openPool, (entry) => openFields(entry.session), query, catalog));
+      for (const entry of openPool) {
+        const { session, projectLabel } = entry;
+        const chat = chatByKey.get(`${session.projectId}\u0000${session.sessionId}`) ?? null;
+        const matched = titleMatched.has(entry);
+        if (!matched && chat === null) continue;
+        const exact = matched && !queryEmpty && titleHoldsWords(openFields(session), query, catalog);
+        const title = sessionSearchTitle(session);
+        const agentName = session.agentName.length > 0 ? session.agentName : session.agent;
         rows.push({
           kind: 'open',
           session,
           key: `open:${source.machineId}:${session.sessionId}`,
           machineId: source.machineId,
-          title: sessionSearchTitle(session),
+          title,
           projectLabel: withMachine(projectLabel, source.machineLabel),
           timestamp: parseTimestamp(session.lastInteractionAt),
           customSessionTags: catalog,
           agentIcon: session.agentIcon,
-          agentName: session.agentName.length > 0 ? session.agentName : session.agent,
+          agentName,
           sessionTag: session.sessionTag,
           isFavorite: session.isFavorite,
+          titleHighlights: wordRanges(title, words),
+          chatLine: chatLine(chat, sessionAgentName(session), words),
+          score: queryEmpty ? 0 : matchScore(matched, exact, chat),
         });
       }
     }
@@ -569,16 +727,25 @@ export function searchSessions(
       (session) => session.agentIcon !== 'browser' && (!hasProjectFilter || session.projectId === projectId),
     );
     const deduped = dedupeClosed(closedPool);
-    const matched = queryEmpty ? deduped : filterSearchable(deduped, closedFields, query, catalog);
-    for (const closed of matched) {
+    const titleMatched = queryEmpty ? deduped : filterSearchable(deduped, closedFields, query, catalog);
+    const titleSet = new Set(titleMatched);
+    // A closed chat whose words matched stays even when a newer session of the same title stands for it.
+    const chatMatched = queryEmpty
+      ? []
+      : closedPool.filter((closed) => closed.chatMatch !== null && !titleSet.has(closed));
+    for (const closed of [...titleMatched, ...chatMatched]) {
       const timestamp = closedTimestamp(closed);
       if (queryEmpty && !hasProjectFilter && timestamp < cutoff) continue;
+      const matched = titleSet.has(closed);
+      const chat = queryEmpty ? null : closed.chatMatch;
+      const exact = matched && !queryEmpty && titleHoldsWords(closedFields(closed), query, catalog);
+      const title = cardTitle(closedFields(closed));
       rows.push({
         kind: 'closed',
         closed,
         key: `closed:${source.machineId}:${closed.projectId}:${closed.sessionId}`,
         machineId: source.machineId,
-        title: cardTitle(closedFields(closed)),
+        title,
         projectLabel: withMachine(closed.projectTitle, source.machineLabel),
         timestamp,
         customSessionTags: catalog,
@@ -586,10 +753,22 @@ export function searchSessions(
         agentName: closed.agentName,
         sessionTag: closed.sessionTag,
         isFavorite: closed.isFavorite,
+        titleHighlights: wordRanges(title, words),
+        chatLine: chatLine(
+          chat,
+          sessionAgentName({ agent: closed.agentName, agentName: closed.agentName, agentIcon: closed.agentIcon }),
+          words,
+        ),
+        score: queryEmpty ? 0 : matchScore(matched, exact, chat),
       });
     }
   }
-  rows.sort((left, right) => right.timestamp - left.timestamp || left.key.localeCompare(right.key));
+  rows.sort(
+    (left, right) =>
+      right.score - left.score || right.timestamp - left.timestamp || left.key.localeCompare(right.key),
+  );
+  // A search is one list, best match first (as the desktop's), so no day headings.
+  if (!queryEmpty) return rows.length === 0 ? [] : [{ heading: '', rows }];
   const groups: SessionSearchGroup[] = [];
   for (const row of rows) {
     const heading = row.timestamp === 0 ? SessionSearchCopy.unknownDay : dayLabel(row.timestamp);

@@ -8,7 +8,12 @@
 import { runGhostexCli } from '../components/sessions/cli';
 import { previousSessionsCommand, restorePreviousSessionCommand } from '../commands/ghostexCli';
 import type { MachineRecord } from '../machines/store';
-import { CLOSED_SESSIONS_VISIBLE_WINDOW_MS, parseClosedSessionsPage, type ClosedSession } from './sessionSearch';
+import {
+  CLOSED_SESSIONS_VISIBLE_WINDOW_MS,
+  parseClosedSessionsPage,
+  type ChatMatch,
+  type ClosedSession,
+} from './sessionSearch';
 
 /** The desktop's page size (`SESSIONS_PAGE_SIZE`). */
 const PAGE_SIZE = 80;
@@ -27,9 +32,24 @@ export async function fetchClosedSessions(
   nowMs: number,
   projectId?: string,
 ): Promise<ClosedSession[]> {
+  return (await searchClosedSessions(machine, query, nowMs, projectId, false)).sessions;
+}
+
+/**
+ * `fetchClosedSessions` for the Sessions search: with a query the computer also matches what was
+ * said in each chat (`--chat-search`), returning the open sessions' matches as `chatMatches`.
+ */
+export async function searchClosedSessions(
+  machine: MachineRecord,
+  query: string,
+  nowMs: number,
+  projectId?: string,
+  chatSearch = true,
+): Promise<{ sessions: ClosedSession[]; chatMatches: ChatMatch[] }> {
   const trimmed = query.trim();
   const scopedProjectId = projectId?.trim() ?? '';
   const sessions: ClosedSession[] = [];
+  const chatMatches: ChatMatch[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_WINDOW_PAGES; page += 1) {
     const result = await runGhostexCli(
@@ -39,17 +59,19 @@ export async function fetchClosedSessions(
         cursor,
         projectId: scopedProjectId.length > 0 ? scopedProjectId : undefined,
         limit: PAGE_SIZE,
+        chatSearch,
       }),
     );
     const parsed = parseClosedSessionsPage(result.json);
     sessions.push(...parsed.sessions);
+    chatMatches.push(...parsed.chatMatches);
     if (trimmed.length > 0 || scopedProjectId.length > 0 || parsed.cursor === null) break;
     const oldest = parsed.sessions[parsed.sessions.length - 1];
     const oldestMs = oldest === undefined ? 0 : Date.parse(oldest.closedAt);
     if (!Number.isFinite(oldestMs) || oldestMs < nowMs - CLOSED_SESSIONS_VISIBLE_WINDOW_MS) break;
     cursor = parsed.cursor;
   }
-  return sessions;
+  return { sessions, chatMatches };
 }
 
 /**
